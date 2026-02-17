@@ -1,0 +1,10 @@
+{
+  "name": "lobstr",
+  "private": true,
+  "description": "LOBSTR — The Agent Economy Protocol",
+  "scripts": {
+    "build:contracts": "cd packages/contracts && forge build",
+    "test:contracts": "cd packages/contracts && forge test",
+    "deploy:sepolia": "cd packages/contracts && forge script script/Deploy.s.sol --rpc-url base-sepolia --broadcast --verify"
+  }
+}
