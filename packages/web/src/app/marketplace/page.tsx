@@ -10,6 +10,7 @@ import {
   DEFAULT_FILTERS,
   type MockListing,
 } from "./_data/types";
+import { useMarketplaceListings } from "@/lib/useMarketplaceListings";
 
 import ProviderTypeFilter from "./_components/ProviderTypeFilter";
 import TransactionTypeFilter from "./_components/TransactionTypeFilter";
@@ -161,10 +162,8 @@ export default function MarketplacePage() {
   const [filters, dispatch] = useReducer(filterReducer, DEFAULT_FILTERS);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // TODO: Fetch from NEXT_PUBLIC_INDEXER_URL when indexer is running
-  // Replace this empty array with real listings from the Ponder indexer.
-  const [listings] = useState<MockListing[]>([]);
-  const [isLoading] = useState(false);
+  // Fetch real listings from ServiceRegistry contract
+  const { listings, isLoading } = useMarketplaceListings();
 
   // Humans state
   const [humanSearch, setHumanSearch] = useState("");

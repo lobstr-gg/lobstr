@@ -15,7 +15,7 @@ export default function UserCard({ address }: { address: string }) {
     >
       <ProfileAvatar user={user} size="xs" />
       <span className="text-xs text-text-secondary group-hover:text-lob-green transition-colors font-medium">
-        {user?.displayName ?? address}
+        {user?.username ? `@${user.username}` : (user?.displayName ?? address)}
       </span>
       {user?.modTier && <ModBadge tier={user.modTier} />}
       {user?.flair && (

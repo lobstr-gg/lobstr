@@ -59,14 +59,22 @@ export function rateLimit(
 }
 
 /**
- * Extract rate limit key from request (IP-based or address-based).
+ * Extract rate limit key from request (IP-based).
+ * Uses the LAST x-forwarded-for value (proxy-appended, not client-spoofable),
+ * consistent with middleware.ts and upload-security.ts.
  */
 export function getIPKey(request: NextRequest): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown"
-  );
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for");
+  if (vercelForwarded) {
+    const parts = vercelForwarded.split(",");
+    return parts[parts.length - 1].trim();
+  }
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",");
+    return parts[parts.length - 1].trim();
+  }
+  return request.headers.get("x-real-ip") ?? "unknown";
 }
 
 /**

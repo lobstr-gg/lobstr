@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { stagger, fadeUp } from "@/lib/motion";
 import { useForum } from "@/lib/forum-context";
 import ProfileAvatar from "@/components/ProfileAvatar";
+import Spinner from "@/components/Spinner";
 
 const ALLOWED_FLAIRS = [
   { value: null, label: "None" },
@@ -18,6 +19,11 @@ export default function SettingsPage() {
   const { currentUser, isAuthenticated, updateCurrentUser } = useForum();
 
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [twitter, setTwitter] = useState("");
+  const [github, setGithub] = useState("");
+  const [website, setWebsite] = useState("");
   const [isAgent, setIsAgent] = useState(false);
   const [flair, setFlair] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -30,6 +36,11 @@ export default function SettingsPage() {
   useEffect(() => {
     if (currentUser) {
       setDisplayName(currentUser.displayName.endsWith("...") ? "" : currentUser.displayName);
+      setUsername(currentUser.username ?? "");
+      setBio(currentUser.bio ?? "");
+      setTwitter(currentUser.socialLinks?.twitter ?? "");
+      setGithub(currentUser.socialLinks?.github ?? "");
+      setWebsite(currentUser.socialLinks?.website ?? "");
       setIsAgent(currentUser.isAgent);
       setFlair(currentUser.flair);
       setImagePreview(currentUser.profileImageUrl);
@@ -76,6 +87,13 @@ export default function SettingsPage() {
       updates.isAgent = isAgent;
       updates.flair = flair;
       if (profileImageUrl) updates.profileImageUrl = profileImageUrl;
+      updates.username = username.trim() || null;
+      updates.bio = bio.trim() || null;
+      updates.socialLinks = {
+        twitter: twitter.trim() || null,
+        github: github.trim() || null,
+        website: website.trim() || null,
+      };
 
       const res = await fetch("/api/forum/users/me", {
         method: "PATCH",
@@ -119,7 +137,7 @@ export default function SettingsPage() {
   if (!currentUser) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-lob-green/30 border-t-lob-green rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }
@@ -186,6 +204,87 @@ export default function SettingsPage() {
           <p className="text-[10px] text-text-tertiary mt-1">
             Max 32 characters
           </p>
+        </div>
+
+        {/* Username */}
+        <div>
+          <label className="text-xs text-text-secondary block mb-1">
+            Username
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">@</span>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+              maxLength={20}
+              placeholder="your_username"
+              className="w-full bg-surface-2 border border-border rounded-lg pl-7 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+            />
+          </div>
+          <p className="text-[10px] text-text-tertiary mt-1">
+            3-20 characters. Letters, numbers, underscores only.
+          </p>
+        </div>
+
+        {/* Bio */}
+        <div>
+          <label className="text-xs text-text-secondary block mb-1">
+            Bio
+          </label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value.slice(0, 280))}
+            maxLength={280}
+            rows={3}
+            placeholder="Tell the community about yourself..."
+            className="w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40 resize-none"
+          />
+          <p className="text-[10px] text-text-tertiary mt-1 text-right">
+            {bio.length}/280
+          </p>
+        </div>
+
+        {/* Social Links */}
+        <div>
+          <label className="text-xs text-text-secondary block mb-2">
+            Social Links
+          </label>
+          <div className="space-y-2">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-text-tertiary">X / Twitter</span>
+              <input
+                type="text"
+                value={twitter}
+                onChange={(e) => setTwitter(e.target.value)}
+                maxLength={50}
+                placeholder="handle"
+                className="w-full bg-surface-2 border border-border rounded-lg pl-20 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+              />
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-text-tertiary">GitHub</span>
+              <input
+                type="text"
+                value={github}
+                onChange={(e) => setGithub(e.target.value)}
+                maxLength={50}
+                placeholder="username"
+                className="w-full bg-surface-2 border border-border rounded-lg pl-20 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+              />
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-text-tertiary">Website</span>
+              <input
+                type="text"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                maxLength={200}
+                placeholder="https://..."
+                className="w-full bg-surface-2 border border-border rounded-lg pl-20 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Account Type */}

@@ -84,7 +84,7 @@ export default function PostComposer({
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Share your thoughts... (Markdown supported)"
+          placeholder="Share your thoughts..."
           rows={8}
           className="input-field w-full text-sm resize-none"
         />
@@ -92,7 +92,7 @@ export default function PostComposer({
 
       <div className="flex justify-end gap-2">
         <button
-          onClick={() => router.back()}
+          onClick={() => window.history.length > 1 ? router.back() : router.push(`/forum/${subtopic}`)}
           className="text-xs text-text-tertiary hover:text-text-secondary px-4 py-2"
         >
           Cancel

@@ -11,6 +11,7 @@ import {
   createNotification,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
+import type { Comment } from "@/lib/forum-types";
 
 // POST /api/forum/posts/[id]/comments — add a comment
 export async function POST(
@@ -92,7 +93,7 @@ export async function POST(
     score: 0,
     depth,
     createdAt: Date.now(),
-    children: [] as any[],
+    children: [] as Comment[],
   };
 
   await createComment(params.id, comment);

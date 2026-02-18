@@ -47,11 +47,19 @@ function CaPopout() {
   const CONTRACT_ADDRESSES = getContractAddresses();
 
   useEffect(() => {
+    if (!open) return;
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   const copy = (addr: string, label: string) => {
@@ -191,7 +199,7 @@ export function Navbar() {
             </div>
 
             {/* Messages */}
-            <Link href="/forum/messages" className="relative group hidden sm:block">
+            <Link href="/forum/messages" className="relative group hidden sm:block" aria-label="Messages">
               <motion.div
                 className={`p-2 rounded transition-colors ${
                   pathname?.startsWith("/forum/messages")
@@ -243,11 +251,19 @@ function ProfileMenu({ pathname }: { pathname: string }) {
   const { address } = useAccount();
 
   useEffect(() => {
+    if (!open) return;
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   if (!address) return null;

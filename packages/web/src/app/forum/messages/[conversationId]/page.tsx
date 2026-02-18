@@ -9,6 +9,7 @@ import type { Conversation } from "@/lib/forum-types";
 import DMThread from "@/components/forum/DMThread";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import EmptyState from "@/components/forum/EmptyState";
+import Spinner from "@/components/Spinner";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -47,7 +48,7 @@ export default function ConversationPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-lob-green/30 border-t-lob-green rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }

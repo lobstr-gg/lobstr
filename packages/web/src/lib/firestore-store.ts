@@ -10,6 +10,8 @@ import type {
   ModLogEntry,
   SubtopicId,
   SortMode,
+  Review,
+  ReviewSummary,
 } from "./forum-types";
 import type { HumanBooking } from "@/app/rent-a-human/_data/types";
 
@@ -80,6 +82,9 @@ export async function getOrCreateUser(address: string): Promise<ForumUser> {
   const user: ForumUser = {
     address,
     displayName: address.slice(0, 8) + "...",
+    username: null,
+    bio: null,
+    socialLinks: null,
     profileImageUrl: null,
     karma: 0,
     postKarma: 0,
@@ -100,6 +105,9 @@ const SAFE_USER_UPDATE_FIELDS = new Set([
   "profileImageUrl",
   "flair",
   "isAgent",
+  "username",
+  "bio",
+  "socialLinks",
 ]);
 
 /**
@@ -326,7 +334,8 @@ export async function searchAll(query: string): Promise<{
       .filter(
         (u) =>
           u.displayName.toLowerCase().includes(q) ||
-          u.address.toLowerCase().includes(q)
+          u.address.toLowerCase().includes(q) ||
+          (u.username && u.username.toLowerCase().includes(q))
       )
       .slice(0, SEARCH_RESULT_CAP),
   };
@@ -661,10 +670,11 @@ const PREFIXES: Record<string, string> = {
   conversation: "dm",
   message: "m",
   modLog: "ml",
+  review: "rv",
 };
 
 export async function nextId(
-  kind: "post" | "comment" | "conversation" | "message" | "modLog"
+  kind: "post" | "comment" | "conversation" | "message" | "modLog" | "review"
 ): Promise<string> {
   const db = getDb();
   const ref = col("counters").doc("nextIds");
@@ -728,9 +738,92 @@ export async function filterOutPost(id: string): Promise<void> {
   await col("posts").doc(id).delete();
 }
 
+// ── Username lookup ───────────────────────────────────────────
+
+export async function getUserByUsername(
+  username: string
+): Promise<ForumUser | undefined> {
+  const snap = await col("users")
+    .where("username", "==", username.toLowerCase())
+    .limit(1)
+    .get();
+  return snap.empty ? undefined : (snap.docs[0].data() as ForumUser);
+}
+
+export async function isUsernameTaken(
+  username: string,
+  excludeAddress?: string
+): Promise<boolean> {
+  const snap = await col("users")
+    .where("username", "==", username.toLowerCase())
+    .limit(1)
+    .get();
+  if (snap.empty) return false;
+  if (excludeAddress && snap.docs[0].id === excludeAddress) return false;
+  return true;
+}
+
+// ── Reviews ───────────────────────────────────────────────────
+
+export async function createReview(review: Review): Promise<void> {
+  await col("reviews").doc(review.id).set(review);
+}
+
+export async function getReviewsForUser(
+  address: string,
+  limit = 20
+): Promise<Review[]> {
+  const snap = await col("reviews")
+    .where("revieweeAddress", "==", address)
+    .orderBy("createdAt", "desc")
+    .limit(limit)
+    .get();
+  return snap.docs.map((d) => d.data() as Review);
+}
+
+export async function getReviewByJobAndReviewer(
+  jobId: string,
+  reviewerAddress: string
+): Promise<Review | undefined> {
+  const snap = await col("reviews")
+    .where("jobId", "==", jobId)
+    .where("reviewerAddress", "==", reviewerAddress)
+    .limit(1)
+    .get();
+  return snap.empty ? undefined : (snap.docs[0].data() as Review);
+}
+
+export async function getReviewSummaryForUser(
+  address: string
+): Promise<ReviewSummary> {
+  const snap = await col("reviews")
+    .where("revieweeAddress", "==", address)
+    .get();
+
+  const reviews = snap.docs.map((d) => d.data() as Review);
+  const totalReviews = reviews.length;
+
+  if (totalReviews === 0) {
+    return { averageRating: 0, totalReviews: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+  }
+
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let sum = 0;
+  for (const r of reviews) {
+    sum += r.rating;
+    distribution[r.rating] = (distribution[r.rating] || 0) + 1;
+  }
+
+  return {
+    averageRating: Math.round((sum / totalReviews) * 10) / 10,
+    totalReviews,
+    ratingDistribution: distribution,
+  };
+}
+
 // ── Notifications ─────────────────────────────────────────────
 
-import type { Notification, NotificationType } from "./forum-types";
+import type { Notification, NotificationType, FriendRequest } from "./forum-types";
 
 export async function getNotificationsForUser(
   address: string
@@ -787,4 +880,173 @@ export async function markAllNotificationsRead(
   const batch = getDb().batch();
   snap.docs.forEach((doc) => batch.update(doc.ref, { read: true }));
   await batch.commit();
+}
+
+// ── Friend Requests ──────────────────────────────────────────
+
+export async function sendFriendRequest(
+  from: string,
+  to: string
+): Promise<FriendRequest> {
+  // Deterministic ID prevents duplicate requests
+  const id = `${from}_${to}`;
+  const reverseId = `${to}_${from}`;
+
+  // Check for existing request in either direction
+  const [existing, reverse] = await Promise.all([
+    col("friendRequests").doc(id).get(),
+    col("friendRequests").doc(reverseId).get(),
+  ]);
+
+  if (existing.exists) {
+    const data = existing.data() as FriendRequest;
+    if (data.status === "pending") throw new Error("Friend request already pending");
+    if (data.status === "accepted") throw new Error("Already friends");
+  }
+
+  if (reverse.exists) {
+    const data = reverse.data() as FriendRequest;
+    if (data.status === "pending") throw new Error("This user already sent you a friend request");
+    if (data.status === "accepted") throw new Error("Already friends");
+  }
+
+  const request: FriendRequest = {
+    id,
+    from,
+    to,
+    status: "pending",
+    createdAt: Date.now(),
+    respondedAt: null,
+  };
+
+  await col("friendRequests").doc(id).set(request);
+  return request;
+}
+
+export async function respondToFriendRequest(
+  requestId: string,
+  responderAddress: string,
+  accept: boolean
+): Promise<void> {
+  const doc = col("friendRequests").doc(requestId);
+  const snap = await doc.get();
+  if (!snap.exists) throw new Error("Friend request not found");
+
+  const request = snap.data() as FriendRequest;
+  if (request.to !== responderAddress) throw new Error("Not authorized to respond");
+  if (request.status !== "pending") throw new Error("Request already responded to");
+
+  const now = Date.now();
+  await doc.update({
+    status: accept ? "accepted" : "declined",
+    respondedAt: now,
+  });
+
+  if (accept) {
+    const batch = getDb().batch();
+    batch.set(
+      col("friends").doc(request.from).collection("friendList").doc(request.to),
+      { since: now }
+    );
+    batch.set(
+      col("friends").doc(request.to).collection("friendList").doc(request.from),
+      { since: now }
+    );
+    await batch.commit();
+  }
+}
+
+export async function getFriends(address: string): Promise<string[]> {
+  const snap = await col("friends")
+    .doc(address)
+    .collection("friendList")
+    .get();
+  return snap.docs.map((d) => d.id);
+}
+
+export async function getFriendCount(address: string): Promise<number> {
+  const snap = await col("friends")
+    .doc(address)
+    .collection("friendList")
+    .get();
+  return snap.size;
+}
+
+export async function isFriend(a: string, b: string): Promise<boolean> {
+  const snap = await col("friends")
+    .doc(a)
+    .collection("friendList")
+    .doc(b)
+    .get();
+  return snap.exists;
+}
+
+export async function removeFriend(a: string, b: string): Promise<void> {
+  const batch = getDb().batch();
+  batch.delete(col("friends").doc(a).collection("friendList").doc(b));
+  batch.delete(col("friends").doc(b).collection("friendList").doc(a));
+  await batch.commit();
+
+  // Also clean up any accepted friend request docs
+  const id1 = `${a}_${b}`;
+  const id2 = `${b}_${a}`;
+  const [doc1, doc2] = await Promise.all([
+    col("friendRequests").doc(id1).get(),
+    col("friendRequests").doc(id2).get(),
+  ]);
+  if (doc1.exists) await col("friendRequests").doc(id1).delete();
+  if (doc2.exists) await col("friendRequests").doc(id2).delete();
+}
+
+export async function getPendingFriendRequests(
+  address: string
+): Promise<FriendRequest[]> {
+  const snap = await col("friendRequests")
+    .where("to", "==", address)
+    .where("status", "==", "pending")
+    .get();
+  return snap.docs.map((d) => d.data() as FriendRequest);
+}
+
+export async function getFriendshipStatus(
+  a: string,
+  b: string
+): Promise<"none" | "pending_sent" | "pending_received" | "friends"> {
+  // Check if already friends
+  const areFriends = await isFriend(a, b);
+  if (areFriends) return "friends";
+
+  // Check pending requests in both directions
+  const [sentDoc, receivedDoc] = await Promise.all([
+    col("friendRequests").doc(`${a}_${b}`).get(),
+    col("friendRequests").doc(`${b}_${a}`).get(),
+  ]);
+
+  if (sentDoc.exists && (sentDoc.data() as FriendRequest).status === "pending") {
+    return "pending_sent";
+  }
+  if (receivedDoc.exists && (receivedDoc.data() as FriendRequest).status === "pending") {
+    return "pending_received";
+  }
+
+  return "none";
+}
+
+export async function declinePendingFriendRequests(
+  from: string,
+  to: string
+): Promise<void> {
+  const id1 = `${from}_${to}`;
+  const id2 = `${to}_${from}`;
+  const [doc1, doc2] = await Promise.all([
+    col("friendRequests").doc(id1).get(),
+    col("friendRequests").doc(id2).get(),
+  ]);
+  const now = Date.now();
+  if (doc1.exists && (doc1.data() as FriendRequest).status === "pending") {
+    await col("friendRequests").doc(id1).update({ status: "declined", respondedAt: now });
+  }
+  if (doc2.exists && (doc2.data() as FriendRequest).status === "pending") {
+    await col("friendRequests").doc(id2).update({ status: "declined", respondedAt: now });
+  }
 }

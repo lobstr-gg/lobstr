@@ -34,6 +34,9 @@ export interface Subtopic {
 export interface ForumUser {
   address: string;
   displayName: string;
+  username: string | null;
+  bio: string | null;
+  socialLinks: { twitter: string | null; github: string | null; website: string | null } | null;
   profileImageUrl: string | null;
   karma: number;
   postKarma: number;
@@ -98,7 +101,19 @@ export type NotificationType =
   | "dispute_assigned"
   | "proposal_update"
   | "mod_action"
-  | "system";
+  | "system"
+  | "friend_request";
+
+export type FriendRequestStatus = "pending" | "accepted" | "declined";
+
+export interface FriendRequest {
+  id: string;
+  from: string;
+  to: string;
+  status: FriendRequestStatus;
+  createdAt: number;
+  respondedAt: number | null;
+}
 
 export interface Notification {
   id: string;
@@ -120,6 +135,23 @@ export interface ModLogEntry {
   target: string; // post, user, or IP address
   reason: string;
   createdAt: number;
+}
+
+export interface Review {
+  id: string;
+  jobId: string;
+  reviewerAddress: string;
+  revieweeAddress: string;
+  role: "buyer" | "seller";
+  rating: number;
+  body: string;
+  createdAt: number;
+}
+
+export interface ReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: Record<number, number>;
 }
 
 export const FLAIR_COLORS: Record<PostFlair, { bg: string; text: string; border: string }> = {

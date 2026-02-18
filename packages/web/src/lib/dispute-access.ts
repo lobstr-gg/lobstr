@@ -2,6 +2,18 @@ import { createPublicClient, http } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
 import { DisputeArbitrationABI } from "@/config/abis";
 
+interface OnChainDispute {
+  id: bigint;
+  buyer: string;
+  seller: string;
+  arbitrators: readonly string[];
+}
+
+interface OnChainJob {
+  id: bigint;
+  seller: string;
+}
+
 /**
  * Verify that a user has access to dispute evidence.
  * Reads the dispute on-chain and checks if the user is a buyer, seller, or assigned arbitrator.
@@ -28,7 +40,7 @@ export async function verifyDisputeAccess(
       abi: DisputeArbitrationABI,
       functionName: "getDispute",
       args: [BigInt(disputeId)],
-    })) as any;
+    })) as OnChainDispute;
 
     if (!dispute || !dispute.id || dispute.id === 0n) {
       return { error: "Dispute not found on-chain", status: 404 };
@@ -37,7 +49,7 @@ export async function verifyDisputeAccess(
     const userAddr = userAddress.toLowerCase();
     const isBuyer = dispute.buyer?.toLowerCase() === userAddr;
     const isSeller = dispute.seller?.toLowerCase() === userAddr;
-    const arbitrators: string[] = dispute.arbitrators || [];
+    const arbitrators = dispute.arbitrators || [];
     const isArbitrator = arbitrators.some(
       (a: string) => a.toLowerCase() === userAddr
     );
@@ -84,7 +96,7 @@ export async function verifyJobSeller(
       abi: EscrowEngineABI,
       functionName: "getJob",
       args: [BigInt(jobId)],
-    })) as any;
+    })) as OnChainJob;
 
     if (!job || !job.id || job.id === 0n) {
       return { error: "Job not found on-chain", status: 404 };

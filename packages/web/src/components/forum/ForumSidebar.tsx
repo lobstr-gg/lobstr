@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useForum } from "@/lib/forum-context";
 import { SUBTOPIC_LIST } from "@/lib/forum-types";
 
-export default function ForumSidebar() {
+export default function ForumSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const pathname = usePathname();
   const { isConnected, unreadDMCount, currentUser } = useForum();
 
@@ -17,6 +17,7 @@ export default function ForumSidebar() {
       {/* Main links */}
       <Link
         href="/forum"
+        onClick={onNavigate}
         className={`flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
           isActive("/forum")
             ? "text-lob-green bg-lob-green-muted"
@@ -35,6 +36,7 @@ export default function ForumSidebar() {
           <Link
             key={sub.id}
             href={`/forum/${sub.id}`}
+            onClick={onNavigate}
             className={`flex items-center justify-between px-3 py-1.5 rounded text-sm transition-colors ${
               pathname === `/forum/${sub.id}`
                 ? "text-lob-green bg-lob-green-muted"
@@ -60,6 +62,7 @@ export default function ForumSidebar() {
       <div className="pt-4 space-y-1">
         <Link
           href="/forum/messages"
+          onClick={onNavigate}
           className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
             pathname?.startsWith("/forum/messages")
               ? "text-lob-green bg-lob-green-muted border border-lob-green/30"
@@ -86,6 +89,7 @@ export default function ForumSidebar() {
         {currentUser?.modTier && (
           <Link
             href="/forum/mod"
+            onClick={onNavigate}
             className={`flex items-center px-3 py-2 rounded text-sm transition-colors ${
               isActive("/forum/mod")
                 ? "text-lob-green bg-lob-green-muted"
@@ -103,6 +107,7 @@ export default function ForumSidebar() {
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Link
               href="/forum/general/submit"
+              onClick={onNavigate}
               className="btn-primary w-full text-center block text-sm"
             >
               Create Post

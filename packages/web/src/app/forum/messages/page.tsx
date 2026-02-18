@@ -9,6 +9,7 @@ import type { Conversation } from "@/lib/forum-types";
 import DMInbox from "@/components/forum/DMInbox";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import EmptyState from "@/components/forum/EmptyState";
+import Spinner from "@/components/Spinner";
 
 export default function MessagesPage() {
   const { currentUser, isConnected } = useForum();
@@ -126,7 +127,7 @@ export default function MessagesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-lob-green/30 border-t-lob-green rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }

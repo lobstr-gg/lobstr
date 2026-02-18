@@ -4,6 +4,8 @@ import {
   blockUser,
   unblockUser,
   getBlockedUsers,
+  removeFriend,
+  declinePendingFriendRequests,
 } from "@/lib/firestore-store";
 
 // GET /api/forum/users/block — list blocked users
@@ -37,7 +39,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await blockUser(auth.address, address);
+  // Remove friendship and decline pending requests when blocking
+  await Promise.all([
+    blockUser(auth.address, address),
+    removeFriend(auth.address, address),
+    declinePendingFriendRequests(auth.address, address),
+  ]);
   return NextResponse.json({ blocked: true }, { status: 201 });
 }
 

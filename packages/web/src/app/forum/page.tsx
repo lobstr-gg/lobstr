@@ -6,6 +6,7 @@ import { stagger, fadeUp } from "@/lib/motion";
 import type { Post, SortMode } from "@/lib/forum-types";
 import SortControls from "@/components/forum/SortControls";
 import PostCard from "@/components/forum/PostCard";
+import Spinner from "@/components/Spinner";
 
 export default function ForumHomePage() {
   const [sortMode, setSortMode] = useState<SortMode>("hot");
@@ -28,7 +29,7 @@ export default function ForumHomePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-lob-green/30 border-t-lob-green rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }

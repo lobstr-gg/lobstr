@@ -10,6 +10,7 @@ import type { Post, Comment, ForumUser } from "@/lib/forum-types";
 import FlairBadge from "@/components/forum/FlairBadge";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import EmptyState from "@/components/forum/EmptyState";
+import Spinner from "@/components/Spinner";
 
 type Tab = "posts" | "comments" | "users";
 
@@ -67,7 +68,7 @@ function SearchContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-lob-green/30 border-t-lob-green rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }

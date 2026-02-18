@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { ease } from "@/lib/motion";
 import type { MockJob } from "../_data/mockJobs";
 
@@ -44,6 +45,7 @@ export default function JobCard({ job }: { job: MockJob }) {
       : 0;
 
   return (
+    <Link href={`/jobs/${job.id}`}>
     <motion.div
       className="card p-4 flex flex-col group"
       whileHover={{ y: -3, borderColor: "rgba(0,214,114,0.15)" }}
@@ -174,5 +176,6 @@ export default function JobCard({ job }: { job: MockJob }) {
         </div>
       </div>
     </motion.div>
+    </Link>
   );
 }

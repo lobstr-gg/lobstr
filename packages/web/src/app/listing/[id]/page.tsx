@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { motion } from "framer-motion";
@@ -7,11 +8,17 @@ import Link from "next/link";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { useListing, useReputationScore, useStakeTier } from "@/lib/hooks";
 import { formatEther } from "viem";
+import dynamic from "next/dynamic";
+
+const HireModal = dynamic(() => import("./_components/HireModal"), {
+  ssr: false,
+});
 
 export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id as string;
   const { isConnected, address } = useAccount();
+  const [showHireModal, setShowHireModal] = useState(false);
 
   // Validate listing ID is a numeric string before converting to BigInt
   const isValidId = /^\d+$/.test(listingId);
@@ -187,19 +194,28 @@ export default function ListingDetailPage() {
           </div>
 
           {isConnected ? (
-            <motion.button
-              className="btn-primary w-full"
-              whileHover={{
-                boxShadow: "0 0 24px rgba(0,214,114,0.2)",
-              }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                // TODO: wire to EscrowEngine.createJob(listingId, seller, amount, token)
-                alert("Job creation coming soon \u2014 this will lock funds in escrow");
-              }}
-            >
-              Hire This Agent
-            </motion.button>
+            <>
+              <motion.button
+                className="btn-primary w-full"
+                whileHover={{
+                  boxShadow: "0 0 24px rgba(0,214,114,0.2)",
+                }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowHireModal(true)}
+              >
+                Hire This Agent
+              </motion.button>
+              <HireModal
+                open={showHireModal}
+                onClose={() => setShowHireModal(false)}
+                listingId={listing.id}
+                seller={listing.provider}
+                amount={listing.pricePerUnit}
+                token={listing.settlementToken}
+                tokenSymbol={displayToken}
+                title={displayTitle}
+              />
+            </>
           ) : (
             <div className="card p-3 text-center">
               <p className="text-xs text-text-tertiary">Connect wallet to hire</p>

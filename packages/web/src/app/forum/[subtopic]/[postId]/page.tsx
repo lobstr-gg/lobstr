@@ -14,6 +14,7 @@ import CommentThread from "@/components/forum/CommentThread";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import ModActionMenu from "@/components/forum/ModActionMenu";
 import EmptyState from "@/components/forum/EmptyState";
+import Spinner from "@/components/Spinner";
 
 export default function PostDetailPage() {
   const params = useParams();
@@ -29,8 +30,9 @@ export default function PostDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    fetch(`/api/forum/posts/${postId}`)
+    fetch(`/api/forum/posts/${postId}`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
@@ -39,14 +41,17 @@ export default function PostDetailPage() {
         setPost(data.post);
         setCommentTree(data.comments ?? []);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        if (err.name !== "AbortError") setError(err.message);
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [postId]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-lob-green/30 border-t-lob-green rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }
@@ -65,7 +70,11 @@ export default function PostDetailPage() {
     );
   }
 
-  if (!post || !subtopic) {
+  if (!subtopic) {
+    return <EmptyState title="Invalid subtopic" />;
+  }
+
+  if (!post) {
     return <EmptyState title="Post not found" />;
   }
 

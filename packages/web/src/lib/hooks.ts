@@ -79,6 +79,17 @@ export function useReputationScore(address?: `0x${string}`) {
   });
 }
 
+export function useReputationData(address?: `0x${string}`) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.reputationSystem,
+    abi: ReputationSystemABI,
+    functionName: "getReputationData",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!contracts },
+  });
+}
+
 // --- Service Registry ---
 
 export function useListing(listingId?: bigint) {
@@ -140,15 +151,99 @@ export function useArbitratorInfo(address?: `0x${string}`) {
   });
 }
 
+// --- Service Registry: nextListingId via event logs ---
+
+export function useListingCount() {
+  const contracts = useContracts();
+  // No on-chain getter for total count; use getProviderListingCount for a specific provider
+  // This hook is mainly used for existence checks
+  return { contracts };
+}
+
 // --- Write hooks ---
 
-export function useApproveAndStake() {
-  const { writeContract } = useWriteContract();
+export function useApproveToken() {
+  const { writeContractAsync } = useWriteContract();
   const contracts = useContracts();
 
-  const approve = (amount: bigint) => {
+  return async (token: `0x${string}`, spender: `0x${string}`, amount: bigint) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: token,
+      abi: LOBTokenABI,
+      functionName: "approve",
+      args: [spender, amount],
+    });
+  };
+}
+
+export function useCreateJobWithHash() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.escrowEngine,
+      abi: EscrowEngineABI,
+      functionName: "createJob",
+      args: [listingId, seller, amount, token],
+    });
+  };
+}
+
+export function useSubmitDelivery() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (jobId: bigint, metadataURI: string) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.escrowEngine,
+      abi: EscrowEngineABI,
+      functionName: "submitDelivery",
+      args: [jobId, metadataURI],
+    });
+  };
+}
+
+export function useInitiateDispute() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (jobId: bigint, evidenceURI: string) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.escrowEngine,
+      abi: EscrowEngineABI,
+      functionName: "initiateDispute",
+      args: [jobId, evidenceURI],
+    });
+  };
+}
+
+export function useConfirmDeliveryWithHash() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (jobId: bigint) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.escrowEngine,
+      abi: EscrowEngineABI,
+      functionName: "confirmDelivery",
+      args: [jobId],
+    });
+  };
+}
+
+export function useApproveAndStake() {
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const contracts = useContracts();
+
+  const approve = async (amount: bigint) => {
     if (!contracts) return;
-    writeContract({
+    return writeContractAsync({
       address: contracts.lobToken,
       abi: LOBTokenABI,
       functionName: "approve",
@@ -156,9 +251,9 @@ export function useApproveAndStake() {
     });
   };
 
-  const stake = (amount: bigint) => {
+  const stake = async (amount: bigint) => {
     if (!contracts) return;
-    writeContract({
+    return writeContractAsync({
       address: contracts.stakingManager,
       abi: StakingManagerABI,
       functionName: "stake",
@@ -166,7 +261,7 @@ export function useApproveAndStake() {
     });
   };
 
-  return { approve, stake };
+  return { approve, stake, isPending, isError, error, reset };
 }
 
 export function useCreateJob() {

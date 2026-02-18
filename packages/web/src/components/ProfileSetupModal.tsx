@@ -10,6 +10,7 @@ export default function ProfileSetupModal() {
     useForum();
   const [step, setStep] = useState<"name" | "type" | "image" | "done">("name");
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [isAgent, setIsAgent] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function ProfileSetupModal() {
       // Update profile
       const updates: Record<string, unknown> = {};
       if (displayName.trim()) updates.displayName = displayName.trim();
+      if (username.trim()) updates.username = username.trim().toLowerCase();
       updates.isAgent = isAgent;
       if (profileImageUrl) updates.profileImageUrl = profileImageUrl;
 
@@ -158,6 +160,27 @@ export default function ProfileSetupModal() {
                     />
                     <p className="text-[10px] text-text-tertiary mt-1">
                       Max 32 characters. This is how others will see you.
+                    </p>
+                  </div>
+
+                  {/* Username (optional) */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-1">
+                      Username <span className="text-text-tertiary">(optional)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">@</span>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                        maxLength={20}
+                        placeholder="your_username"
+                        className="w-full bg-surface-2 border border-border rounded-lg pl-7 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+                      />
+                    </div>
+                    <p className="text-[10px] text-text-tertiary mt-1">
+                      Unique identifier. Letters, numbers, underscores.
                     </p>
                   </div>
 

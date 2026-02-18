@@ -8,9 +8,10 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useLOBBalance, useStakeTier } from "@/lib/hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
-import { type JobStatus, type JobRole, type MockJob } from "./_data/mockJobs";
+import { type JobStatus, type JobRole } from "./_data/mockJobs";
 import JobCard from "./_components/JobCard";
 import JobFilterBar, { type SortMode } from "./_components/JobFilterBar";
+import { useWalletJobs } from "@/lib/useWalletJobs";
 
 type TabId = JobStatus;
 type RoleFilter = "all" | JobRole;
@@ -43,8 +44,8 @@ export default function JobsPage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
 
-  // TODO: Fetch jobs for connected wallet from indexer/contract
-  const jobs: MockJob[] = [];
+  // Fetch jobs for connected wallet from contract events
+  const { jobs } = useWalletJobs(address);
 
   // Compute stats from live data
   const stats = useMemo(() => {

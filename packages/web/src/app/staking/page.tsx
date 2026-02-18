@@ -66,7 +66,7 @@ export default function StakingPage() {
   const { data: stakeData } = useStakeInfo(address);
   const { data: tierNum } = useStakeTier(address);
   const { data: lobBalance } = useLOBBalance(address);
-  const { approve, stake } = useApproveAndStake();
+  const { approve, stake, isPending: txPending, isError: txError, error: txErrorObj, reset: txReset } = useApproveAndStake();
   const { data: arbData } = useArbitratorInfo(address);
 
   // Derived values from contract data
@@ -288,27 +288,38 @@ export default function StakingPage() {
                   className="input-field flex-1 tabular-nums"
                 />
                 <motion.button
-                  className="btn-primary"
-                  whileHover={{ boxShadow: "0 0 20px rgba(0,214,114,0.2)" }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => {
+                  className="btn-primary disabled:opacity-50"
+                  whileHover={txPending ? undefined : { boxShadow: "0 0 20px rgba(0,214,114,0.2)" }}
+                  whileTap={txPending ? undefined : { scale: 0.97 }}
+                  disabled={txPending || !stakeAmount}
+                  onClick={async () => {
                     if (!stakeAmount) return;
-                    const amt = parseEther(stakeAmount);
-                    approve(amt);
-                    // After approval TX confirms, call stake(amt) to complete.
-                    // For now approve is step 1; user must confirm both TXs.
+                    txReset();
+                    try {
+                      const amt = parseEther(stakeAmount);
+                      await approve(amt);
+                      await stake(amt);
+                      setStakeAmount("");
+                    } catch {
+                      // Error state handled via txError
+                    }
                   }}
                 >
-                  Approve & Stake
-                </motion.button>
-                {/* TODO: wire unstake — need useUnstake hook */}
-                <motion.button
-                  className="btn-secondary"
-                  whileTap={{ scale: 0.97 }}
-                >
-                  Unstake
+                  {txPending ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                      Confirming...
+                    </span>
+                  ) : "Approve & Stake"}
                 </motion.button>
               </div>
+              {txError && (
+                <p className="text-xs text-red-400 mt-2">
+                  Transaction failed: {txErrorObj?.message?.includes("User rejected")
+                    ? "Transaction rejected in wallet"
+                    : "Something went wrong. Please try again."}
+                </p>
+              )}
               <p className="text-[10px] text-text-tertiary mt-2">
                 7-day cooldown on unstaking. Minimum 100 LOB to activate listings.
               </p>

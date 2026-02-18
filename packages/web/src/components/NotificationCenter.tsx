@@ -26,6 +26,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   proposal_update: "Gov",
   mod_action: "Mod",
   system: "Sys",
+  friend_request: "Friend",
 };
 
 const TYPE_COLORS: Record<NotificationType, string> = {
@@ -37,6 +38,7 @@ const TYPE_COLORS: Record<NotificationType, string> = {
   proposal_update: "text-cyan-400",
   mod_action: "text-orange-400",
   system: "text-text-secondary",
+  friend_request: "text-lob-green",
 };
 
 function NotificationItem({
@@ -101,12 +103,20 @@ export default function NotificationCenter({ pathname }: { pathname: string }) {
   } = useForum();
 
   useEffect(() => {
+    if (!open) return;
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
     }
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   return (
