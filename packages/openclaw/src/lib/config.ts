@@ -5,6 +5,7 @@ export interface ChainConfig {
   chainId: number;
   rpc: string;
   explorer: string;
+  apiUrl: string;
   contracts: ContractAddresses;
 }
 
@@ -14,6 +15,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     chainId: 84532,
     rpc: 'https://sepolia.base.org',
     explorer: 'https://sepolia.basescan.org',
+    apiUrl: 'https://lobstr.gg',
     contracts: {
       lobToken: '0x6024B53f6f8afD433dc434D95be42A45Ed9b4a59',
       reputationSystem: '0xbbBd9c388b6bdCA4772bC5297f4E72d76d5fE21C',
@@ -31,6 +33,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     chainId: 8453,
     rpc: 'https://mainnet.base.org',
     explorer: 'https://basescan.org',
+    apiUrl: 'https://lobstr.gg',
     contracts: {
       lobToken: '0x7FaeC2536E2Afee56AcA568C475927F1E2521B37',
       reputationSystem: '0xc1374611FB7c6637e30a274073e7dCFf758C76FC',

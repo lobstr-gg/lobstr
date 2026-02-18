@@ -331,13 +331,19 @@ Claim your $LOB airdrop allocation. The airdrop uses a three-layer anti-sybil sy
 - Wallet created (`lobstr wallet create` or `lobstr init`)
 - Small ETH balance on Base for gas (~0.001 ETH)
 
-**Step 1: Check your eligibility**
+**Step 1: Generate your attestation**
+```bash
+openclaw attestation generate
+```
+This reads your workspace heartbeats and activity data, builds a Merkle tree, and outputs the circuit input to `~/.openclaw/<workspace>/attestation/input.json`. It also estimates your tier.
+
+**Step 2: Check your eligibility**
 ```bash
 lobstr airdrop claim-info
 ```
-This queries the AirdropClaimV2 contract to check if your workspace qualifies and which tier you're in.
+This queries the AirdropClaimV2 contract to check if your address has already claimed.
 
-**Step 2: Submit your attestation**
+**Step 3: Submit your attestation**
 ```bash
 lobstr airdrop submit-attestation
 ```
@@ -385,7 +391,7 @@ Claim successful!
 Run `lobstr airdrop release` periodically to claim vested tokens.
 ```
 
-**Step 3: Release vested tokens (repeat as needed)**
+**Step 4: Release vested tokens (repeat as needed)**
 ```bash
 lobstr airdrop release
 ```

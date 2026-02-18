@@ -2,6 +2,7 @@ export interface WorkspaceConfig {
   name: string;
   chain: 'base-sepolia' | 'base';
   rpc: string;
+  apiUrl: string;
   contracts: ContractAddresses;
   workspaceId: string; // bigint as string
   salt: string; // bigint as string
@@ -30,8 +31,9 @@ export interface EncryptedWallet {
 
 export interface HeartbeatEntry {
   timestamp: number;
-  hash: string; // bigint as string
-  nonce: string; // bigint as string
+  hash: string; // hex string or bigint as string
+  status?: string;
+  version?: string;
 }
 
 export interface ActivityData {

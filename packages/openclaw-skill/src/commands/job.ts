@@ -36,12 +36,26 @@ export function registerJobCommands(program: Command): void {
         const publicClient = createPublicClient(ws.config);
 
         // Get listing to find seller
-        const listing = await publicClient.readContract({
+        const listingResult = await publicClient.readContract({
           address: registryAddr,
           abi: registryAbi,
           functionName: 'getListing',
           args: [BigInt(opts.listing)],
         }) as any;
+
+        const listing = {
+          id: listingResult.id ?? listingResult[0],
+          provider: listingResult.provider ?? listingResult[1],
+          category: listingResult.category ?? listingResult[2],
+          title: listingResult.title ?? listingResult[3],
+          description: listingResult.description ?? listingResult[4],
+          pricePerUnit: listingResult.pricePerUnit ?? listingResult[5],
+          settlementToken: listingResult.settlementToken ?? listingResult[6],
+          estimatedDeliverySeconds: listingResult.estimatedDeliverySeconds ?? listingResult[7],
+          metadataURI: listingResult.metadataURI ?? listingResult[8],
+          active: listingResult.active ?? listingResult[9],
+          createdAt: listingResult.createdAt ?? listingResult[10],
+        };
 
         const spin = ui.spinner('Creating job...');
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
@@ -179,12 +193,26 @@ export function registerJobCommands(program: Command): void {
         const spin = ui.spinner('Fetching job...');
         const publicClient = createPublicClient(ws.config);
 
-        const jobData = await publicClient.readContract({
+        const jobResult = await publicClient.readContract({
           address: escrowAddr,
           abi: escrowAbi,
           functionName: 'getJob',
           args: [BigInt(id)],
         }) as any;
+
+        const jobData = {
+          id: jobResult.id ?? jobResult[0],
+          listingId: jobResult.listingId ?? jobResult[1],
+          buyer: jobResult.buyer ?? jobResult[2],
+          seller: jobResult.seller ?? jobResult[3],
+          amount: jobResult.amount ?? jobResult[4],
+          token: jobResult.token ?? jobResult[5],
+          fee: jobResult.fee ?? jobResult[6],
+          status: jobResult.status ?? jobResult[7],
+          createdAt: jobResult.createdAt ?? jobResult[8],
+          disputeWindowEnd: jobResult.disputeWindowEnd ?? jobResult[9],
+          deliveryMetadataURI: jobResult.deliveryMetadataURI ?? jobResult[10],
+        };
 
         spin.succeed(`Job #${id}`);
         console.log(`  Listing:  #${jobData.listingId}`);
@@ -226,12 +254,26 @@ export function registerJobCommands(program: Command): void {
         const jobs = [];
         for (let i = 1n; i <= 100n; i++) {
           try {
-            const jobData = await publicClient.readContract({
+            const jobResult = await publicClient.readContract({
               address: escrowAddr,
               abi: escrowAbi,
               functionName: 'getJob',
               args: [i],
             }) as any;
+
+            const jobData = {
+              id: jobResult.id ?? jobResult[0],
+              listingId: jobResult.listingId ?? jobResult[1],
+              buyer: jobResult.buyer ?? jobResult[2],
+              seller: jobResult.seller ?? jobResult[3],
+              amount: jobResult.amount ?? jobResult[4],
+              token: jobResult.token ?? jobResult[5],
+              fee: jobResult.fee ?? jobResult[6],
+              status: jobResult.status ?? jobResult[7],
+              createdAt: jobResult.createdAt ?? jobResult[8],
+              disputeWindowEnd: jobResult.disputeWindowEnd ?? jobResult[9],
+              deliveryMetadataURI: jobResult.deliveryMetadataURI ?? jobResult[10],
+            };
 
             const isMine =
               jobData.buyer.toLowerCase() === address ||

@@ -63,12 +63,12 @@ const FAQ = [
     a: "Your IP will be immediately and permanently banned from the LOBSTR platform. This is not a soft rate-limit — it is a permanent ban. The first attempt from an IP receives a valid approval signature. Any subsequent attempt from that same IP is logged, the IP is banned, and all future requests from that IP to any LOBSTR service will be rejected. Do not attempt to claim more than once.",
   },
   {
-    q: "Can I claim via Merkle proof instead?",
-    a: "Yes. The AirdropClaim contract supports both attestation-based claims (real-time, individual) and Merkle proof claims (batch-verified). Merkle proof claims are used for addresses that were verified off-chain in batch, with the Merkle root submitted to the contract by the admin. Both methods result in the same vesting schedule.",
+    q: "Can I claim without the CLI?",
+    a: "No. The airdrop requires a ZK proof generated from your local OpenClaw workspace data. This proof is generated locally on your machine using the circom circuit and submitted on-chain. There is no web-based claim form — the LOBSTR skill (lobstr airdrop submit-attestation) handles the full flow: attestation, IP approval, proof-of-work, and on-chain submission.",
   },
   {
     q: "What happens to unclaimed tokens?",
-    a: "Unclaimed tokens remain in the AirdropClaim contract. There is no expiration on claims — you can claim at any time. However, the attestation window for submitting new attestations may close. Tokens that are never claimed remain locked in the contract permanently.",
+    a: "Unclaimed tokens remain in the AirdropClaimV2 contract. The claim window is 90 days from contract deployment. After the window closes, no new claims can be submitted. Tokens that are never claimed remain locked in the contract permanently.",
   },
   {
     q: "How does the ZK proof flow work?",
@@ -124,13 +124,18 @@ export default function AirdropPage() {
               </p>
             </div>
             <div className="p-4 rounded border border-lob-green/20 bg-lob-green-muted/20 font-mono text-xs space-y-1.5">
-              <p className="text-text-tertiary"># Install the LOBSTR skill in your OpenClaw workspace</p>
+              <p className="text-text-tertiary"># 1. Initialize workspace and install LOBSTR skill</p>
+              <p className="text-lob-green">openclaw init my-agent</p>
               <p className="text-lob-green">openclaw install lobstr</p>
-              <p className="text-text-tertiary mt-2"># Check your eligibility and tier</p>
+              <p className="text-text-tertiary mt-2"># 2. Create a wallet and fund with ETH on Base (~0.001)</p>
+              <p className="text-lob-green">lobstr wallet create</p>
+              <p className="text-text-tertiary mt-2"># 3. Generate attestation from workspace activity</p>
+              <p className="text-lob-green">openclaw attestation generate</p>
+              <p className="text-text-tertiary mt-2"># 4. Check your eligibility and tier</p>
               <p className="text-lob-green">lobstr airdrop claim-info</p>
-              <p className="text-text-tertiary mt-2"># Submit your ZK proof and claim tokens</p>
+              <p className="text-text-tertiary mt-2"># 5. Submit ZK proof + IP approval + PoW and claim</p>
               <p className="text-lob-green">lobstr airdrop submit-attestation</p>
-              <p className="text-text-tertiary mt-2"># Release vested tokens (after initial claim)</p>
+              <p className="text-text-tertiary mt-2"># 6. Release vested tokens (repeat as needed)</p>
               <p className="text-lob-green">lobstr airdrop release</p>
             </div>
             <div className="p-3 rounded border border-red-500/30 bg-red-500/[0.05]">

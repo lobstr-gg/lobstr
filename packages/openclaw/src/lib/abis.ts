@@ -1,4 +1,5 @@
 // Human-readable viem ABIs derived from packages/contracts/src/interfaces/
+// NOTE: abitype 1.2.3 does not support tuple() wrappers in return types — use flat returns
 
 export const LOB_TOKEN_ABI = [
   'function approve(address spender, uint256 amount) returns (bool)',
@@ -17,7 +18,7 @@ export const STAKING_MANAGER_ABI = [
   'function unstake()',
   'function getTier(address user) view returns (uint8)',
   'function getStake(address user) view returns (uint256)',
-  'function getStakeInfo(address user) view returns (tuple(uint256 amount, uint256 unstakeRequestTime, uint256 unstakeRequestAmount))',
+  'function getStakeInfo(address user) view returns (uint256 amount, uint256 unstakeRequestTime, uint256 unstakeRequestAmount)',
   'function tierThreshold(uint8 tier) pure returns (uint256)',
   'function maxListings(uint8 tier) pure returns (uint256)',
   'event Staked(address indexed user, uint256 amount, uint8 newTier)',
@@ -29,7 +30,7 @@ export const SERVICE_REGISTRY_ABI = [
   'function createListing(uint8 category, string title, string description, uint256 pricePerUnit, address settlementToken, uint256 estimatedDeliverySeconds, string metadataURI) returns (uint256)',
   'function updateListing(uint256 listingId, string title, string description, uint256 pricePerUnit, address settlementToken, uint256 estimatedDeliverySeconds, string metadataURI)',
   'function deactivateListing(uint256 listingId)',
-  'function getListing(uint256 listingId) view returns (tuple(uint256 id, address provider, uint8 category, string title, string description, uint256 pricePerUnit, address settlementToken, uint256 estimatedDeliverySeconds, string metadataURI, bool active, uint256 createdAt))',
+  'function getListing(uint256 listingId) view returns (uint256 id, address provider, uint8 category, string title, string description, uint256 pricePerUnit, address settlementToken, uint256 estimatedDeliverySeconds, string metadataURI, bool active, uint256 createdAt)',
   'function getProviderListingCount(address provider) view returns (uint256)',
   'event ListingCreated(uint256 indexed listingId, address indexed provider, uint8 category, uint256 pricePerUnit, address settlementToken)',
   'event ListingUpdated(uint256 indexed listingId, uint256 pricePerUnit, address settlementToken)',
@@ -42,7 +43,7 @@ export const ESCROW_ENGINE_ABI = [
   'function confirmDelivery(uint256 jobId)',
   'function initiateDispute(uint256 jobId, string evidenceURI)',
   'function autoRelease(uint256 jobId)',
-  'function getJob(uint256 jobId) view returns (tuple(uint256 id, uint256 listingId, address buyer, address seller, uint256 amount, address token, uint256 fee, uint8 status, uint256 createdAt, uint256 disputeWindowEnd, string deliveryMetadataURI))',
+  'function getJob(uint256 jobId) view returns (uint256 id, uint256 listingId, address buyer, address seller, uint256 amount, address token, uint256 fee, uint8 status, uint256 createdAt, uint256 disputeWindowEnd, string deliveryMetadataURI)',
   'event JobCreated(uint256 indexed jobId, uint256 indexed listingId, address indexed buyer, address seller, uint256 amount, address token, uint256 fee)',
   'event DeliverySubmitted(uint256 indexed jobId, string metadataURI)',
   'event DeliveryConfirmed(uint256 indexed jobId, address indexed buyer)',
@@ -54,7 +55,7 @@ export const ESCROW_ENGINE_ABI = [
 export const AIRDROP_CLAIM_V2_ABI = [
   'function submitProof(uint256[2] pA, uint256[2][2] pB, uint256[2] pC, uint256[3] pubSignals, bytes approvalSig, uint256 powNonce)',
   'function releaseVestedTokens()',
-  'function getClaimInfo(address claimant) view returns (tuple(bool claimed, uint256 amount, uint256 vestedAmount, uint256 claimedAt, uint8 tier, uint256 workspaceHash))',
+  'function getClaimInfo(address claimant) view returns (bool claimed, uint256 amount, uint256 vestedAmount, uint256 claimedAt, uint8 tier, uint256 workspaceHash)',
   'function isWorkspaceHashUsed(uint256 hash) view returns (bool)',
   'function approvalSigner() view returns (address)',
   'function difficultyTarget() view returns (uint256)',
@@ -65,7 +66,7 @@ export const AIRDROP_CLAIM_V2_ABI = [
 
 export const REPUTATION_SYSTEM_ABI = [
   'function getScore(address user) view returns (uint256 score, uint8 tier)',
-  'function getReputationData(address user) view returns (tuple(uint256 score, uint256 completions, uint256 disputesLost, uint256 disputesWon, uint256 firstActivityTimestamp))',
+  'function getReputationData(address user) view returns (uint256 score, uint256 completions, uint256 disputesLost, uint256 disputesWon, uint256 firstActivityTimestamp)',
   'event ScoreUpdated(address indexed user, uint256 newScore, uint8 newTier)',
 ] as const;
 
@@ -75,10 +76,10 @@ export const DISPUTE_ARBITRATION_ABI = [
   'function submitCounterEvidence(uint256 disputeId, string sellerEvidenceURI)',
   'function vote(uint256 disputeId, bool favorBuyer)',
   'function executeRuling(uint256 disputeId)',
-  'function getDispute(uint256 disputeId) view returns (tuple(uint256 id, uint256 jobId, address buyer, address seller, uint256 amount, address token, string buyerEvidenceURI, string sellerEvidenceURI, uint8 status, uint8 ruling, uint256 createdAt, uint256 counterEvidenceDeadline, uint256 votingDeadline, address[3] arbitrators, uint8 votesForBuyer, uint8 votesForSeller, uint8 totalVotes))',
-  'function getArbitratorInfo(address arbitrator) view returns (tuple(uint256 stake, uint8 rank, uint256 disputesHandled, uint256 majorityVotes, bool active))',
+  'function getDispute(uint256 disputeId) view returns (uint256 id, uint256 jobId, address buyer, address seller, uint256 amount, address token, string buyerEvidenceURI, string sellerEvidenceURI, uint8 status, uint8 ruling, uint256 createdAt, uint256 counterEvidenceDeadline, uint256 votingDeadline, uint8 votesForBuyer, uint8 votesForSeller, uint8 totalVotes)',
+  'function getArbitratorInfo(address arbitrator) view returns (uint256 stake, uint8 rank, uint256 disputesHandled, uint256 majorityVotes, bool active)',
   'event DisputeCreated(uint256 indexed disputeId, uint256 indexed jobId, address indexed buyer, address seller, uint256 amount)',
-  'event ArbitratorsAssigned(uint256 indexed disputeId, address[3] arbitrators)',
+  'event ArbitratorsAssigned(uint256 indexed disputeId)',
   'event CounterEvidenceSubmitted(uint256 indexed disputeId, string evidenceURI)',
   'event VoteCast(uint256 indexed disputeId, address indexed arbitrator, bool favorBuyer)',
   'event RulingExecuted(uint256 indexed disputeId, uint8 ruling)',
@@ -92,7 +93,7 @@ export const TREASURY_GOVERNOR_ABI = [
   'function approveProposal(uint256 proposalId)',
   'function executeProposal(uint256 proposalId)',
   'function cancelProposal(uint256 proposalId)',
-  'function getProposal(uint256 proposalId) view returns (tuple(uint256 id, address proposer, address token, address recipient, uint256 amount, string description, uint8 status, uint256 approvalCount, uint256 createdAt, uint256 timelockEnd))',
+  'function getProposal(uint256 proposalId) view returns (uint256 id, address proposer, address token, address recipient, uint256 amount, string description, uint8 status, uint256 approvalCount, uint256 createdAt, uint256 timelockEnd)',
   'function isProposalExpired(uint256 proposalId) view returns (bool)',
   'function createAdminProposal(address target, bytes data, string description) returns (uint256)',
   'function approveAdminProposal(uint256 proposalId)',
@@ -102,7 +103,7 @@ export const TREASURY_GOVERNOR_ABI = [
   'function createStream(address recipient, address token, uint256 totalAmount, uint256 duration, string role) returns (uint256)',
   'function claimStream(uint256 streamId)',
   'function cancelStream(uint256 streamId)',
-  'function getStream(uint256 streamId) view returns (tuple(uint256 id, address recipient, address token, uint256 totalAmount, uint256 claimedAmount, uint256 startTime, uint256 endTime, string role, bool active))',
+  'function getStream(uint256 streamId) view returns (uint256 id, address recipient, address token, uint256 totalAmount, uint256 claimedAmount, uint256 startTime, uint256 endTime, string role, bool active)',
   'function streamClaimable(uint256 streamId) view returns (uint256)',
   'function getRecipientStreams(address recipient) view returns (uint256[])',
   'function getBalance(address token) view returns (uint256)',

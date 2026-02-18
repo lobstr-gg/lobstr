@@ -54,7 +54,7 @@ export function registerAirdropCommands(program: Command): void {
         const workspaceHash = pubSignals[0];
 
         // A. Fetch IP approval from server
-        const apiUrl = (ws.config as any).apiUrl || 'http://localhost:3000';
+        const apiUrl = (ws.config as any).apiUrl || 'https://lobstr.gg';
         const approvalSpin = ui.spinner('Requesting IP approval...');
         let approvalSig: string;
         try {
@@ -142,12 +142,22 @@ export function registerAirdropCommands(program: Command): void {
 
         const spin = ui.spinner('Fetching claim info...');
 
-        const info = await publicClient.readContract({
+        const result = await publicClient.readContract({
           address: airdropAddr,
           abi: airdropAbi,
           functionName: 'getClaimInfo',
           args: [address],
         }) as any;
+
+        // Handle both tuple-style (named) and flat (positional) returns
+        const info = {
+          claimed: result.claimed ?? result[0],
+          amount: result.amount ?? result[1],
+          vestedAmount: result.vestedAmount ?? result[2],
+          claimedAt: result.claimedAt ?? result[3],
+          tier: result.tier ?? result[4],
+          workspaceHash: result.workspaceHash ?? result[5],
+        };
 
         spin.succeed('Claim Info');
         console.log(`  Address:    ${address}`);

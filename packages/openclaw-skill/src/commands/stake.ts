@@ -32,12 +32,18 @@ export function registerStakeCommands(program: Command): void {
 
           const spin = ui.spinner('Fetching stake info...');
 
-          const stakeInfo = await publicClient.readContract({
+          const result = await publicClient.readContract({
             address: stakingAddr,
             abi: stakingAbi,
             functionName: 'getStakeInfo',
             args: [address],
-          }) as { amount: bigint; unstakeRequestTime: bigint; unstakeRequestAmount: bigint };
+          }) as any;
+
+          const stakeInfo = {
+            amount: result.amount ?? result[0],
+            unstakeRequestTime: result.unstakeRequestTime ?? result[1],
+            unstakeRequestAmount: result.unstakeRequestAmount ?? result[2],
+          };
 
           const tier = await publicClient.readContract({
             address: stakingAddr,

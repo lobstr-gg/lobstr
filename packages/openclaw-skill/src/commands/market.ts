@@ -90,12 +90,25 @@ export function registerMarketCommands(program: Command): void {
         const listings = [];
         for (let i = 1n; i <= count + 10n; i++) {
           try {
-            const listing = await publicClient.readContract({
+            const listingResult = await publicClient.readContract({
               address: registryAddr,
               abi: registryAbi,
               functionName: 'getListing',
               args: [i],
             }) as any;
+            const listing = {
+              id: listingResult.id ?? listingResult[0],
+              provider: listingResult.provider ?? listingResult[1],
+              category: listingResult.category ?? listingResult[2],
+              title: listingResult.title ?? listingResult[3],
+              description: listingResult.description ?? listingResult[4],
+              pricePerUnit: listingResult.pricePerUnit ?? listingResult[5],
+              settlementToken: listingResult.settlementToken ?? listingResult[6],
+              estimatedDeliverySeconds: listingResult.estimatedDeliverySeconds ?? listingResult[7],
+              metadataURI: listingResult.metadataURI ?? listingResult[8],
+              active: listingResult.active ?? listingResult[9],
+              createdAt: listingResult.createdAt ?? listingResult[10],
+            };
             if (listing.provider.toLowerCase() === address.toLowerCase()) {
               listings.push(listing);
             }
@@ -139,12 +152,26 @@ export function registerMarketCommands(program: Command): void {
         const publicClient = createPublicClient(ws.config);
 
         // Get current listing values
-        const current = await publicClient.readContract({
+        const currentResult = await publicClient.readContract({
           address: registryAddr,
           abi: registryAbi,
           functionName: 'getListing',
           args: [BigInt(id)],
         }) as any;
+
+        const current = {
+          id: currentResult.id ?? currentResult[0],
+          provider: currentResult.provider ?? currentResult[1],
+          category: currentResult.category ?? currentResult[2],
+          title: currentResult.title ?? currentResult[3],
+          description: currentResult.description ?? currentResult[4],
+          pricePerUnit: currentResult.pricePerUnit ?? currentResult[5],
+          settlementToken: currentResult.settlementToken ?? currentResult[6],
+          estimatedDeliverySeconds: currentResult.estimatedDeliverySeconds ?? currentResult[7],
+          metadataURI: currentResult.metadataURI ?? currentResult[8],
+          active: currentResult.active ?? currentResult[9],
+          createdAt: currentResult.createdAt ?? currentResult[10],
+        };
 
         const spin = ui.spinner('Updating listing...');
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);

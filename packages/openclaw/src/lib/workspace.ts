@@ -42,6 +42,7 @@ export function createWorkspace(name: string, chain?: string): WorkspaceConfig {
     name,
     chain: chainKey as 'base-sepolia' | 'base',
     rpc: chainConfig.rpc,
+    apiUrl: chainConfig.apiUrl,
     contracts: chainConfig.contracts,
     workspaceId,
     salt,

@@ -60,12 +60,20 @@ export function registerRepCommands(program: Command): void {
 
         const spin = ui.spinner('Fetching reputation data...');
 
-        const data = await publicClient.readContract({
+        const result = await publicClient.readContract({
           address: repAddr,
           abi: repAbi,
           functionName: 'getReputationData',
           args: [targetAddr],
         }) as any;
+
+        const data = {
+          score: result.score ?? result[0],
+          completions: result.completions ?? result[1],
+          disputesLost: result.disputesLost ?? result[2],
+          disputesWon: result.disputesWon ?? result[3],
+          firstActivityTimestamp: result.firstActivityTimestamp ?? result[4],
+        };
 
         spin.succeed('Reputation History');
         console.log(`  Address:        ${targetAddr}`);

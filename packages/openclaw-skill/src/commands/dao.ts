@@ -35,12 +35,24 @@ export function registerDaoCommands(program: Command): void {
 
         for (let i = 1; i <= 100; i++) {
           try {
-            const p = (await publicClient.readContract({
+            const result = (await publicClient.readContract({
               address: govAddr,
               abi: govAbi,
               functionName: "getProposal",
               args: [BigInt(i)],
             })) as any;
+            const p = {
+              id: result.id ?? result[0],
+              proposer: result.proposer ?? result[1],
+              token: result.token ?? result[2],
+              recipient: result.recipient ?? result[3],
+              amount: result.amount ?? result[4],
+              description: result.description ?? result[5],
+              status: result.status ?? result[6],
+              approvalCount: result.approvalCount ?? result[7],
+              createdAt: result.createdAt ?? result[8],
+              timelockEnd: result.timelockEnd ?? result[9],
+            };
             if (p.id === 0n) break;
             found.push(p);
           } catch {
@@ -83,12 +95,25 @@ export function registerDaoCommands(program: Command): void {
         const govAddr = getContractAddress(ws.config, "treasuryGovernor");
 
         const spin = ui.spinner("Loading proposal...");
-        const p = (await publicClient.readContract({
+        const result = (await publicClient.readContract({
           address: govAddr,
           abi: govAbi,
           functionName: "getProposal",
           args: [BigInt(id)],
         })) as any;
+
+        const p = {
+          id: result.id ?? result[0],
+          proposer: result.proposer ?? result[1],
+          token: result.token ?? result[2],
+          recipient: result.recipient ?? result[3],
+          amount: result.amount ?? result[4],
+          description: result.description ?? result[5],
+          status: result.status ?? result[6],
+          approvalCount: result.approvalCount ?? result[7],
+          createdAt: result.createdAt ?? result[8],
+          timelockEnd: result.timelockEnd ?? result[9],
+        };
 
         const expired = (await publicClient.readContract({
           address: govAddr,
@@ -372,12 +397,23 @@ export function registerDaoCommands(program: Command): void {
 
         const streams: any[] = [];
         for (const sid of streamIds) {
-          const s = await publicClient.readContract({
+          const streamResult = await publicClient.readContract({
             address: govAddr,
             abi: govAbi,
             functionName: "getStream",
             args: [sid],
-          });
+          }) as any;
+          const s = {
+            id: streamResult.id ?? streamResult[0],
+            recipient: streamResult.recipient ?? streamResult[1],
+            token: streamResult.token ?? streamResult[2],
+            totalAmount: streamResult.totalAmount ?? streamResult[3],
+            claimedAmount: streamResult.claimedAmount ?? streamResult[4],
+            startTime: streamResult.startTime ?? streamResult[5],
+            endTime: streamResult.endTime ?? streamResult[6],
+            role: streamResult.role ?? streamResult[7],
+            active: streamResult.active ?? streamResult[8],
+          };
           const claimable = await publicClient.readContract({
             address: govAddr,
             abi: govAbi,
