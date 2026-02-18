@@ -2,17 +2,6 @@
 
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
-import { MOCK_HUMANS } from "../_data/mockHumans";
-
-const availableCount = MOCK_HUMANS.filter(
-  (h) => h.availability === "available"
-).length;
-const totalCompletions = MOCK_HUMANS.reduce(
-  (sum, h) => sum + h.completions,
-  0
-);
-const cities = new Set(MOCK_HUMANS.map((h) => h.locationInfo.city));
-const countries = new Set(MOCK_HUMANS.map((h) => h.locationInfo.countryCode));
 
 export default function HeroSection({
   onPostTask,
@@ -51,36 +40,6 @@ export default function HeroSection({
         >
           Post a Task
         </motion.button>
-      </div>
-
-      <div className="flex items-center gap-6 text-xs text-text-tertiary">
-        <div>
-          <span className="text-sm font-bold text-text-primary tabular-nums">
-            {availableCount}
-          </span>{" "}
-          providers available
-        </div>
-        <div className="w-px h-4 bg-border/50" />
-        <div>
-          <span className="text-sm font-bold text-text-primary tabular-nums">
-            {totalCompletions}
-          </span>{" "}
-          tasks completed
-        </div>
-        <div className="w-px h-4 bg-border/50" />
-        <div>
-          <span className="text-sm font-bold text-text-primary tabular-nums">
-            {countries.size}
-          </span>{" "}
-          countries
-        </div>
-        <div className="w-px h-4 bg-border/50" />
-        <div>
-          <span className="text-sm font-bold text-text-primary tabular-nums">
-            {cities.size}
-          </span>{" "}
-          cities
-        </div>
       </div>
     </motion.div>
   );

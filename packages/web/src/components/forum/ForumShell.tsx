@@ -10,7 +10,7 @@ export default function ForumShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_280px] gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_280px] gap-6 min-h-[calc(100vh-4rem)]">
       {/* Left sidebar */}
       <aside className="hidden lg:block">
         <div className="sticky top-4 space-y-4">

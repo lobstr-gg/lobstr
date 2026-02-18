@@ -47,9 +47,11 @@ export default function ForumSidebar() {
               </span>
               <span>{sub.name}</span>
             </div>
-            <span className="text-[10px] text-text-tertiary tabular-nums">
-              {sub.postCount}
-            </span>
+            {sub.postCount > 0 && (
+              <span className="text-[10px] text-text-tertiary tabular-nums">
+                {sub.postCount}
+              </span>
+            )}
           </Link>
         ))}
       </div>

@@ -95,7 +95,7 @@ export default function RentAHumanPage() {
       {/* Results count */}
       <motion.div variants={fadeUp} className="mb-3">
         <p className="text-xs text-text-tertiary">
-          {filteredHumans.length} human
+          {filteredHumans.length} provider
           {filteredHumans.length !== 1 ? "s" : ""} found
         </p>
       </motion.div>
@@ -129,19 +129,28 @@ export default function RentAHumanPage() {
                 />
               </motion.div>
               <p className="text-sm text-text-secondary">
-                No humans match your search
+                {search || category !== "all" || region !== "all" || locationSearch
+                  ? "No providers match your search"
+                  : "No providers registered yet"}
               </p>
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setCategory("all");
-                  setRegion("all");
-                  setLocationSearch("");
-                }}
-                className="text-xs text-lob-green mt-2 hover:underline"
-              >
-                Clear filters
-              </button>
+              <p className="text-xs text-text-tertiary mt-1">
+                {search || category !== "all" || region !== "all" || locationSearch
+                  ? ""
+                  : "Register as a provider through the Staking page to appear here."}
+              </p>
+              {(search || category !== "all" || region !== "all" || locationSearch) && (
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setCategory("all");
+                    setRegion("all");
+                    setLocationSearch("");
+                  }}
+                  className="text-xs text-lob-green mt-2 hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
             </motion.div>
           ) : (
             <motion.div

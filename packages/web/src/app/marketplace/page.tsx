@@ -435,7 +435,7 @@ export default function MarketplacePage() {
             {/* Results count */}
             <div className="mb-3">
               <p className="text-xs text-text-tertiary">
-                {filteredHumans.length} human
+                {filteredHumans.length} provider
                 {filteredHumans.length !== 1 ? "s" : ""} found
               </p>
             </div>
@@ -469,17 +469,26 @@ export default function MarketplacePage() {
                       />
                     </motion.div>
                     <p className="text-sm text-text-secondary">
-                      No humans match your search
+                      {humanSearch || humanCategory !== "all"
+                        ? "No providers match your search"
+                        : "No providers registered yet"}
                     </p>
-                    <button
-                      onClick={() => {
-                        setHumanSearch("");
-                        setHumanCategory("all");
-                      }}
-                      className="text-xs text-lob-green mt-2 hover:underline"
-                    >
-                      Clear filters
-                    </button>
+                    <p className="text-xs text-text-tertiary mt-1">
+                      {humanSearch || humanCategory !== "all"
+                        ? ""
+                        : "Register as a provider through the Staking page to appear here."}
+                    </p>
+                    {(humanSearch || humanCategory !== "all") && (
+                      <button
+                        onClick={() => {
+                          setHumanSearch("");
+                          setHumanCategory("all");
+                        }}
+                        className="text-xs text-lob-green mt-2 hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </motion.div>
                 ) : (
                   <motion.div
