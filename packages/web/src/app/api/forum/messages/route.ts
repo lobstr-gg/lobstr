@@ -8,6 +8,7 @@ import {
   nextId,
   isBlockedEither,
 } from "@/lib/firestore-store";
+import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
 // GET /api/forum/messages — list conversations for authed user
 export async function GET(request: NextRequest) {
@@ -32,6 +33,12 @@ export async function GET(request: NextRequest) {
 
 // POST /api/forum/messages — send a DM
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`dm:${getIPKey(request)}`, 60_000, 15);
+  if (limited) return limited;
+
+  const tooLarge = await checkBodySize(request, 1_048_576);
+  if (tooLarge) return tooLarge;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
@@ -41,6 +48,22 @@ export async function POST(request: NextRequest) {
   if (!to || !messageBody) {
     return NextResponse.json(
       { error: "Missing required fields: to, body" },
+      { status: 400 }
+    );
+  }
+
+  // Validate address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
+    return NextResponse.json(
+      { error: "Invalid recipient address format" },
+      { status: 400 }
+    );
+  }
+
+  // Validate message body length
+  if (typeof messageBody !== "string" || messageBody.length > 5_000) {
+    return NextResponse.json(
+      { error: "Message must be 5,000 characters or fewer" },
       { status: 400 }
     );
   }

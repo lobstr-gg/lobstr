@@ -46,6 +46,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (typeof taskTitle !== "string" || taskTitle.length > 200) {
+    return NextResponse.json(
+      { error: "Task title must be 200 characters or fewer" },
+      { status: 400 }
+    );
+  }
+
+  if (typeof taskDescription !== "string" || taskDescription.length > 5_000) {
+    return NextResponse.json(
+      { error: "Task description must be 5,000 characters or fewer" },
+      { status: 400 }
+    );
+  }
+
+  if (typeof budget !== "number" || budget <= 0 || budget > 1_000_000) {
+    return NextResponse.json(
+      { error: "Budget must be a positive number up to 1,000,000" },
+      { status: 400 }
+    );
+  }
+
   const human = MOCK_HUMANS.find((h) => h.id === humanId);
   if (!human) {
     return NextResponse.json(

@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { address } = body;
 
-  if (!address) {
+  if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return NextResponse.json(
-      { error: "Missing required field: address" },
+      { error: "Missing or invalid address" },
       { status: 400 }
     );
   }

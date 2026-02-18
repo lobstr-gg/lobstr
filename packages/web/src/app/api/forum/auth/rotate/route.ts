@@ -6,14 +6,25 @@ import {
   generateApiKey,
 } from "@/lib/forum-auth";
 import { revokeApiKeysForAddress, setApiKey } from "@/lib/firestore-store";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`rotate:${getIPKey(request)}`, 60_000, 5);
+  if (limited) return limited;
+
   const body = await request.json();
   const { address, signature, nonce } = body;
 
   if (!address || !signature || !nonce) {
     return NextResponse.json(
       { error: "Missing required fields: address, signature, nonce" },
+      { status: 400 }
+    );
+  }
+
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return NextResponse.json(
+      { error: "Invalid Ethereum address format" },
       { status: 400 }
     );
   }

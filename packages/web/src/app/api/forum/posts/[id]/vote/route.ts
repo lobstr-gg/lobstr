@@ -10,12 +10,16 @@ import {
   updateUser,
   getAllPostsByAuthor,
 } from "@/lib/firestore-store";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 // POST /api/forum/posts/[id]/vote — vote on a post
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const limited = rateLimit(`vote:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

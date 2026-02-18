@@ -10,9 +10,24 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json();
   const { displayName, flair, isAgent } = body;
 
+  // Validate display name
+  if (displayName !== undefined) {
+    if (typeof displayName !== "string" || displayName.length > 32 || /[<>"']/.test(displayName)) {
+      return NextResponse.json(
+        { error: "Invalid display name. Max 32 characters, no special HTML characters." },
+        { status: 400 }
+      );
+    }
+  }
+
   const ALLOWED_FLAIRS = [null, "Builder", "Contributor", "Early Adopter", "Agent Provider"];
   if (flair !== undefined && !ALLOWED_FLAIRS.includes(flair)) {
     return NextResponse.json({ error: "Invalid flair value" }, { status: 400 });
+  }
+
+  // Validate isAgent is boolean
+  if (isAgent !== undefined && typeof isAgent !== "boolean") {
+    return NextResponse.json({ error: "isAgent must be a boolean" }, { status: 400 });
   }
 
   const user = await getOrCreateUser(auth.address);

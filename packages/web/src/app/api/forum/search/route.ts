@@ -16,6 +16,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (query.length > 200) {
+    return NextResponse.json(
+      { error: "Search query must be 200 characters or fewer" },
+      { status: 400 }
+    );
+  }
+
   const results = await searchAll(query);
 
   if (typeFilter === "posts") {
