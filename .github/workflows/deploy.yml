@@ -32,7 +32,7 @@ jobs:
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/firebase-sa.json
 
       - name: Deploy to Firebase Hosting
-        run: npx firebase-tools deploy --only hosting --project lobstr-8ec05 --non-interactive
+        run: npx firebase-tools deploy --only hosting --project lobstr-8ec05 --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
           FIREBASE_CLI_EXPERIMENTS: webframeworks
