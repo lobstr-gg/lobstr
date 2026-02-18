@@ -28,13 +28,13 @@ jobs:
           NEXT_PUBLIC_ALCHEMY_API_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_API_KEY }}
           NEXT_PUBLIC_CHAIN_ID: "8453"
 
-      - uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: lobstr-8ec05
+      - name: Authenticate with Firebase
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/firebase-sa.json
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --project lobstr-8ec05 --non-interactive
         env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
           FIREBASE_CLI_EXPERIMENTS: webframeworks
 
   deploy-indexer:
