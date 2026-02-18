@@ -46,6 +46,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Deploy to Railway
-        run: railway up --detach
+        run: railway up --detach --service lobstr-indexer
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
