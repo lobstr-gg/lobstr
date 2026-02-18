@@ -58,16 +58,21 @@ export default function ForumSidebar() {
       <div className="pt-4 space-y-1">
         <Link
           href="/forum/messages"
-          className={`flex items-center justify-between px-3 py-2 rounded text-sm transition-colors ${
+          className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
             pathname?.startsWith("/forum/messages")
-              ? "text-lob-green bg-lob-green-muted"
-              : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+              ? "text-lob-green bg-lob-green-muted border border-lob-green/30"
+              : "text-text-primary hover:text-lob-green bg-surface-2 border border-border/50 hover:border-lob-green/20"
           }`}
         >
-          <span>Messages</span>
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            <span>Messages</span>
+          </div>
           {unreadDMCount > 0 && (
             <motion.span
-              className="w-5 h-5 rounded-full bg-lob-green text-black text-[10px] font-bold flex items-center justify-center"
+              className="min-w-[20px] h-5 rounded-full bg-lob-green text-black text-[10px] font-bold flex items-center justify-center px-1.5"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
             >

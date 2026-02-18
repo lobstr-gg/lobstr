@@ -2155,4 +2155,444 @@ contract TreasuryGovernor is AccessControl, ReentrancyGuard {
     }
 }`,
   },
+  {
+    name: "AirdropClaim",
+    fileName: "AirdropClaim.sol",
+    description:
+      "V1 airdrop distribution with ECDSA attestation-based verification. Supports 180-day linear vesting with 25% immediate release.",
+    lines: 269,
+    source: `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./interfaces/IAirdropClaim.sol";
+
+contract AirdropClaim is IAirdropClaim, AccessControl, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+    using ECDSA for bytes32;
+
+    bytes32 public constant ATTESTOR_ROLE = keccak256("ATTESTOR_ROLE");
+
+    IERC20 public immutable lobToken;
+
+    // Airdrop parameters
+    uint256 public constant BASE_ALLOCATION = 4_000 ether;
+    uint256 public constant ACTIVE_MULTIPLIER = 150;
+    uint256 public constant POWER_USER_MULTIPLIER = 300;
+    uint256 public constant IMMEDIATE_RELEASE_BPS = 2500;
+    uint256 public constant VESTING_DURATION = 180 days;
+
+    // Attestation thresholds
+    uint256 public constant POWER_USER_MIN_UPTIME = 14;
+    uint256 public constant POWER_USER_MIN_CHANNELS = 3;
+    uint256 public constant POWER_USER_MIN_TOOL_CALLS = 100;
+    uint256 public constant ACTIVE_MIN_UPTIME = 7;
+    uint256 public constant ACTIVE_MIN_CHANNELS = 2;
+    uint256 public constant ACTIVE_MIN_TOOL_CALLS = 50;
+
+    uint256 public immutable maxAirdropPool;
+
+    uint256 public immutable claimWindowStart;
+    uint256 public immutable claimWindowEnd;
+
+    bytes32 public merkleRoot;
+    address public attestor;
+
+    mapping(address => ClaimInfo) private _claims;
+    mapping(bytes32 => bool) private _usedWorkspaceHashes;
+    uint256 public totalClaimed;
+
+    constructor(
+        address _lobToken,
+        address _attestor,
+        uint256 _claimWindowStart,
+        uint256 _claimWindowEnd,
+        uint256 _maxAirdropPool
+    ) {
+        require(_lobToken != address(0), "AirdropClaim: zero token");
+        require(_attestor != address(0), "AirdropClaim: zero attestor");
+        require(_claimWindowEnd > _claimWindowStart, "AirdropClaim: invalid window");
+        require(_maxAirdropPool > 0, "AirdropClaim: zero pool");
+
+        lobToken = IERC20(_lobToken);
+        attestor = _attestor;
+        claimWindowStart = _claimWindowStart;
+        claimWindowEnd = _claimWindowEnd;
+        maxAirdropPool = _maxAirdropPool;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ATTESTOR_ROLE, _attestor);
+    }
+
+    function submitAttestation(
+        bytes32 workspaceHash,
+        bytes32 heartbeatMerkleRoot,
+        uint256 uptimeDays,
+        uint256 channelCount,
+        uint256 toolCallCount,
+        bytes calldata signature
+    ) external nonReentrant whenNotPaused {
+        require(block.timestamp >= claimWindowStart, "AirdropClaim: not started");
+        require(block.timestamp <= claimWindowEnd, "AirdropClaim: window closed");
+        require(!_claims[msg.sender].claimed, "AirdropClaim: already claimed");
+        require(!_usedWorkspaceHashes[workspaceHash], "AirdropClaim: duplicate workspace");
+
+        _verifyAndProcessAttestation(
+            workspaceHash, heartbeatMerkleRoot,
+            uptimeDays, channelCount, toolCallCount, signature
+        );
+    }
+
+    function claim(bytes32[] calldata merkleProof) external nonReentrant whenNotPaused {
+        require(block.timestamp >= claimWindowStart, "AirdropClaim: not started");
+        require(block.timestamp <= claimWindowEnd, "AirdropClaim: window closed");
+        require(!_claims[msg.sender].claimed, "AirdropClaim: already claimed");
+        require(merkleRoot != bytes32(0), "AirdropClaim: no merkle root");
+
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(MerkleProof.verify(merkleProof, merkleRoot, leaf), "AirdropClaim: invalid proof");
+
+        uint256 totalAllocation = BASE_ALLOCATION;
+        require(totalClaimed + totalAllocation <= maxAirdropPool, "AirdropClaim: pool exhausted");
+
+        uint256 immediateRelease = (totalAllocation * IMMEDIATE_RELEASE_BPS) / 10000;
+        uint256 vestedAmount = totalAllocation - immediateRelease;
+
+        _claims[msg.sender] = ClaimInfo({
+            claimed: true,
+            amount: totalAllocation,
+            vestedAmount: vestedAmount,
+            claimedAt: block.timestamp,
+            tier: AttestationTier.New,
+            workspaceHash: bytes32(0)
+        });
+
+        totalClaimed += totalAllocation;
+        lobToken.safeTransfer(msg.sender, immediateRelease);
+
+        emit AirdropClaimed(msg.sender, totalAllocation, immediateRelease, AttestationTier.New);
+    }
+
+    function releaseVestedTokens() external nonReentrant {
+        ClaimInfo storage info = _claims[msg.sender];
+        require(info.claimed, "AirdropClaim: not claimed");
+        require(info.vestedAmount > 0, "AirdropClaim: fully vested");
+
+        uint256 elapsed = block.timestamp - info.claimedAt;
+        if (elapsed > VESTING_DURATION) elapsed = VESTING_DURATION;
+
+        uint256 totalVestable = info.amount - (info.amount * IMMEDIATE_RELEASE_BPS / 10000);
+        uint256 vestedSoFar = (totalVestable * elapsed) / VESTING_DURATION;
+        uint256 alreadyReleased = totalVestable - info.vestedAmount;
+
+        require(vestedSoFar > alreadyReleased, "AirdropClaim: nothing to release");
+        uint256 releasable = vestedSoFar - alreadyReleased;
+
+        info.vestedAmount -= releasable;
+        lobToken.safeTransfer(msg.sender, releasable);
+
+        emit VestedTokensReleased(msg.sender, releasable);
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) { _pause(); }
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) { _unpause(); }
+
+    function setMerkleRoot(bytes32 _merkleRoot) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        merkleRoot = _merkleRoot;
+        emit MerkleRootUpdated(_merkleRoot);
+    }
+
+    function setAttestor(address _attestor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_attestor != address(0), "AirdropClaim: zero attestor");
+        _revokeRole(ATTESTOR_ROLE, attestor);
+        attestor = _attestor;
+        _grantRole(ATTESTOR_ROLE, _attestor);
+    }
+
+    function recoverTokens(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(block.timestamp > claimWindowEnd, "AirdropClaim: window active");
+        uint256 balance = lobToken.balanceOf(address(this));
+        lobToken.safeTransfer(to, balance);
+    }
+
+    function getClaimInfo(address claimant) external view returns (ClaimInfo memory) {
+        return _claims[claimant];
+    }
+
+    function isWorkspaceHashUsed(bytes32 hash) external view returns (bool) {
+        return _usedWorkspaceHashes[hash];
+    }
+
+    function _verifyAndProcessAttestation(
+        bytes32 workspaceHash,
+        bytes32 heartbeatMerkleRoot,
+        uint256 uptimeDays,
+        uint256 channelCount,
+        uint256 toolCallCount,
+        bytes calldata signature
+    ) internal {
+        bytes32 messageHash = keccak256(abi.encodePacked(
+            msg.sender, workspaceHash, heartbeatMerkleRoot,
+            uptimeDays, channelCount, toolCallCount
+        ));
+        bytes32 ethSignedHash = messageHash.toEthSignedMessageHash();
+        address signer = ethSignedHash.recover(signature);
+        require(hasRole(ATTESTOR_ROLE, signer), "AirdropClaim: invalid signature");
+
+        AttestationTier tier = _determineTier(uptimeDays, channelCount, toolCallCount);
+        _usedWorkspaceHashes[workspaceHash] = true;
+
+        uint256 totalAllocation = _calculateAllocation(tier);
+        require(totalClaimed + totalAllocation <= maxAirdropPool, "AirdropClaim: pool exhausted");
+
+        uint256 immediateRelease = (totalAllocation * IMMEDIATE_RELEASE_BPS) / 10000;
+
+        _claims[msg.sender] = ClaimInfo({
+            claimed: true,
+            amount: totalAllocation,
+            vestedAmount: totalAllocation - immediateRelease,
+            claimedAt: block.timestamp,
+            tier: tier,
+            workspaceHash: workspaceHash
+        });
+
+        totalClaimed += totalAllocation;
+        lobToken.safeTransfer(msg.sender, immediateRelease);
+
+        emit AttestationSubmitted(msg.sender, workspaceHash, tier);
+        emit AirdropClaimed(msg.sender, totalAllocation, immediateRelease, tier);
+    }
+
+    function _calculateAllocation(AttestationTier tier) internal pure returns (uint256) {
+        uint256 multiplier = 100;
+        if (tier == AttestationTier.Active) multiplier = ACTIVE_MULTIPLIER;
+        if (tier == AttestationTier.PowerUser) multiplier = POWER_USER_MULTIPLIER;
+        return (BASE_ALLOCATION * multiplier) / 100;
+    }
+
+    function _determineTier(
+        uint256 uptimeDays,
+        uint256 channelCount,
+        uint256 toolCallCount
+    ) internal pure returns (AttestationTier) {
+        if (
+            uptimeDays >= POWER_USER_MIN_UPTIME &&
+            channelCount >= POWER_USER_MIN_CHANNELS &&
+            toolCallCount >= POWER_USER_MIN_TOOL_CALLS
+        ) {
+            return AttestationTier.PowerUser;
+        }
+        if (
+            uptimeDays >= ACTIVE_MIN_UPTIME &&
+            channelCount >= ACTIVE_MIN_CHANNELS &&
+            toolCallCount >= ACTIVE_MIN_TOOL_CALLS
+        ) {
+            return AttestationTier.Active;
+        }
+        return AttestationTier.New;
+    }
+}`,
+  },
+  {
+    name: "AirdropClaimV2",
+    fileName: "AirdropClaimV2.sol",
+    description:
+      "V2 airdrop with Groth16 zero-knowledge proof verification for Sybil-resistant distribution.",
+    lines: 233,
+    source: `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./interfaces/IAirdropClaimV2.sol";
+import "./verifiers/Groth16Verifier.sol";
+
+/**
+ * @title AirdropClaimV2
+ * @notice ZK proof-based airdrop claim contract for LOBSTR.
+ *         Replaces the trusted ECDSA attestor from V1 with zero-knowledge proofs.
+ *         Agents generate Groth16 proofs locally; the contract verifies on-chain.
+ *
+ *         Public signals: [workspaceHash, claimantAddress, tierIndex]
+ *         - workspaceHash: Poseidon(workspaceId, salt) commitment
+ *         - claimantAddress: must match msg.sender (prevents front-running)
+ *         - tierIndex: 0=New, 1=Active, 2=PowerUser (verified by circuit)
+ */
+contract AirdropClaimV2 is IAirdropClaimV2, AccessControl, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+    using ECDSA for bytes32;
+
+    IERC20 public immutable lobToken;
+    Groth16Verifier public immutable verifier;
+    address public immutable approvalSigner;
+    uint256 public immutable difficultyTarget;
+
+    uint256 public constant NEW_ALLOCATION = 1_000 ether;
+    uint256 public constant ACTIVE_ALLOCATION = 3_000 ether;
+    uint256 public constant POWER_USER_ALLOCATION = 6_000 ether;
+
+    uint256 public constant IMMEDIATE_RELEASE_BPS = 2500;
+    uint256 public constant VESTING_DURATION = 180 days;
+
+    uint256 public immutable maxAirdropPool;
+    uint256 public immutable claimWindowStart;
+    uint256 public immutable claimWindowEnd;
+    address public immutable v1Contract;
+
+    mapping(address => ClaimInfo) private _claims;
+    mapping(uint256 => bool) private _usedWorkspaceHashes;
+    mapping(bytes32 => bool) private _usedApprovals;
+    uint256 public totalClaimed;
+
+    constructor(
+        address _lobToken,
+        address _verifier,
+        uint256 _claimWindowStart,
+        uint256 _claimWindowEnd,
+        address _v1Contract,
+        address _approvalSigner,
+        uint256 _difficultyTarget,
+        uint256 _maxAirdropPool
+    ) {
+        require(_lobToken != address(0), "AirdropClaimV2: zero token");
+        require(_verifier != address(0), "AirdropClaimV2: zero verifier");
+        require(_claimWindowEnd > _claimWindowStart, "AirdropClaimV2: invalid window");
+        require(_approvalSigner != address(0), "AirdropClaimV2: zero signer");
+        require(_difficultyTarget > 0, "AirdropClaimV2: zero difficulty");
+        require(_maxAirdropPool > 0, "AirdropClaimV2: zero pool");
+
+        lobToken = IERC20(_lobToken);
+        verifier = Groth16Verifier(_verifier);
+        claimWindowStart = _claimWindowStart;
+        claimWindowEnd = _claimWindowEnd;
+        v1Contract = _v1Contract;
+        approvalSigner = _approvalSigner;
+        difficultyTarget = _difficultyTarget;
+        maxAirdropPool = _maxAirdropPool;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function submitProof(
+        uint256[2] calldata pA,
+        uint256[2][2] calldata pB,
+        uint256[2] calldata pC,
+        uint256[3] calldata pubSignals,
+        bytes calldata approvalSig,
+        uint256 powNonce
+    ) external nonReentrant whenNotPaused {
+        require(block.timestamp >= claimWindowStart, "AirdropClaimV2: not started");
+        require(block.timestamp <= claimWindowEnd, "AirdropClaimV2: window closed");
+        require(!_claims[msg.sender].claimed, "AirdropClaimV2: already claimed");
+
+        uint256 workspaceHash = pubSignals[0];
+        uint256 claimantAddress = pubSignals[1];
+        uint256 tierIndex = pubSignals[2];
+
+        require(
+            claimantAddress == uint256(uint160(msg.sender)),
+            "AirdropClaimV2: address mismatch"
+        );
+        require(!_usedWorkspaceHashes[workspaceHash], "AirdropClaimV2: duplicate workspace");
+        require(tierIndex <= 2, "AirdropClaimV2: invalid tier");
+
+        // IP gate
+        bytes32 msgHash = keccak256(abi.encodePacked(msg.sender, workspaceHash, "LOBSTR_AIRDROP_APPROVAL"));
+        bytes32 ethHash = msgHash.toEthSignedMessageHash();
+        require(!_usedApprovals[ethHash], "AirdropClaimV2: approval already used");
+        _usedApprovals[ethHash] = true;
+        require(ethHash.recover(approvalSig) == approvalSigner, "AirdropClaimV2: invalid approval");
+
+        // PoW
+        require(
+            uint256(keccak256(abi.encodePacked(workspaceHash, msg.sender, powNonce))) < difficultyTarget,
+            "AirdropClaimV2: insufficient PoW"
+        );
+
+        // Verify ZK proof
+        require(
+            verifier.verifyProof(pA, pB, pC, pubSignals),
+            "AirdropClaimV2: invalid proof"
+        );
+
+        _usedWorkspaceHashes[workspaceHash] = true;
+
+        AttestationTier tier = AttestationTier(tierIndex);
+        uint256 totalAllocation = _getAllocation(tier);
+        require(totalClaimed + totalAllocation <= maxAirdropPool, "AirdropClaimV2: pool exhausted");
+
+        uint256 immediateRelease = (totalAllocation * IMMEDIATE_RELEASE_BPS) / 10000;
+        uint256 vestedAmount = totalAllocation - immediateRelease;
+
+        _claims[msg.sender] = ClaimInfo({
+            claimed: true,
+            amount: totalAllocation,
+            vestedAmount: vestedAmount,
+            claimedAt: block.timestamp,
+            tier: tier,
+            workspaceHash: workspaceHash
+        });
+
+        totalClaimed += totalAllocation;
+        lobToken.safeTransfer(msg.sender, immediateRelease);
+
+        emit ProofSubmitted(msg.sender, workspaceHash, tier);
+        emit AirdropClaimed(msg.sender, totalAllocation, immediateRelease, tier);
+    }
+
+    function releaseVestedTokens() external nonReentrant {
+        ClaimInfo storage info = _claims[msg.sender];
+        require(info.claimed, "AirdropClaimV2: not claimed");
+        require(info.vestedAmount > 0, "AirdropClaimV2: fully vested");
+
+        uint256 elapsed = block.timestamp - info.claimedAt;
+        if (elapsed > VESTING_DURATION) elapsed = VESTING_DURATION;
+
+        uint256 totalVestable = info.amount - (info.amount * IMMEDIATE_RELEASE_BPS / 10000);
+        uint256 vestedSoFar = (totalVestable * elapsed) / VESTING_DURATION;
+        uint256 alreadyReleased = totalVestable - info.vestedAmount;
+
+        require(vestedSoFar > alreadyReleased, "AirdropClaimV2: nothing to release");
+        uint256 releasable = vestedSoFar - alreadyReleased;
+
+        info.vestedAmount -= releasable;
+        lobToken.safeTransfer(msg.sender, releasable);
+
+        emit VestedTokensReleased(msg.sender, releasable);
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) { _pause(); }
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) { _unpause(); }
+
+    function recoverTokens(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(block.timestamp > claimWindowEnd, "AirdropClaimV2: window active");
+        uint256 balance = lobToken.balanceOf(address(this));
+        lobToken.safeTransfer(to, balance);
+    }
+
+    function getClaimInfo(address claimant) external view returns (ClaimInfo memory) {
+        return _claims[claimant];
+    }
+
+    function isWorkspaceHashUsed(uint256 hash) external view returns (bool) {
+        return _usedWorkspaceHashes[hash];
+    }
+
+    function _getAllocation(AttestationTier tier) internal pure returns (uint256) {
+        if (tier == AttestationTier.PowerUser) return POWER_USER_ALLOCATION;
+        if (tier == AttestationTier.Active) return ACTIVE_ALLOCATION;
+        return NEW_ALLOCATION;
+    }
+}`,
+  },
 ];

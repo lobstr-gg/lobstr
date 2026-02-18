@@ -193,12 +193,14 @@ function TreasuryOverview() {
 
       {/* TODO: Add ETH and USDC balance reads when treasury holds multiple tokens */}
 
-      <Link
-        href="/dao/treasury"
+      <a
+        href="https://basescan.org/address/0x9576dcf9909ec192FC136A12De293Efab911517f"
+        target="_blank"
+        rel="noopener noreferrer"
         className="block text-center text-[10px] text-lob-green hover:underline mt-3"
       >
-        View Full Treasury Details
-      </Link>
+        View on Basescan
+      </a>
     </div>
   );
 }
@@ -535,18 +537,12 @@ export default function DaoPage() {
                         Ending Soon
                       </option>
                     </select>
-                    <Link href="/dao/bounties/create">
-                      <motion.span
-                        className="btn-primary inline-flex items-center gap-1 text-xs whitespace-nowrap"
-                        whileHover={{
-                          boxShadow:
-                            "0 0 20px rgba(0,214,114,0.2)",
-                        }}
-                        whileTap={{ scale: 0.97 }}
-                      >
-                        + Post Bounty
-                      </motion.span>
-                    </Link>
+                    <motion.span
+                      className="btn-primary inline-flex items-center gap-1 text-xs whitespace-nowrap opacity-50 cursor-not-allowed"
+                      title="Coming soon — bounties will be available after Phase 2 governance launch"
+                    >
+                      + Post Bounty
+                    </motion.span>
                   </div>
 
                   {/* Row 2: Category pills */}

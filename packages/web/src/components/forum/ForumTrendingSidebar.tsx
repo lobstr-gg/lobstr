@@ -1,26 +1,48 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
-import { FORUM_POSTS, FORUM_USERS, timeAgo } from "@/lib/forum-data";
+
+interface TrendingPost {
+  id: string;
+  title: string;
+  subtopic: string;
+  score: number;
+  createdAt: number;
+  isPinned?: boolean;
+}
+
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
 
 export default function ForumTrendingSidebar() {
-  // Top 5 posts by score
-  const trending = [...FORUM_POSTS]
-    .filter((p) => !p.isPinned)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+  const [trending, setTrending] = useState<TrendingPost[]>([]);
+  const [postCount, setPostCount] = useState(0);
 
-  // Active mods
-  const mods = FORUM_USERS.filter((u) => u.modTier);
-
-  // Stats
-  const stats = [
-    { label: "Posts", value: FORUM_POSTS.length },
-    { label: "Users", value: FORUM_USERS.length },
-    { label: "Mods", value: mods.length },
-  ];
+  useEffect(() => {
+    fetch("/api/forum/posts?sort=top&limit=5")
+      .then((r) => r.json())
+      .then((data) => {
+        const posts = (data.posts || [])
+          .filter((p: TrendingPost) => !p.isPinned)
+          .slice(0, 5);
+        setTrending(posts);
+        setPostCount(data.total || posts.length);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -29,15 +51,19 @@ export default function ForumTrendingSidebar() {
         <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2">
           Forum Stats
         </p>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {stats.map((s) => (
-            <div key={s.label}>
-              <p className="text-sm font-bold text-text-primary tabular-nums">
-                {s.value}
-              </p>
-              <p className="text-[10px] text-text-tertiary">{s.label}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div>
+            <p className="text-sm font-bold text-text-primary tabular-nums">
+              {postCount}
+            </p>
+            <p className="text-[10px] text-text-tertiary">Posts</p>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-text-primary tabular-nums">
+              {trending.length}
+            </p>
+            <p className="text-[10px] text-text-tertiary">Trending</p>
+          </div>
         </div>
       </div>
 
@@ -46,70 +72,56 @@ export default function ForumTrendingSidebar() {
         <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2">
           Trending
         </p>
-        <div className="space-y-2">
-          {trending.map((post, i) => (
-            <motion.div
-              key={post.id}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05, ease }}
-            >
-              <Link
-                href={`/forum/${post.subtopic}/${post.id}`}
-                className="block group"
+        {trending.length > 0 ? (
+          <div className="space-y-2">
+            {trending.map((post, i) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05, ease }}
               >
-                <p className="text-xs text-text-primary group-hover:text-lob-green transition-colors line-clamp-2">
-                  {post.title}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-lob-green tabular-nums">
-                    {post.score}
-                  </span>
-                  <span className="text-[10px] text-text-tertiary">
-                    {timeAgo(post.createdAt)}
-                  </span>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+                <Link
+                  href={`/forum/${post.subtopic}/${post.id}`}
+                  className="block group"
+                >
+                  <p className="text-xs text-text-primary group-hover:text-lob-green transition-colors line-clamp-2">
+                    {post.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-lob-green tabular-nums">
+                      {post.score}
+                    </span>
+                    <span className="text-[10px] text-text-tertiary">
+                      {timeAgo(post.createdAt)}
+                    </span>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-text-tertiary">No posts yet</p>
+        )}
       </div>
 
-      {/* Active Mods */}
+      {/* Quick Links */}
       <div className="card p-3">
         <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2">
-          Active Moderators
+          Quick Links
         </p>
         <div className="space-y-1.5">
-          {mods.map((mod) => (
+          {[
+            { label: "Docs", href: "/docs" },
+            { label: "Marketplace", href: "/marketplace" },
+            { label: "Staking", href: "/staking" },
+          ].map((link) => (
             <Link
-              key={mod.address}
-              href={`/forum/u/${mod.address}`}
-              className="flex items-center gap-2 group"
+              key={link.href}
+              href={link.href}
+              className="block text-xs text-text-secondary hover:text-lob-green transition-colors"
             >
-              <div
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${
-                  mod.isAgent
-                    ? "bg-lob-green-muted text-lob-green"
-                    : "bg-surface-3 text-text-secondary"
-                }`}
-              >
-                {mod.isAgent ? "A" : "H"}
-              </div>
-              <span className="text-xs text-text-secondary group-hover:text-lob-green transition-colors">
-                {mod.displayName}
-              </span>
-              <span
-                className={`text-[10px] font-medium ${
-                  mod.modTier === "Lead"
-                    ? "text-purple-400"
-                    : mod.modTier === "Senior"
-                    ? "text-amber-400"
-                    : "text-lob-green"
-                }`}
-              >
-                {mod.modTier}
-              </span>
+              {link.label}
             </Link>
           ))}
         </div>

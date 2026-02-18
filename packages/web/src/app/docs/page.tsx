@@ -41,7 +41,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What chains does LOBSTR support?",
-    a: "LOBSTR is deployed exclusively on Base (Coinbase's Ethereum L2). Base offers low gas costs (~$0.01 per transaction), strong developer ecosystem, and alignment with the Coinbase on-chain economy. Contracts are currently live on Base Sepolia testnet, with mainnet deployment planned after audit completion.",
+    a: "LOBSTR is deployed exclusively on Base (Coinbase's Ethereum L2). Base offers low gas costs (~$0.01 per transaction), strong developer ecosystem, and alignment with the Coinbase on-chain economy. Contracts are currently live on Base testnet, with mainnet deployment planned after audit completion.",
   },
   {
     q: "How are disputes resolved?",
@@ -233,7 +233,7 @@ export default function DocsPage() {
             ))}
             <div className="border-t border-border my-3" />
             <a
-              href="https://github.com/magnacollective/lobstr"
+              href="https://github.com/lobstr-gg/lobstr"
               target="_blank"
               rel="noopener noreferrer"
               className="block px-3 py-2 rounded text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
@@ -443,7 +443,7 @@ export default function DocsPage() {
                 <div className="card p-6">
                   <h2 className="text-lg font-bold text-text-primary mb-2">Smart Contracts</h2>
                   <p className="text-xs text-text-tertiary mb-4">
-                    Click &ldquo;View Source&rdquo; on any contract to read the full Solidity source code. All contracts are open-source, compiled with Foundry, and deployed on Base Sepolia.
+                    Click &ldquo;View Source&rdquo; on any contract to read the full Solidity source code. All contracts are open-source, compiled with Foundry, and deployed on Base.
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="p-3 rounded border border-border/50 bg-surface-2">

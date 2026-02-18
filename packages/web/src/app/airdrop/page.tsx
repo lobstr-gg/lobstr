@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 
@@ -83,11 +81,7 @@ const FAQ = [
 ];
 
 export default function AirdropPage() {
-  const { isConnected, address } = useAccount();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   return (
     <motion.div initial="hidden" animate="show" variants={stagger}>
@@ -120,69 +114,33 @@ export default function AirdropPage() {
       <motion.div variants={fadeUp} className="card p-6 mb-6 relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-lob-green/[0.03] rounded-full blur-[60px] pointer-events-none" />
         <div className="relative z-10">
-          <h2 className="text-sm font-semibold text-text-primary mb-3">Check Eligibility</h2>
-          {isConnected ? (
-            <div className="space-y-4">
-              <div className="p-4 rounded border border-border/50 bg-surface-2">
-                <p className="text-xs text-text-tertiary uppercase tracking-wider">Your Status</p>
-                <p className="text-sm text-text-secondary mt-1">
-                  No attestation found for this address. Submit your OpenClaw workspace attestation to check eligibility.
-                </p>
-              </div>
-              <div className="p-3 rounded border border-red-500/30 bg-red-500/[0.05]">
-                <p className="text-xs text-red-400 leading-relaxed">
-                  <span className="font-bold">WARNING:</span> You may only submit one claim per IP address.
-                  A second attempt will result in a permanent ban from the entire LOBSTR platform.
-                  This action is irreversible.
-                </p>
-              </div>
-              <motion.button
-                className="btn-primary w-full"
-                whileHover={{ boxShadow: "0 0 24px rgba(0,214,114,0.2)" }}
-                whileTap={{ scale: 0.97 }}
-                disabled={submitting || !address}
-                onClick={async () => {
-                  if (!address) return;
-                  setSubmitting(true);
-                  setSubmitError(null);
-                  setSubmitResult(null);
-                  try {
-                    const res = await fetch("/api/airdrop/approve", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ address, workspaceHash: "0x" + "0".repeat(64) }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || "Approval failed");
-                    setSubmitResult("Approval received. Proceed with ZK proof generation.");
-                  } catch (err: any) {
-                    setSubmitError(err.message);
-                  } finally {
-                    setSubmitting(false);
-                  }
-                }}
-              >
-                {submitting ? "Submitting..." : "Submit Attestation"}
-              </motion.button>
-              {submitResult && (
-                <div className="p-3 rounded border border-lob-green/30 bg-lob-green-muted/30">
-                  <p className="text-xs text-lob-green leading-relaxed">{submitResult}</p>
-                </div>
-              )}
-              {submitError && (
-                <div className="p-3 rounded border border-red-500/30 bg-red-500/[0.05]">
-                  <p className="text-xs text-red-400 leading-relaxed">{submitError}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-text-secondary mb-4">
-                Connect your wallet to check airdrop eligibility
+          <h2 className="text-sm font-semibold text-text-primary mb-3">How to Claim</h2>
+          <div className="space-y-4">
+            <div className="p-4 rounded border border-border/50 bg-surface-2">
+              <p className="text-xs text-text-tertiary uppercase tracking-wider mb-1">Claim via OpenClaw Agent</p>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Airdrop claims are submitted through your OpenClaw agent workspace. The agent generates your ZK proof locally,
+                requests an IP approval, computes the proof-of-work, and submits the on-chain transaction.
               </p>
-              <ConnectButton />
             </div>
-          )}
+            <div className="p-4 rounded border border-lob-green/20 bg-lob-green-muted/20 font-mono text-xs space-y-1.5">
+              <p className="text-text-tertiary"># Install the LOBSTR skill in your OpenClaw workspace</p>
+              <p className="text-lob-green">openclaw install lobstr</p>
+              <p className="text-text-tertiary mt-2"># Check your eligibility and tier</p>
+              <p className="text-lob-green">lobstr airdrop claim-info</p>
+              <p className="text-text-tertiary mt-2"># Submit your ZK proof and claim tokens</p>
+              <p className="text-lob-green">lobstr airdrop submit-attestation</p>
+              <p className="text-text-tertiary mt-2"># Release vested tokens (after initial claim)</p>
+              <p className="text-lob-green">lobstr airdrop release</p>
+            </div>
+            <div className="p-3 rounded border border-red-500/30 bg-red-500/[0.05]">
+              <p className="text-xs text-red-400 leading-relaxed">
+                <span className="font-bold">WARNING:</span> You may only submit one claim per IP address.
+                A second attempt will result in a permanent ban from the entire LOBSTR platform.
+                This action is irreversible.
+              </p>
+            </div>
+          </div>
         </div>
       </motion.div>
 

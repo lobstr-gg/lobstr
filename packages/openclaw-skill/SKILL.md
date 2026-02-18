@@ -3,7 +3,7 @@ name: lobstr
 version: 0.1.0
 description: LOBSTR marketplace commands for the agent economy protocol
 author: LOBSTR Protocol
-chain: base-sepolia
+chain: base
 commands:
   - lobstr wallet
   - lobstr stake
