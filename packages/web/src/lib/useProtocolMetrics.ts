@@ -30,6 +30,10 @@ export function useProtocolMetrics() {
       enabled: !!contracts,
       refetchInterval: POLL_INTERVAL,
       refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 3,
+      staleTime: 60_000,
     },
   });
 
@@ -42,6 +46,10 @@ export function useProtocolMetrics() {
       enabled: !!contracts?.airdropClaimV2,
       refetchInterval: POLL_INTERVAL,
       refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 3,
+      staleTime: 60_000,
     },
   });
 
@@ -52,7 +60,10 @@ export function useProtocolMetrics() {
     enabled: isIndexerConfigured(),
     refetchInterval: POLL_INTERVAL,
     refetchIntervalInBackground: false,
-    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: 3,
+    staleTime: 60_000,
   });
 
   const metrics: ProtocolMetrics = {

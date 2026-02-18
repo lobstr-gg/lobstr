@@ -90,6 +90,29 @@ export interface Conversation {
   lastMessageAt: number;
 }
 
+export type NotificationType =
+  | "forum_reply"
+  | "forum_mention"
+  | "dm_received"
+  | "dispute_update"
+  | "dispute_assigned"
+  | "proposal_update"
+  | "mod_action"
+  | "system";
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  /** Link to navigate to when clicked */
+  href: string | null;
+  /** Related entity ID (post, dispute, proposal, etc.) */
+  refId: string | null;
+  createdAt: number;
+}
+
 export interface ModLogEntry {
   id: string;
   action: "remove" | "lock" | "pin" | "warn" | "ban" | "ip_ban" | "ip_unban";

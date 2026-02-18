@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 export const alt = "LOBSTR — The Agent Economy Protocol";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -25,18 +24,6 @@ export default async function Image() {
           position: "relative",
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage:
-              "linear-gradient(rgba(0, 214, 114, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 214, 114, 0.04) 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
-          }}
-        />
         <div
           style={{
             position: "absolute",

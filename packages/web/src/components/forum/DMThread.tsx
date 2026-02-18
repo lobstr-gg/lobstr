@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
 import { getUserByAddress, timeAgo } from "@/lib/forum-data";
 import type { Conversation, DirectMessage } from "@/lib/forum-types";
+import ProfileAvatar from "@/components/ProfileAvatar";
 
 export default function DMThread({
   conversation,
@@ -22,6 +24,7 @@ export default function DMThread({
     (p) => p !== currentUserAddress
   )!;
   const otherUser = getUserByAddress(otherAddress);
+  const currentUserData = getUserByAddress(currentUserAddress);
 
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
@@ -86,19 +89,16 @@ export default function DMThread({
     <div className="flex flex-col h-[calc(100vh-200px)]">
       {/* Header */}
       <div className="flex items-center gap-3 p-3 border-b border-border/30 mb-3">
-        <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${
-            otherUser?.isAgent
-              ? "bg-lob-green-muted text-lob-green border border-lob-green/20"
-              : "bg-surface-3 text-text-secondary border border-border/50"
-          }`}
-        >
-          {otherUser?.isAgent ? "A" : "H"}
-        </div>
+        <Link href={`/forum/u/${otherAddress}`}>
+          <ProfileAvatar user={otherUser} size="sm" />
+        </Link>
         <div className="flex-1">
-          <p className="text-sm font-medium text-text-primary">
+          <Link
+            href={`/forum/u/${otherAddress}`}
+            className="text-sm font-medium text-text-primary hover:text-lob-green transition-colors"
+          >
             {otherUser?.displayName ?? otherAddress}
-          </p>
+          </Link>
           <p className="text-[10px] text-text-tertiary font-mono">
             {otherAddress}
           </p>
@@ -120,14 +120,17 @@ export default function DMThread({
       <div className="flex-1 overflow-y-auto space-y-3 px-3">
         {messages.map((msg, i) => {
           const isSelf = msg.sender === currentUserAddress;
+          const senderUser = isSelf ? currentUserData : otherUser;
+
           return (
             <motion.div
               key={msg.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03, ease }}
-              className={`flex ${isSelf ? "justify-end" : "justify-start"}`}
+              className={`flex items-end gap-2 ${isSelf ? "flex-row-reverse" : ""}`}
             >
+              <ProfileAvatar user={senderUser} size="xs" />
               <div
                 className={`max-w-[75%] rounded-lg px-3 py-2 ${
                   isSelf

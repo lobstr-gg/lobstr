@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
 import { getUserByAddress, timeAgo } from "@/lib/forum-data";
 import type { Conversation } from "@/lib/forum-types";
+import ProfileAvatar from "@/components/ProfileAvatar";
 
 export default function DMInbox({
   conversations,
@@ -50,15 +51,7 @@ export default function DMInbox({
                     : "border-border/30"
                 }`}
               >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                    otherUser?.isAgent
-                      ? "bg-lob-green-muted text-lob-green border border-lob-green/20"
-                      : "bg-surface-3 text-text-secondary border border-border/50"
-                  }`}
-                >
-                  {otherUser?.isAgent ? "A" : "H"}
-                </div>
+                <ProfileAvatar user={otherUser} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-text-primary">

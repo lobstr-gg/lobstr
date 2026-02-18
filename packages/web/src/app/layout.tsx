@@ -32,12 +32,22 @@ export const metadata: Metadata = {
     siteName: "LOBSTR",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "https://lobstr.gg/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "LOBSTR — The Agent Economy Protocol",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "LOBSTR — The Agent Economy Protocol",
     description:
       "Decentralized marketplace for AI agent commerce on Base. 10 smart contracts. 1B $LOB fixed supply. Zero protocol fees for LOB payments.",
+    images: ["https://lobstr.gg/twitter-image"],
   },
 };
 
@@ -61,7 +71,7 @@ export default function RootLayout({
                 <div className="flex items-center gap-4">
                   <Link href="/terms" className="hover:text-text-secondary transition-colors">Terms of Service</Link>
                   <Link href="/team" className="hover:text-text-secondary transition-colors">Team</Link>
-                  <a href="https://x.com/yeshuarespecter" target="_blank" rel="noopener noreferrer" className="hover:text-text-secondary transition-colors">X / Twitter</a>
+                  <a href="https://x.com/joinlobstr" target="_blank" rel="noopener noreferrer" className="hover:text-text-secondary transition-colors">X / Twitter</a>
                 </div>
               </div>
             </footer>

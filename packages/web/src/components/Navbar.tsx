@@ -8,10 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
 import { useChainId, useAccount } from "wagmi";
 import { getContracts, CHAIN } from "@/config/contracts";
+import { useForum } from "@/lib/forum-context";
+import NotificationCenter from "@/components/NotificationCenter";
+import ProfileAvatar from "@/components/ProfileAvatar";
 
 const NAV_LINKS = [
   { href: "/marketplace", label: "Marketplace" },
-  { href: "/post-job", label: "Post Job" },
   { href: "/jobs", label: "Dashboard" },
   { href: "/staking", label: "Staking" },
   { href: "/disputes", label: "Disputes" },
@@ -22,33 +24,6 @@ const NAV_LINKS = [
   { href: "/team", label: "Team" },
   { href: "/airdrop", label: "Airdrop" },
 ];
-
-function useUnreadDMCount(): number {
-  const { address, isConnected } = useAccount();
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (!isConnected || !address) {
-      setCount(0);
-      return;
-    }
-    fetch("/api/forum/messages", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.conversations) {
-          const total = data.conversations.reduce(
-            (sum: number, c: { unreadCount?: number }) =>
-              sum + (c.unreadCount || 0),
-            0
-          );
-          setCount(total);
-        }
-      })
-      .catch(() => {});
-  }, [isConnected, address]);
-
-  return count;
-}
 
 function getContractAddresses() {
   const c = getContracts(CHAIN.id);
@@ -150,7 +125,7 @@ export function Navbar() {
   const pathname = usePathname();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
-  const unreadDMCount = useUnreadDMCount();
+  const { unreadDMCount } = useForum();
 
   return (
     <nav className="border-b border-border/60 bg-black/80 backdrop-blur-xl sticky top-0 z-40">
@@ -210,6 +185,12 @@ export function Navbar() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Notifications */}
+            <div className="hidden sm:block">
+              <NotificationCenter pathname={pathname} />
+            </div>
+
+            {/* Messages */}
             <Link href="/forum/messages" className="relative group hidden sm:block">
               <motion.div
                 className={`p-2 rounded transition-colors ${
@@ -230,9 +211,16 @@ export function Navbar() {
                 )}
               </motion.div>
             </Link>
+
+            {/* Contract Addresses */}
             <div className="hidden sm:block">
               <CaPopout />
             </div>
+
+            {/* Profile Menu */}
+            <ProfileMenu pathname={pathname} />
+
+            {/* Wallet (shown only when not connected) */}
             <div className="[&_button]:!px-2 [&_button]:!py-1.5 [&_button]:!text-xs sm:[&_button]:!px-3 sm:[&_button]:!py-2 sm:[&_button]:!text-sm">
               <ConnectButton
                 chainStatus="icon"
@@ -248,9 +236,88 @@ export function Navbar() {
   );
 }
 
+function ProfileMenu({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { currentUser, isAuthenticated } = useForum();
+  const { address } = useAccount();
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  if (!isAuthenticated || !address) return null;
+
+  return (
+    <div className="relative hidden sm:block" ref={ref}>
+      <motion.button
+        onClick={() => setOpen(!open)}
+        className={`rounded-full transition-all ${
+          open ? "ring-2 ring-lob-green/40" : "hover:ring-2 hover:ring-border/40"
+        }`}
+        whileTap={{ scale: 0.95 }}
+      >
+        <ProfileAvatar user={currentUser} size="sm" />
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-border/60 bg-black/95 backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
+          >
+            <div className="px-3 py-2.5 border-b border-border/30">
+              <p className="text-xs font-medium text-text-primary truncate">
+                {currentUser?.displayName ?? `${address.slice(0, 6)}...${address.slice(-4)}`}
+              </p>
+              <p className="text-[10px] text-text-tertiary font-mono mt-0.5">
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </p>
+            </div>
+            <div className="py-1">
+              <Link
+                href={`/forum/u/${address}`}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-surface-2 ${
+                  pathname === `/forum/u/${address}` ? "text-lob-green" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+                My Profile
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-surface-2 ${
+                  pathname === "/settings" ? "text-lob-green" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Settings
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function MobileMenu({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
-  const unreadDMCount = useUnreadDMCount();
+  const { unreadDMCount, unreadNotificationCount } = useForum();
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -324,6 +391,27 @@ function MobileMenu({ pathname }: { pathname: string }) {
                   );
                 })}
                 <div className="mx-4 my-2 h-px bg-border/30" />
+
+                {/* Notifications (mobile) */}
+                <Link
+                  href="/forum"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between px-4 py-3 text-sm text-text-primary hover:bg-surface-2 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                    </svg>
+                    Notifications
+                  </span>
+                  {unreadNotificationCount > 0 && (
+                    <span className="min-w-[20px] h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
+                      {unreadNotificationCount}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Messages (mobile) */}
                 <Link
                   href="/forum/messages"
                   onClick={() => setOpen(false)}

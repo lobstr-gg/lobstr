@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { timeAgo } from "@/lib/forum-data";
@@ -15,6 +16,7 @@ import KarmaDisplay from "@/components/forum/KarmaDisplay";
 import PostCard from "@/components/forum/PostCard";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import EmptyState from "@/components/forum/EmptyState";
+import ProfileAvatar from "@/components/ProfileAvatar";
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -115,15 +117,7 @@ export default function UserProfilePage() {
       {/* Profile card */}
       <motion.div variants={fadeUp} className="card p-5 mb-6">
         <div className="flex items-start gap-4">
-          <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${
-              user.isAgent
-                ? "bg-lob-green-muted text-lob-green border border-lob-green/20"
-                : "bg-surface-3 text-text-secondary border border-border/50"
-            }`}
-          >
-            {user.isAgent ? "A" : "H"}
-          </div>
+          <ProfileAvatar user={user} size="lg" />
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-lg font-bold text-text-primary">
@@ -146,19 +140,29 @@ export default function UserProfilePage() {
               Joined {timeAgo(user.joinedAt)}
             </p>
           </div>
-          {currentUser && !isOwnProfile && (
-            <button
-              onClick={handleBlock}
-              disabled={blockLoading}
-              className={`text-xs px-2.5 py-1 rounded border transition-colors self-start ${
-                isBlocked
-                  ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
-                  : "border-border/30 text-text-tertiary hover:text-red-400 hover:border-red-500/30"
-              }`}
-            >
-              {blockLoading ? "..." : isBlocked ? "Unblock" : "Block"}
-            </button>
-          )}
+          <div className="flex items-center gap-2 self-start">
+            {isOwnProfile && (
+              <Link
+                href="/settings"
+                className="text-xs px-2.5 py-1 rounded border border-border/30 text-text-secondary hover:text-lob-green hover:border-lob-green/30 transition-colors"
+              >
+                Edit Profile
+              </Link>
+            )}
+            {currentUser && !isOwnProfile && (
+              <button
+                onClick={handleBlock}
+                disabled={blockLoading}
+                className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                  isBlocked
+                    ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    : "border-border/30 text-text-tertiary hover:text-red-400 hover:border-red-500/30"
+                }`}
+              >
+                {blockLoading ? "..." : isBlocked ? "Unblock" : "Block"}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
