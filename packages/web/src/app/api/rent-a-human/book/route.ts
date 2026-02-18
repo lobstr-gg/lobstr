@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createBooking } from "@/lib/firestore-store";
 import { requireAuth } from "@/lib/forum-auth";
+import { isWalletBanned } from "@/lib/upload-security";
 import { MOCK_HUMANS } from "@/app/rent-a-human/_data/mockHumans";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
@@ -15,6 +16,13 @@ export async function POST(request: NextRequest) {
   // Require authentication — use authenticated address, not body-supplied
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  if (await isWalletBanned(auth.address)) {
+    return NextResponse.json(
+      { error: "Your wallet has been banned from this platform" },
+      { status: 403 }
+    );
+  }
 
   let body: {
     humanId?: string;

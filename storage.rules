@@ -13,6 +13,13 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Profile images: /profile-images/{fileName}
+    // Public read via makePublic(), writes via Admin SDK only
+    match /profile-images/{fileName} {
+      allow read: if false;
+      allow write: if false;
+    }
+
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/forum-auth";
+import { isWalletBanned } from "@/lib/upload-security";
 import {
   getPostById,
   updatePost,
@@ -7,6 +8,7 @@ import {
   getOrCreateUser,
   getCommentById,
   createComment,
+  createNotification,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
@@ -23,6 +25,13 @@ export async function POST(
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  if (await isWalletBanned(auth.address)) {
+    return NextResponse.json(
+      { error: "Your wallet has been banned from this platform" },
+      { status: 403 }
+    );
+  }
 
   const post = await getPostById(params.id);
   if (!post) {
@@ -88,6 +97,35 @@ export async function POST(
 
   await createComment(params.id, comment);
   await updatePost(params.id, { commentCount: post.commentCount + 1 });
+
+  // Notify the post author (if commenter is not the author)
+  if (post.author !== auth.address) {
+    createNotification(post.author, {
+      type: "forum_reply",
+      title: "New reply on your post",
+      body: `Someone replied to "${post.title.slice(0, 60)}"`,
+      read: false,
+      href: `/forum/${post.subtopic}/${post.id}`,
+      refId: comment.id,
+      createdAt: Date.now(),
+    }).catch(() => {});
+  }
+
+  // Notify the parent comment author (if replying to a comment)
+  if (parentId) {
+    const parent = await getCommentById(params.id, parentId);
+    if (parent && parent.author !== auth.address && parent.author !== post.author) {
+      createNotification(parent.author, {
+        type: "forum_reply",
+        title: "New reply to your comment",
+        body: `Someone replied to your comment on "${post.title.slice(0, 60)}"`,
+        read: false,
+        href: `/forum/${post.subtopic}/${post.id}`,
+        refId: comment.id,
+        createdAt: Date.now(),
+      }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({ comment }, { status: 201 });
 }

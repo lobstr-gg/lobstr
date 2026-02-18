@@ -8,10 +8,14 @@ import {
   createPost,
 } from "@/lib/firestore-store";
 import { requireAuth } from "@/lib/forum-auth";
+import { isWalletBanned } from "@/lib/upload-security";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
 // GET /api/forum/posts?subtopic=general&sort=hot&limit=25&offset=0
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(`forum-list:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const params = request.nextUrl.searchParams;
   const subtopic = (params.get("subtopic") || "all") as SubtopicId | "all";
   const sort = (params.get("sort") || "hot") as SortMode;
@@ -37,6 +41,13 @@ export async function POST(request: NextRequest) {
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  if (await isWalletBanned(auth.address)) {
+    return NextResponse.json(
+      { error: "Your wallet has been banned from this platform" },
+      { status: 403 }
+    );
+  }
 
   const body = await request.json();
   const { title, subtopic, flair, body: postBody } = body;

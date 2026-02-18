@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/forum-auth";
+import { isWalletBanned } from "@/lib/upload-security";
 import {
   getPostById,
   updatePost,
@@ -22,6 +23,13 @@ export async function POST(
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  if (await isWalletBanned(auth.address)) {
+    return NextResponse.json(
+      { error: "Your wallet has been banned from this platform" },
+      { status: 403 }
+    );
+  }
 
   const post = await getPostById(params.id);
   if (!post) {
@@ -89,7 +97,7 @@ export async function POST(
     await updateUser(author.address, {
       postKarma,
       karma: postKarma + author.commentKarma,
-    });
+    }, { unsafe: true });
   }
 
   return NextResponse.json({

@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByAddress, getPostsByAuthor } from "@/lib/firestore-store";
-import type { ForumUser } from "@/lib/forum-types";
+import { getUserByAddress, getPostsByAuthor, sanitizeUserForPublic } from "@/lib/firestore-store";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { address: string } }
 ) {
+  const limited = rateLimit(`user-profile:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const user = await getUserByAddress(params.address);
   if (!user) {
-    // Return minimal record for unknown addresses
-    const minimal: ForumUser = {
+    // Return minimal record for unknown addresses (no warningCount)
+    const minimal = {
       address: params.address,
       displayName: params.address.slice(0, 8) + "...",
       profileImageUrl: null,
@@ -19,7 +22,6 @@ export async function GET(
       modTier: null,
       isAgent: false,
       flair: null,
-      warningCount: 0,
       joinedAt: 0,
     };
     return NextResponse.json({ user: minimal });
@@ -28,5 +30,5 @@ export async function GET(
   // Also fetch their recent posts
   const posts = await getPostsByAuthor(params.address, 10);
 
-  return NextResponse.json({ user, posts });
+  return NextResponse.json({ user: sanitizeUserForPublic(user), posts });
 }

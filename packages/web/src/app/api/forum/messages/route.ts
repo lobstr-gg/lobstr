@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/forum-auth";
+import { isWalletBanned } from "@/lib/upload-security";
 import {
   getConversationsForUser,
   findConversationBetween,
@@ -7,6 +8,7 @@ import {
   addMessageToConversation,
   nextId,
   isBlockedEither,
+  createNotification,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
@@ -41,6 +43,13 @@ export async function POST(request: NextRequest) {
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  if (await isWalletBanned(auth.address)) {
+    return NextResponse.json(
+      { error: "Your wallet has been banned from this platform" },
+      { status: 403 }
+    );
+  }
 
   const body = await request.json();
   const { to, body: messageBody } = body;
@@ -98,6 +107,18 @@ export async function POST(request: NextRequest) {
       lastMessageAt: message.createdAt,
       unreadCount: convo.unreadCount + 1,
     });
+
+    // Notify recipient
+    createNotification(to, {
+      type: "dm_received",
+      title: "New message",
+      body: messageBody.slice(0, 100),
+      read: false,
+      href: `/forum/messages/${convo.id}`,
+      refId: message.id,
+      createdAt: Date.now(),
+    }).catch(() => {});
+
     return NextResponse.json(
       { message, conversationId: convo.id },
       { status: 201 }
@@ -113,6 +134,18 @@ export async function POST(request: NextRequest) {
       },
       message
     );
+
+    // Notify recipient
+    createNotification(to, {
+      type: "dm_received",
+      title: "New message",
+      body: messageBody.slice(0, 100),
+      read: false,
+      href: `/forum/messages/${convoId}`,
+      refId: message.id,
+      createdAt: Date.now(),
+    }).catch(() => {});
+
     return NextResponse.json(
       { message, conversationId: convoId },
       { status: 201 }

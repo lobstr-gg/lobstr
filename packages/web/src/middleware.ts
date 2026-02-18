@@ -51,8 +51,14 @@ export async function middleware(request: NextRequest) {
     const checkUrl = new URL("/api/internal/ip-check", request.nextUrl.origin);
     checkUrl.searchParams.set("ip", ip);
 
+    const internalKey = process.env.INTERNAL_API_KEY;
+    if (!internalKey) {
+      // No key configured — skip ban check rather than leak a hardcoded secret
+      return NextResponse.next();
+    }
+
     const res = await fetch(checkUrl.toString(), {
-      headers: { "x-internal-key": "lobstr-middleware" },
+      headers: { "x-internal-key": internalKey },
     });
 
     if (res.ok) {

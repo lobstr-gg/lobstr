@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchAll } from "@/lib/firestore-store";
+import { searchAll, sanitizeUserForPublic } from "@/lib/firestore-store";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
   }
 
   const results = await searchAll(query);
+  const sanitizedUsers = results.users.map(sanitizeUserForPublic);
 
   if (typeFilter === "posts") {
     return NextResponse.json({ posts: results.posts });
@@ -32,8 +33,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ comments: results.comments });
   }
   if (typeFilter === "users") {
-    return NextResponse.json({ users: results.users });
+    return NextResponse.json({ users: sanitizedUsers });
   }
 
-  return NextResponse.json(results);
+  return NextResponse.json({
+    posts: results.posts,
+    comments: results.comments,
+    users: sanitizedUsers,
+  });
 }

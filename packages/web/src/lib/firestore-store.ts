@@ -52,6 +52,17 @@ function col(name: string) {
   return getDb().collection(name);
 }
 
+// ── Public user sanitization ─────────────────────────────────
+
+/** Fields that should never appear in public-facing user responses */
+export function sanitizeUserForPublic(
+  user: ForumUser
+): Omit<ForumUser, "warningCount"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { warningCount, ...publicUser } = user;
+  return publicUser;
+}
+
 // ── Query helpers (all async) ────────────────────────────────
 
 export async function getUserByAddress(
@@ -83,11 +94,38 @@ export async function getOrCreateUser(address: string): Promise<ForumUser> {
   return user;
 }
 
+/** Fields safe for user self-update via public routes */
+const SAFE_USER_UPDATE_FIELDS = new Set([
+  "displayName",
+  "profileImageUrl",
+  "flair",
+  "isAgent",
+]);
+
+/**
+ * Update a user document. Strips privileged fields (modTier, karma,
+ * warningCount, etc.) by default to prevent accidental privilege escalation.
+ * Internal callers that need to set privileged fields should pass
+ * `{ unsafe: true }`.
+ */
 export async function updateUser(
   address: string,
-  data: Partial<ForumUser>
+  data: Partial<ForumUser>,
+  opts?: { unsafe?: boolean }
 ): Promise<void> {
-  await col("users").doc(address).update(data);
+  if (opts?.unsafe) {
+    await col("users").doc(address).update(data);
+    return;
+  }
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (SAFE_USER_UPDATE_FIELDS.has(key)) {
+      safe[key] = value;
+    }
+  }
+  if (Object.keys(safe).length > 0) {
+    await col("users").doc(address).update(safe);
+  }
 }
 
 export async function getModeratorAddresses(): Promise<string[]> {
@@ -250,6 +288,11 @@ export function sortPosts(posts: Post[], mode: SortMode): Post[] {
 
 // ── Search (fetch all + in-memory filter, same as current) ───
 
+/** Max docs fetched per collection during search (prevents full-collection scans) */
+const SEARCH_FETCH_LIMIT = 200;
+/** Max results returned per type */
+const SEARCH_RESULT_CAP = 25;
+
 export async function searchAll(query: string): Promise<{
   posts: Post[];
   comments: Comment[];
@@ -257,31 +300,35 @@ export async function searchAll(query: string): Promise<{
 }> {
   const q = query.toLowerCase();
 
-  const [postsSnap, usersSnap] = await Promise.all([
-    col("posts").get(),
-    col("users").get(),
+  const [postsSnap, usersSnap, commentsSnap] = await Promise.all([
+    col("posts").limit(SEARCH_FETCH_LIMIT).get(),
+    col("users").limit(SEARCH_FETCH_LIMIT).get(),
+    getDb().collectionGroup("comments").limit(SEARCH_FETCH_LIMIT).get(),
   ]);
 
   const allPosts = postsSnap.docs.map((d) => d.data() as Post);
   const allUsers = usersSnap.docs.map((d) => d.data() as ForumUser);
-
-  // Collect comments from all posts via collectionGroup
-  const commentsSnap = await getDb().collectionGroup("comments").get();
   const allComments = commentsSnap.docs.map(
     (d) => ({ ...(d.data() as Omit<Comment, "children">), children: [] } as Comment)
   );
 
   return {
-    posts: allPosts.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q)
-    ),
-    comments: allComments.filter((c) => c.body.toLowerCase().includes(q)),
-    users: allUsers.filter(
-      (u) =>
-        u.displayName.toLowerCase().includes(q) ||
-        u.address.toLowerCase().includes(q)
-    ),
+    posts: allPosts
+      .filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q)
+      )
+      .slice(0, SEARCH_RESULT_CAP),
+    comments: allComments
+      .filter((c) => c.body.toLowerCase().includes(q))
+      .slice(0, SEARCH_RESULT_CAP),
+    users: allUsers
+      .filter(
+        (u) =>
+          u.displayName.toLowerCase().includes(q) ||
+          u.address.toLowerCase().includes(q)
+      )
+      .slice(0, SEARCH_RESULT_CAP),
   };
 }
 
@@ -679,4 +726,65 @@ export async function getAllCommentsByAuthor(
 
 export async function filterOutPost(id: string): Promise<void> {
   await col("posts").doc(id).delete();
+}
+
+// ── Notifications ─────────────────────────────────────────────
+
+import type { Notification, NotificationType } from "./forum-types";
+
+export async function getNotificationsForUser(
+  address: string
+): Promise<Notification[]> {
+  const snap = await col("notifications")
+    .where("recipient", "==", address)
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      type: data.type as NotificationType,
+      title: data.title,
+      body: data.body,
+      read: data.read ?? false,
+      href: data.href ?? null,
+      refId: data.refId ?? null,
+      createdAt: data.createdAt,
+    };
+  });
+}
+
+export async function createNotification(
+  recipient: string,
+  notification: Omit<Notification, "id">
+): Promise<string> {
+  const ref = await col("notifications").add({
+    recipient,
+    ...notification,
+  });
+  return ref.id;
+}
+
+export async function markNotificationRead(
+  id: string,
+  address: string
+): Promise<void> {
+  const doc = col("notifications").doc(id);
+  const snap = await doc.get();
+  if (snap.exists && snap.data()?.recipient === address) {
+    await doc.update({ read: true });
+  }
+}
+
+export async function markAllNotificationsRead(
+  address: string
+): Promise<void> {
+  const snap = await col("notifications")
+    .where("recipient", "==", address)
+    .where("read", "==", false)
+    .get();
+  const batch = getDb().batch();
+  snap.docs.forEach((doc) => batch.update(doc.ref, { read: true }));
+  await batch.commit();
 }
