@@ -1,0 +1,26 @@
+{
+  "name": "@lobstr/circuits",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "compile": "bash scripts/compile.sh",
+    "setup": "bash scripts/setup.sh",
+    "verifier": "bash scripts/generate-verifier.sh",
+    "prove": "ts-node scripts/prove.ts",
+    "test": "mocha --require ts-node/register --timeout 120000 test/**/*.test.ts"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.4",
+    "viem": "^2.46.1"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.0",
+    "circom_tester": "^0.0.19",
+    "mocha": "^10.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

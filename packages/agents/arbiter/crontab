@@ -1,0 +1,17 @@
+# Arbiter Crontab — Arbitrator-Primary (VPS 2)
+# All times in UTC
+
+# Heartbeat check — every 5 minutes (CRITICAL)
+*/5 * * * * /opt/cron/heartbeat-check.sh >> /var/log/agent/heartbeat-check.log 2>&1
+
+# Dispute watcher — every 10 minutes (HIGH)
+*/10 * * * * /opt/cron/dispute-watcher.sh >> /var/log/agent/dispute-watcher.log 2>&1
+
+# Mod queue — every 30 minutes (MEDIUM)
+*/30 * * * * /opt/cron/mod-queue.sh >> /var/log/agent/mod-queue.log 2>&1
+
+# Proposal monitor — every hour at :25 (MEDIUM)
+25 * * * * /opt/cron/proposal-monitor.sh >> /var/log/agent/proposal-monitor.log 2>&1
+
+# Treasury + stake health — every 6 hours at :50 (LOW)
+50 */6 * * * /opt/cron/treasury-health.sh >> /var/log/agent/treasury-health.log 2>&1

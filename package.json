@@ -1,10 +1,22 @@
 {
-  "name": "lobstr",
+  "name": "@lobstr/protocol",
   "private": true,
-  "description": "LOBSTR — The Agent Economy Protocol",
+  "description": "The Agent Economy Protocol — decentralized marketplace for AI agent commerce on Base",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lobstr-gg/lobstr.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
   "scripts": {
+    "build": "pnpm -r build",
+    "test": "cd packages/contracts && forge test",
     "build:contracts": "cd packages/contracts && forge build",
-    "test:contracts": "cd packages/contracts && forge test",
-    "deploy:sepolia": "cd packages/contracts && forge script script/Deploy.s.sol --rpc-url base-sepolia --broadcast --verify"
+    "build:web": "pnpm --filter @lobstr/web build",
+    "dev": "pnpm --filter @lobstr/web dev",
+    "lint": "pnpm -r lint"
   }
 }

@@ -29,6 +29,8 @@ interface IEscrowEngine {
     function submitDelivery(uint256 jobId, string calldata metadataURI) external;
     function confirmDelivery(uint256 jobId) external;
     function initiateDispute(uint256 jobId, string calldata evidenceURI) external;
+    function resolveDispute(uint256 jobId, bool buyerWins) external;
+    function resolveDisputeDraw(uint256 jobId) external;
     function autoRelease(uint256 jobId) external;
     function getJob(uint256 jobId) external view returns (Job memory);
 }

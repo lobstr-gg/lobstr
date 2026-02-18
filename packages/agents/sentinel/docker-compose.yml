@@ -1,0 +1,64 @@
+services:
+  sentinel:
+    image: lobstr-agent:latest
+    container_name: lobstr-sentinel
+    restart: unless-stopped
+
+    environment:
+      - AGENT_NAME=sentinel
+      - WORKSPACE_DIR=/data/workspace
+      - CRONTAB_FILE=/etc/agent/crontab
+
+    # Security hardening
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+    tmpfs:
+      - /tmp:size=64m
+      - /var/run:size=8m
+
+    # Resource limits
+    mem_limit: 512m
+    cpus: "0.5"
+
+    # Docker secrets (never in env vars)
+    secrets:
+      - wallet_password
+      - webhook_url
+      - rpc_url
+
+    volumes:
+      # Workspace data (persistent)
+      - sentinel-data:/data/workspace
+
+      # Read-only config mounts
+      - ./SOUL.md:/etc/agent/SOUL.md:ro
+      - ./HEARTBEAT.md:/etc/agent/HEARTBEAT.md:ro
+      - ./crontab:/etc/agent/crontab:ro
+
+      # Writable log directory
+      - sentinel-logs:/var/log/agent
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  wallet_password:
+    file: /opt/lobstr/secrets/wallet_password
+  webhook_url:
+    file: /opt/lobstr/secrets/webhook_url
+  rpc_url:
+    file: /opt/lobstr/secrets/rpc_url
+
+volumes:
+  sentinel-data:
+    driver: local
+  sentinel-logs:
+    driver: local

@@ -3,24 +3,29 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/IReputationSystem.sol";
+import "./interfaces/ISybilGuard.sol";
 
-contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard {
+contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard, Pausable {
     IStakingManager public immutable stakingManager;
     IReputationSystem public immutable reputationSystem;
+    ISybilGuard public immutable sybilGuard;
 
     uint256 private _nextListingId = 1;
 
     mapping(uint256 => Listing) private _listings;
     mapping(address => uint256) private _providerListingCount;
 
-    constructor(address _stakingManager, address _reputationSystem) {
+    constructor(address _stakingManager, address _reputationSystem, address _sybilGuard) {
         require(_stakingManager != address(0), "ServiceRegistry: zero staking");
         require(_reputationSystem != address(0), "ServiceRegistry: zero reputation");
+        require(_sybilGuard != address(0), "ServiceRegistry: zero sybilGuard");
         stakingManager = IStakingManager(_stakingManager);
         reputationSystem = IReputationSystem(_reputationSystem);
+        sybilGuard = ISybilGuard(_sybilGuard);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -32,11 +37,15 @@ contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard {
         address settlementToken,
         uint256 estimatedDeliverySeconds,
         string calldata metadataURI
-    ) external nonReentrant returns (uint256 listingId) {
+    ) external nonReentrant whenNotPaused returns (uint256 listingId) {
         require(bytes(title).length > 0 && bytes(title).length <= 256, "ServiceRegistry: invalid title");
         require(bytes(description).length <= 1024, "ServiceRegistry: description too long");
         require(pricePerUnit > 0, "ServiceRegistry: zero price");
         require(estimatedDeliverySeconds > 0, "ServiceRegistry: zero delivery time");
+        require(settlementToken != address(0), "ServiceRegistry: zero token");
+
+        // H-4: Ban check
+        require(!sybilGuard.checkBanned(msg.sender), "ServiceRegistry: provider banned");
 
         IStakingManager.Tier tier = stakingManager.getTier(msg.sender);
         require(tier != IStakingManager.Tier.None, "ServiceRegistry: no active stake");
@@ -73,13 +82,15 @@ contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard {
         address settlementToken,
         uint256 estimatedDeliverySeconds,
         string calldata metadataURI
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         Listing storage listing = _listings[listingId];
         require(listing.provider == msg.sender, "ServiceRegistry: not owner");
         require(listing.active, "ServiceRegistry: listing inactive");
         require(bytes(title).length > 0 && bytes(title).length <= 256, "ServiceRegistry: invalid title");
         require(bytes(description).length <= 1024, "ServiceRegistry: description too long");
         require(pricePerUnit > 0, "ServiceRegistry: zero price");
+        require(estimatedDeliverySeconds > 0, "ServiceRegistry: zero delivery time");
+        require(settlementToken != address(0), "ServiceRegistry: zero token");
 
         listing.title = title;
         listing.description = description;
@@ -91,7 +102,7 @@ contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard {
         emit ListingUpdated(listingId, pricePerUnit, settlementToken);
     }
 
-    function deactivateListing(uint256 listingId) external nonReentrant {
+    function deactivateListing(uint256 listingId) external nonReentrant whenNotPaused {
         Listing storage listing = _listings[listingId];
         require(listing.provider == msg.sender, "ServiceRegistry: not owner");
         require(listing.active, "ServiceRegistry: already inactive");
@@ -102,9 +113,18 @@ contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard {
         emit ListingDeactivated(listingId);
     }
 
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
+    }
+
     function getListing(uint256 listingId) external view returns (Listing memory) {
-        require(_listings[listingId].provider != address(0), "ServiceRegistry: listing not found");
-        return _listings[listingId];
+        Listing memory listing = _listings[listingId];
+        require(listing.provider != address(0), "ServiceRegistry: listing not found");
+        return listing;
     }
 
     function getProviderListingCount(address provider) external view returns (uint256) {

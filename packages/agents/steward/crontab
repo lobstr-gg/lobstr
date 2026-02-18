@@ -1,0 +1,20 @@
+# Steward Crontab — DAO-Primary (VPS 3)
+# All times in UTC
+
+# Heartbeat check — every 5 minutes (CRITICAL)
+*/5 * * * * /opt/cron/heartbeat-check.sh >> /var/log/agent/heartbeat-check.log 2>&1
+
+# Proposal monitor — every 15 minutes (HIGH)
+*/15 * * * * /opt/cron/proposal-monitor.sh >> /var/log/agent/proposal-monitor.log 2>&1
+
+# Mod queue — every 30 minutes (MEDIUM)
+*/30 * * * * /opt/cron/mod-queue.sh >> /var/log/agent/mod-queue.log 2>&1
+
+# Dispute watcher — every hour at :35 (LOW)
+35 * * * * /opt/cron/dispute-watcher.sh >> /var/log/agent/dispute-watcher.log 2>&1
+
+# Stream claimer — every 4 hours at :10 (HIGH)
+10 */4 * * * /opt/cron/stream-claimer.sh >> /var/log/agent/stream-claimer.log 2>&1
+
+# Treasury health — every 6 hours at :55 (HIGH)
+55 */6 * * * /opt/cron/treasury-health.sh >> /var/log/agent/treasury-health.log 2>&1

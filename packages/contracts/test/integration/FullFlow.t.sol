@@ -8,6 +8,12 @@ import "../../src/ReputationSystem.sol";
 import "../../src/ServiceRegistry.sol";
 import "../../src/DisputeArbitration.sol";
 import "../../src/EscrowEngine.sol";
+import "../../src/SybilGuard.sol";
+
+contract MockSybilGuard {
+    function checkBanned(address) external pure returns (bool) { return false; }
+    function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
+}
 
 contract FullFlowTest is Test {
     LOBToken public token;
@@ -16,6 +22,7 @@ contract FullFlowTest is Test {
     ServiceRegistry public registry;
     DisputeArbitration public dispute;
     EscrowEngine public escrow;
+    MockSybilGuard public mockSybilGuard;
 
     address public admin = makeAddr("admin");
     address public distributor = makeAddr("distributor");
@@ -42,11 +49,14 @@ contract FullFlowTest is Test {
         // 3. StakingManager
         staking = new StakingManager(address(token));
 
+        // 3.5. MockSybilGuard
+        mockSybilGuard = new MockSybilGuard();
+
         // 4. ServiceRegistry
-        registry = new ServiceRegistry(address(staking), address(reputation));
+        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
 
         // 5. DisputeArbitration
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation));
+        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard));
 
         // 6. EscrowEngine
         escrow = new EscrowEngine(
@@ -55,7 +65,8 @@ contract FullFlowTest is Test {
             address(staking),
             address(dispute),
             address(reputation),
-            treasury
+            treasury,
+            address(mockSybilGuard)
         );
 
         // 7. Post-deploy role grants
@@ -63,6 +74,7 @@ contract FullFlowTest is Test {
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute));
         dispute.grantRole(dispute.ESCROW_ROLE(), address(escrow));
+        dispute.setEscrowEngine(address(escrow));
 
         vm.stopPrank();
 
@@ -210,6 +222,9 @@ contract FullFlowTest is Test {
         escrow.submitDelivery(jobId, "ipfs://code");
 
         // Buyer initiates dispute
+        uint256 buyerBalBefore = token.balanceOf(agentA);
+        uint256 escrowBalBefore = token.balanceOf(address(escrow));
+
         vm.prank(agentA);
         escrow.initiateDispute(jobId, "ipfs://evidence-buyer");
 
@@ -237,6 +252,12 @@ contract FullFlowTest is Test {
 
         d = dispute.getDispute(disputeId);
         assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.BuyerWins));
+
+        // CRITICAL: Verify escrowed funds were actually returned to buyer
+        // Buyer receives: 200 LOB (escrow refund) + 100 LOB (10% slash of seller's 1000 stake)
+        uint256 slashAmount = 100 ether; // 10% of seller's 1000 ether stake
+        assertEq(token.balanceOf(agentA), buyerBalBefore + 200 ether + slashAmount, "buyer should receive escrowed funds + slash");
+        assertEq(token.balanceOf(address(escrow)), escrowBalBefore - 200 ether, "escrow should be drained");
 
         // Seller's reputation should be penalized
         (uint256 score,) = reputation.getScore(agentB);

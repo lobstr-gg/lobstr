@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IReputationSystem.sol";
 
-contract ReputationSystem is IReputationSystem, AccessControl {
+contract ReputationSystem is IReputationSystem, AccessControl, Pausable {
     bytes32 public constant RECORDER_ROLE = keccak256("RECORDER_ROLE");
 
     uint256 public constant BASE_SCORE = 500;
     uint256 public constant COMPLETION_POINTS = 100;
     uint256 public constant DISPUTE_LOSS_PENALTY = 200;
     uint256 public constant DISPUTE_WIN_BONUS = 50;
-    uint256 public constant FAST_DELIVERY_BONUS = 25;
     uint256 public constant TENURE_POINTS_PER_30_DAYS = 10;
     uint256 public constant MAX_TENURE_BONUS = 200;
 
@@ -27,10 +27,8 @@ contract ReputationSystem is IReputationSystem, AccessControl {
 
     function recordCompletion(
         address provider,
-        address client,
-        uint256 deliveryTime,
-        uint256 estimatedTime
-    ) external onlyRole(RECORDER_ROLE) {
+        address client
+    ) external onlyRole(RECORDER_ROLE) whenNotPaused {
         require(provider != address(0), "ReputationSystem: zero provider");
         require(client != address(0), "ReputationSystem: zero client");
 
@@ -42,7 +40,7 @@ contract ReputationSystem is IReputationSystem, AccessControl {
 
         rep.completions += 1;
 
-        emit CompletionRecorded(provider, client, deliveryTime, estimatedTime);
+        emit CompletionRecorded(provider, client);
 
         uint256 newScore = _calculateScore(provider);
         rep.score = newScore;
@@ -50,7 +48,7 @@ contract ReputationSystem is IReputationSystem, AccessControl {
         emit ScoreUpdated(provider, newScore, _tierFromScore(newScore));
     }
 
-    function recordDispute(address provider, bool providerWon) external onlyRole(RECORDER_ROLE) {
+    function recordDispute(address provider, bool providerWon) external onlyRole(RECORDER_ROLE) whenNotPaused {
         require(provider != address(0), "ReputationSystem: zero provider");
 
         ReputationData storage rep = _reputations[provider];
@@ -69,6 +67,14 @@ contract ReputationSystem is IReputationSystem, AccessControl {
         rep.score = newScore;
 
         emit ScoreUpdated(provider, newScore, _tierFromScore(newScore));
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     function getScore(address user) external view returns (uint256 score, ReputationTier tier) {

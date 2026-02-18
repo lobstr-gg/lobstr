@@ -5,6 +5,9 @@ import "forge-std/Test.sol";
 import "../src/ReputationSystem.sol";
 
 contract ReputationSystemTest is Test {
+    // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
+    event CompletionRecorded(address indexed provider, address indexed client);
+    event ScoreUpdated(address indexed user, uint256 newScore, IReputationSystem.ReputationTier newTier);
     ReputationSystem public reputation;
 
     address public admin = makeAddr("admin");
@@ -27,7 +30,7 @@ contract ReputationSystemTest is Test {
 
     function test_RecordCompletion_IncreasesScore() public {
         vm.prank(recorder);
-        reputation.recordCompletion(provider, client, 3600, 7200); // delivered in half the time
+        reputation.recordCompletion(provider, client); // delivered in half the time
 
         (uint256 score,) = reputation.getScore(provider);
         assertEq(score, 600); // 500 base + 100 completion
@@ -36,7 +39,7 @@ contract ReputationSystemTest is Test {
     function test_MultipleCompletions_ReachSilver() public {
         vm.startPrank(recorder);
         for (uint256 i = 0; i < 5; i++) {
-            reputation.recordCompletion(provider, client, 3600, 7200);
+            reputation.recordCompletion(provider, client);
         }
         vm.stopPrank();
 
@@ -48,7 +51,7 @@ contract ReputationSystemTest is Test {
     function test_DisputeLoss_DecreasesScore() public {
         // First build up some score
         vm.startPrank(recorder);
-        reputation.recordCompletion(provider, client, 3600, 7200);
+        reputation.recordCompletion(provider, client);
         reputation.recordDispute(provider, false); // lost dispute
         vm.stopPrank();
 
@@ -80,7 +83,7 @@ contract ReputationSystemTest is Test {
 
     function test_TenureBonus() public {
         vm.prank(recorder);
-        reputation.recordCompletion(provider, client, 3600, 7200);
+        reputation.recordCompletion(provider, client);
 
         // Warp 60 days
         vm.warp(block.timestamp + 60 days);
@@ -92,7 +95,7 @@ contract ReputationSystemTest is Test {
 
     function test_TenureBonus_Capped() public {
         vm.prank(recorder);
-        reputation.recordCompletion(provider, client, 3600, 7200);
+        reputation.recordCompletion(provider, client);
 
         // Warp 3 years
         vm.warp(block.timestamp + 1095 days);
@@ -105,7 +108,7 @@ contract ReputationSystemTest is Test {
     function test_RevertNotRecorder() public {
         vm.prank(client);
         vm.expectRevert();
-        reputation.recordCompletion(provider, client, 3600, 7200);
+        reputation.recordCompletion(provider, client);
     }
 
     function test_ReputationTiers() public {
@@ -113,7 +116,7 @@ contract ReputationSystemTest is Test {
 
         // Reach Gold: need 5000+ score = 500 base + 45*100 completions = 5000
         for (uint256 i = 0; i < 45; i++) {
-            reputation.recordCompletion(provider, client, 3600, 7200);
+            reputation.recordCompletion(provider, client);
         }
         vm.stopPrank();
 
@@ -123,7 +126,7 @@ contract ReputationSystemTest is Test {
 
     function test_GetReputationData() public {
         vm.startPrank(recorder);
-        reputation.recordCompletion(provider, client, 3600, 7200);
+        reputation.recordCompletion(provider, client);
         reputation.recordDispute(provider, false);
         reputation.recordDispute(provider, true);
         vm.stopPrank();
@@ -133,5 +136,55 @@ contract ReputationSystemTest is Test {
         assertEq(data.disputesLost, 1);
         assertEq(data.disputesWon, 1);
         assertGt(data.firstActivityTimestamp, 0);
+    }
+
+    // --- Pause / Unpause Tests ---
+
+    function test_Paused_RecordCompletionReverts() public {
+        vm.prank(admin);
+        reputation.pause();
+
+        vm.prank(recorder);
+        vm.expectRevert("Pausable: paused");
+        reputation.recordCompletion(provider, client);
+    }
+
+    function test_Paused_RecordDisputeReverts() public {
+        vm.prank(admin);
+        reputation.pause();
+
+        vm.prank(recorder);
+        vm.expectRevert("Pausable: paused");
+        reputation.recordDispute(provider, false);
+    }
+
+    function test_Unpause_ResumesOperations() public {
+        vm.prank(admin);
+        reputation.pause();
+
+        vm.prank(admin);
+        reputation.unpause();
+
+        vm.prank(recorder);
+        reputation.recordCompletion(provider, client);
+
+        (uint256 score,) = reputation.getScore(provider);
+        assertEq(score, 600);
+    }
+
+    // --- Event Emission Tests ---
+
+    function test_EmitCompletionRecorded() public {
+        vm.prank(recorder);
+        vm.expectEmit(true, true, false, false);
+        emit CompletionRecorded(provider, client);
+        reputation.recordCompletion(provider, client);
+    }
+
+    function test_EmitScoreUpdated() public {
+        vm.prank(recorder);
+        vm.expectEmit(true, false, false, true);
+        emit ScoreUpdated(provider, 600, IReputationSystem.ReputationTier.Bronze);
+        reputation.recordCompletion(provider, client);
     }
 }

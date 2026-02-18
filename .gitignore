@@ -1,21 +1,59 @@
 # Dependencies
 node_modules/
 
-# Foundry
-packages/contracts/out/
-packages/contracts/cache/
-
-# Environment
+# Environment — never commit secrets
 .env
-.env.local
+.env.*
+!.env.example
 
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Build
+# Build outputs
 dist/
 .next/
+.turbo/
+
+# Foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/
+
+# ZK circuit build artifacts (rebuild locally via scripts/compile.sh)
+packages/circuits/build/
+
+# Forum data (auto-seeded JSON store)
+packages/web/data/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript incremental compilation
+*.tsbuildinfo
+
+# Sensitive / internal docs
+WALLETS.md
+AUDIT-FIXES.md
+FIXES.md
+*.docx
+prd.md
+dao-governance-plan.md
+infrastructure-prd.md
+marketing/
+
+# Firebase (local deploy only)
+firebase.json
+.firebaserc
+firestore.rules
+firestore.indexes.json
+storage.rules

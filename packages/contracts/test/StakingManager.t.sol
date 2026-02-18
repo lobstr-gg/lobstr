@@ -6,6 +6,10 @@ import "../src/LOBToken.sol";
 import "../src/StakingManager.sol";
 
 contract StakingManagerTest is Test {
+    // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
+    event Staked(address indexed user, uint256 amount, IStakingManager.Tier newTier);
+    event Unstaked(address indexed user, uint256 amount, IStakingManager.Tier newTier);
+    event Slashed(address indexed user, uint256 amount, address indexed beneficiary);
     LOBToken public token;
     StakingManager public staking;
 
@@ -189,5 +193,85 @@ contract StakingManagerTest is Test {
         assertEq(staking.tierThreshold(IStakingManager.Tier.Silver), 1_000 ether);
         assertEq(staking.tierThreshold(IStakingManager.Tier.Gold), 10_000 ether);
         assertEq(staking.tierThreshold(IStakingManager.Tier.Platinum), 100_000 ether);
+    }
+
+    // --- Pause / Unpause Tests ---
+
+    function test_Paused_StakeReverts() public {
+        vm.prank(admin);
+        staking.pause();
+
+        vm.startPrank(alice);
+        token.approve(address(staking), 100 ether);
+        vm.expectRevert("Pausable: paused");
+        staking.stake(100 ether);
+        vm.stopPrank();
+    }
+
+    function test_Paused_RequestUnstakeReverts() public {
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        vm.prank(admin);
+        staking.pause();
+
+        vm.prank(alice);
+        vm.expectRevert("Pausable: paused");
+        staking.requestUnstake(500 ether);
+    }
+
+    function test_Unpause_ResumesOperations() public {
+        vm.prank(admin);
+        staking.pause();
+
+        vm.prank(admin);
+        staking.unpause();
+
+        vm.startPrank(alice);
+        token.approve(address(staking), 100 ether);
+        staking.stake(100 ether);
+        vm.stopPrank();
+
+        assertEq(staking.getStake(alice), 100 ether);
+    }
+
+    // --- Event Emission Tests ---
+
+    function test_EmitStaked() public {
+        vm.startPrank(alice);
+        token.approve(address(staking), 100 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit Staked(alice, 100 ether, IStakingManager.Tier.Bronze);
+        staking.stake(100 ether);
+        vm.stopPrank();
+    }
+
+    function test_EmitUnstaked() public {
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        staking.requestUnstake(500 ether);
+
+        vm.warp(block.timestamp + 7 days);
+
+        vm.expectEmit(true, false, false, true);
+        emit Unstaked(alice, 500 ether, IStakingManager.Tier.Bronze);
+        staking.unstake();
+        vm.stopPrank();
+    }
+
+    function test_EmitSlashed() public {
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        vm.prank(slasher);
+        vm.expectEmit(true, false, false, true);
+        emit Slashed(alice, 200 ether, bob);
+        staking.slash(alice, 200 ether, bob);
     }
 }

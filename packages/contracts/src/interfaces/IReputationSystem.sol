@@ -13,9 +13,9 @@ interface IReputationSystem {
     }
 
     event ScoreUpdated(address indexed user, uint256 newScore, ReputationTier newTier);
-    event CompletionRecorded(address indexed provider, address indexed client, uint256 deliveryTime, uint256 estimatedTime);
+    event CompletionRecorded(address indexed provider, address indexed client);
 
-    function recordCompletion(address provider, address client, uint256 deliveryTime, uint256 estimatedTime) external;
+    function recordCompletion(address provider, address client) external;
     function recordDispute(address provider, bool providerWon) external;
     function getScore(address user) external view returns (uint256 score, ReputationTier tier);
     function getReputationData(address user) external view returns (ReputationData memory);

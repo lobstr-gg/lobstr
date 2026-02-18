@@ -3,11 +3,12 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IStakingManager.sol";
 
-contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard {
+contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
@@ -29,7 +30,7 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function stake(uint256 amount) external nonReentrant {
+    function stake(uint256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "StakingManager: zero amount");
 
         Tier oldTier = getTier(msg.sender);
@@ -45,7 +46,7 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard {
         }
     }
 
-    function requestUnstake(uint256 amount) external nonReentrant {
+    function requestUnstake(uint256 amount) external nonReentrant whenNotPaused {
         StakeInfo storage info = _stakes[msg.sender];
         require(amount > 0, "StakingManager: zero amount");
         require(info.amount >= amount, "StakingManager: insufficient stake");
@@ -91,20 +92,36 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard {
             amount = slashable;
         }
 
-        info.amount -= amount;
+        // Compute oldTier BEFORE modifying balance (fixes TierChanged event)
+        Tier oldTier = getTier(user);
 
-        // Cancel any pending unstake if it would exceed remaining stake
-        if (info.unstakeRequestAmount > info.amount) {
-            info.unstakeRequestAmount = 0;
-            info.unstakeRequestTime = 0;
+        // Proportionally reduce pending unstake request
+        if (info.unstakeRequestAmount > 0) {
+            uint256 remaining = info.amount - amount;
+            info.unstakeRequestAmount = (info.unstakeRequestAmount * remaining) / info.amount;
+            if (info.unstakeRequestAmount == 0) {
+                info.unstakeRequestTime = 0;
+            }
         }
+
+        info.amount -= amount;
 
         lobToken.safeTransfer(beneficiary, amount);
 
         emit Slashed(user, amount, beneficiary);
 
         Tier newTier = getTier(user);
-        emit TierChanged(user, Tier.None, newTier); // simplified — just emit the new tier
+        if (oldTier != newTier) {
+            emit TierChanged(user, oldTier, newTier);
+        }
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     function getTier(address user) public view returns (Tier) {

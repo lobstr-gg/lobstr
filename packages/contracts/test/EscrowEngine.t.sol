@@ -8,14 +8,27 @@ import "../src/ReputationSystem.sol";
 import "../src/ServiceRegistry.sol";
 import "../src/DisputeArbitration.sol";
 import "../src/EscrowEngine.sol";
+import "../src/SybilGuard.sol";
+
+contract MockSybilGuard {
+    function checkBanned(address) external pure returns (bool) { return false; }
+    function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
+}
 
 contract EscrowEngineTest is Test {
+    // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
+    event JobCreated(uint256 indexed jobId, uint256 indexed listingId, address indexed buyer, address seller, uint256 amount, address token, uint256 fee);
+    event DeliverySubmitted(uint256 indexed jobId, string metadataURI);
+    event DeliveryConfirmed(uint256 indexed jobId, address indexed buyer);
+    event FundsReleased(uint256 indexed jobId, address indexed seller, uint256 amount);
+    event AutoReleased(uint256 indexed jobId, address indexed caller);
     LOBToken public token;
     StakingManager public staking;
     ReputationSystem public reputation;
     ServiceRegistry public registry;
     DisputeArbitration public dispute;
     EscrowEngine public escrow;
+    MockSybilGuard public mockSybilGuard;
 
     address public admin = makeAddr("admin");
     address public distributor = makeAddr("distributor");
@@ -33,15 +46,17 @@ contract EscrowEngineTest is Test {
         token = new LOBToken(distributor);
         reputation = new ReputationSystem();
         staking = new StakingManager(address(token));
-        registry = new ServiceRegistry(address(staking), address(reputation));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation));
+        mockSybilGuard = new MockSybilGuard();
+        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard));
         escrow = new EscrowEngine(
             address(token),
             address(registry),
             address(staking),
             address(dispute),
             address(reputation),
-            treasury
+            treasury,
+            address(mockSybilGuard)
         );
 
         // Grant roles
@@ -49,6 +64,7 @@ contract EscrowEngineTest is Test {
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute));
         dispute.grantRole(dispute.ESCROW_ROLE(), address(escrow));
+        dispute.setEscrowEngine(address(escrow));
         vm.stopPrank();
 
         // Fund participants
@@ -298,5 +314,257 @@ contract EscrowEngineTest is Test {
     function test_GetJob_RevertNotFound() public {
         vm.expectRevert("EscrowEngine: job not found");
         escrow.getJob(999);
+    }
+
+    // --- A2: StakingManager slash proportional unstake reduction ---
+
+    function test_Slash_ReducesPendingUnstakeProportionally() public {
+        // Seller has 1000 staked. Request 500 unstake. Slash 300.
+        // Remaining = 700. unstakeRequest = 500 * 700 / 1000 = 350
+        vm.prank(seller);
+        staking.requestUnstake(500 ether);
+
+        IStakingManager.StakeInfo memory infoBefore = staking.getStakeInfo(seller);
+        assertEq(infoBefore.unstakeRequestAmount, 500 ether);
+
+        // Slash 300 from seller (dispute system has SLASHER_ROLE)
+        vm.prank(address(dispute));
+        staking.slash(seller, 300 ether, buyer);
+
+        IStakingManager.StakeInfo memory infoAfter = staking.getStakeInfo(seller);
+        assertEq(infoAfter.amount, 700 ether);
+        // 500 * 700 / 1000 = 350
+        assertEq(infoAfter.unstakeRequestAmount, 350 ether);
+        // unstakeRequestTime should still be set
+        assertGt(infoAfter.unstakeRequestTime, 0);
+    }
+
+    function test_Slash_CancelsPendingUnstakeWhenFullySlashed() public {
+        vm.prank(seller);
+        staking.requestUnstake(500 ether);
+
+        // Slash all 1000 from seller
+        vm.prank(address(dispute));
+        staking.slash(seller, 1_000 ether, buyer);
+
+        IStakingManager.StakeInfo memory infoAfter = staking.getStakeInfo(seller);
+        assertEq(infoAfter.amount, 0);
+        assertEq(infoAfter.unstakeRequestAmount, 0);
+        assertEq(infoAfter.unstakeRequestTime, 0);
+    }
+
+    // --- A1: resolveDisputeDraw in EscrowEngine ---
+
+    // --- Pause / Unpause Tests ---
+
+    function test_Paused_CreateJobReverts() public {
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        vm.expectRevert("Pausable: paused");
+        escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+    }
+
+    function test_Paused_SubmitDeliveryReverts() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.prank(seller);
+        vm.expectRevert("Pausable: paused");
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+    }
+
+    function test_Paused_ConfirmDeliveryReverts() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.prank(buyer);
+        vm.expectRevert("Pausable: paused");
+        escrow.confirmDelivery(jobId);
+    }
+
+    function test_Paused_AutoReleaseReverts() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.warp(block.timestamp + 2 hours);
+
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.expectRevert("Pausable: paused");
+        escrow.autoRelease(jobId);
+    }
+
+    function test_Paused_InitiateDisputeReverts() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.prank(buyer);
+        vm.expectRevert("Pausable: paused");
+        escrow.initiateDispute(jobId, "ipfs://evidence");
+    }
+
+    function test_Unpause_ResumesOperations() public {
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.prank(admin);
+        escrow.unpause();
+
+        // Should work after unpause
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        assertEq(jobId, 1);
+    }
+
+    // --- Event Emission Tests ---
+
+    function test_EmitJobCreated() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit JobCreated(1, listingId, buyer, seller, 50 ether, address(token), 0);
+        escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+    }
+
+    function test_EmitDeliverySubmitted() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        vm.expectEmit(true, false, false, true);
+        emit DeliverySubmitted(jobId, "ipfs://delivery");
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+    }
+
+    function test_EmitDeliveryConfirmed() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.prank(buyer);
+        vm.expectEmit(true, true, false, true);
+        emit DeliveryConfirmed(jobId, buyer);
+        escrow.confirmDelivery(jobId);
+    }
+
+    function test_EmitFundsReleased() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.prank(buyer);
+        vm.expectEmit(true, true, false, true);
+        emit FundsReleased(jobId, seller, 50 ether);
+        escrow.confirmDelivery(jobId);
+    }
+
+    function test_EmitAutoReleased() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.warp(block.timestamp + 2 hours);
+
+        vm.expectEmit(true, true, false, true);
+        emit AutoReleased(jobId, address(this));
+        escrow.autoRelease(jobId);
+    }
+
+    // --- A1: resolveDisputeDraw in EscrowEngine ---
+
+    function test_ResolveDisputeDraw_Splits5050() public {
+        // Create and deliver job
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 100 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 100 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        // Initiate dispute
+        vm.prank(buyer);
+        escrow.initiateDispute(jobId, "ipfs://evidence");
+
+        uint256 disputeId = escrow.getJobDisputeId(jobId);
+        IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
+
+        // Submit counter evidence
+        vm.prank(seller);
+        dispute.submitCounterEvidence(disputeId, "ipfs://counter");
+
+        // Vote tie: 1 for buyer, 1 for seller
+        vm.prank(d.arbitrators[0]);
+        dispute.vote(disputeId, true);
+        vm.prank(d.arbitrators[1]);
+        dispute.vote(disputeId, false);
+
+        // Warp past voting deadline
+        vm.warp(block.timestamp + 4 days);
+
+        uint256 buyerBalBefore = token.balanceOf(buyer);
+        uint256 sellerBalBefore = token.balanceOf(seller);
+
+        dispute.executeRuling(disputeId);
+
+        // LOB has 0% fee, so each gets 50 ether
+        uint256 buyerGain = token.balanceOf(buyer) - buyerBalBefore;
+        uint256 sellerGain = token.balanceOf(seller) - sellerBalBefore;
+        assertEq(buyerGain, 50 ether);
+        assertEq(sellerGain, 50 ether);
+
+        // Job should be resolved
+        IEscrowEngine.Job memory job = escrow.getJob(jobId);
+        assertEq(uint256(job.status), uint256(IEscrowEngine.JobStatus.Resolved));
     }
 }

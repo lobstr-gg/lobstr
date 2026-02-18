@@ -6,12 +6,23 @@ import "../src/LOBToken.sol";
 import "../src/StakingManager.sol";
 import "../src/ReputationSystem.sol";
 import "../src/ServiceRegistry.sol";
+import "../src/SybilGuard.sol";
+
+contract MockSybilGuardSR {
+    function checkBanned(address) external pure returns (bool) { return false; }
+    function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
+}
 
 contract ServiceRegistryTest is Test {
+    // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
+    event ListingCreated(uint256 indexed listingId, address indexed provider, IServiceRegistry.ServiceCategory category, uint256 pricePerUnit, address settlementToken);
+    event ListingUpdated(uint256 indexed listingId, uint256 pricePerUnit, address settlementToken);
+    event ListingDeactivated(uint256 indexed listingId);
     LOBToken public token;
     StakingManager public staking;
     ReputationSystem public reputation;
     ServiceRegistry public registry;
+    MockSybilGuardSR public mockSybilGuard;
 
     address public admin = makeAddr("admin");
     address public distributor = makeAddr("distributor");
@@ -23,7 +34,8 @@ contract ServiceRegistryTest is Test {
         token = new LOBToken(distributor);
         staking = new StakingManager(address(token));
         reputation = new ReputationSystem();
-        registry = new ServiceRegistry(address(staking), address(reputation));
+        mockSybilGuard = new MockSybilGuardSR();
+        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
         vm.stopPrank();
 
         // Fund alice
@@ -226,5 +238,137 @@ contract ServiceRegistryTest is Test {
     function test_GetListing_RevertNotFound() public {
         vm.expectRevert("ServiceRegistry: listing not found");
         registry.getListing(999);
+    }
+
+    // --- Pause / Unpause Tests ---
+
+    function test_Paused_CreateListingReverts() public {
+        vm.prank(admin);
+        registry.pause();
+
+        vm.prank(alice);
+        vm.expectRevert("Pausable: paused");
+        registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+    }
+
+    function test_Paused_UpdateListingReverts() public {
+        vm.prank(alice);
+        uint256 listingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+
+        vm.prank(admin);
+        registry.pause();
+
+        vm.prank(alice);
+        vm.expectRevert("Pausable: paused");
+        registry.updateListing(listingId, "New", "New", 200 ether, address(token), 3600, "");
+    }
+
+    function test_Paused_DeactivateListingReverts() public {
+        vm.prank(alice);
+        uint256 listingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+
+        vm.prank(admin);
+        registry.pause();
+
+        vm.prank(alice);
+        vm.expectRevert("Pausable: paused");
+        registry.deactivateListing(listingId);
+    }
+
+    function test_Unpause_ResumesOperations() public {
+        vm.prank(admin);
+        registry.pause();
+
+        vm.prank(admin);
+        registry.unpause();
+
+        vm.prank(alice);
+        uint256 listingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+        assertEq(listingId, 1);
+    }
+
+    // --- Event Emission Tests ---
+
+    function test_EmitListingCreated() public {
+        vm.prank(alice);
+        vm.expectEmit(true, true, false, true);
+        emit ListingCreated(1, alice, IServiceRegistry.ServiceCategory.CODING, 100 ether, address(token));
+        registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+    }
+
+    function test_EmitListingUpdated() public {
+        vm.startPrank(alice);
+        uint256 listingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+
+        vm.expectEmit(true, false, false, true);
+        emit ListingUpdated(listingId, 200 ether, address(token));
+        registry.updateListing(listingId, "New", "New", 200 ether, address(token), 3600, "");
+        vm.stopPrank();
+    }
+
+    function test_EmitListingDeactivated() public {
+        vm.startPrank(alice);
+        uint256 listingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.CODING,
+            "Service",
+            "Desc",
+            100 ether,
+            address(token),
+            7200,
+            ""
+        );
+
+        vm.expectEmit(true, false, false, false);
+        emit ListingDeactivated(listingId);
+        registry.deactivateListing(listingId);
+        vm.stopPrank();
     }
 }
