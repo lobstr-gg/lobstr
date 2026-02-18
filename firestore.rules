@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Posts — public read, server-only write (Admin SDK bypasses rules)
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // Users — public read, server-only write
+    match /users/{address} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Mod log — public read, server-only write
+    match /modLog/{entryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Conversations — deny all client access (private DMs)
+    match /conversations/{convoId} {
+      allow read, write: if false;
+
+      match /messages/{msgId} {
+        allow read, write: if false;
+      }
+    }
+
+    // API keys — deny all client access
+    match /apiKeys/{key} {
+      allow read, write: if false;
+    }
+
+    // Challenges — deny all client access
+    match /challenges/{address} {
+      allow read, write: if false;
+    }
+
+    // Votes — deny all client access
+    match /votes/{itemId} {
+      allow read, write: if false;
+    }
+
+    // Human bookings — deny all client access
+    match /humanBookings/{bookingId} {
+      allow read, write: if false;
+    }
+
+    // Airdrop approvals — deny all client access
+    match /airdropApprovals/{ip} {
+      allow read, write: if false;
+    }
+
+    // Banned IPs — deny all client access
+    match /bannedIps/{ip} {
+      allow read, write: if false;
+    }
+
+    // Counters — deny all client access
+    match /counters/{docId} {
+      allow read, write: if false;
+    }
+
+    // Evidence files — deny all client access (Admin SDK only)
+    // Only the server can write evidence metadata and read it
+    // Access is gated by on-chain arbitrator/party verification in the API
+    match /evidence/{disputeId} {
+      allow read, write: if false;
+
+      match /files/{fileId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Delivery proof files — deny all client access (Admin SDK only)
+    match /deliveries/{jobId} {
+      allow read, write: if false;
+
+      match /files/{fileId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Upload violation tracking — deny all client access
+    match /uploadViolations/{ip} {
+      allow read, write: if false;
+    }
+
+    // Banned wallets — deny all client access
+    match /bannedWallets/{address} {
+      allow read, write: if false;
+    }
+
+    // User blocks — deny all client access
+    match /blocks/{address} {
+      allow read, write: if false;
+
+      match /blockedUsers/{blockedAddress} {
+        allow read, write: if false;
+      }
+    }
+
+    // Deny everything else by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

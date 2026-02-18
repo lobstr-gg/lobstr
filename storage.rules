@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Evidence uploads: /evidence/{disputeId}/{filename}
+    match /evidence/{disputeId}/{fileName} {
+      allow read: if false;  // Server-side only via Admin SDK
+      allow write: if false; // Server-side only via Admin SDK
+    }
+
+    // Delivery proof: /deliveries/{jobId}/{fileName}
+    match /deliveries/{jobId}/{fileName} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // Deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -54,10 +54,5 @@ dao-governance-plan.md
 infrastructure-prd.md
 marketing/
 
-# Firebase (local deploy only)
-firebase.json
-.firebaserc
+# Firebase build artifacts
 .firebase/
-firestore.rules
-firestore.indexes.json
-storage.rules

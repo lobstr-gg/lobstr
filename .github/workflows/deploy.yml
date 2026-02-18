@@ -41,8 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: railwayapp/railway-github-action@v0.1.0
-        with:
-          service: lobstr-indexer
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: cd packages/indexer && railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
