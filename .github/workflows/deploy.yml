@@ -27,6 +27,8 @@ jobs:
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
           NEXT_PUBLIC_ALCHEMY_API_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_API_KEY }}
           NEXT_PUBLIC_CHAIN_ID: "8453"
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          AIRDROP_APPROVAL_SIGNER_KEY: ${{ secrets.AIRDROP_APPROVAL_SIGNER_KEY }}
 
       - name: Authenticate with Firebase
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/firebase-sa.json
