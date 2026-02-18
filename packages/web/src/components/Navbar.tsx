@@ -212,13 +212,13 @@ export function Navbar() {
               </motion.div>
             </Link>
 
+            {/* Profile Menu */}
+            <ProfileMenu pathname={pathname} />
+
             {/* Contract Addresses */}
             <div className="hidden sm:block">
               <CaPopout />
             </div>
-
-            {/* Profile Menu */}
-            <ProfileMenu pathname={pathname} />
 
             {/* Wallet (shown only when not connected) */}
             <div className="[&_button]:!px-2 [&_button]:!py-1.5 [&_button]:!text-xs sm:[&_button]:!px-3 sm:[&_button]:!py-2 sm:[&_button]:!text-sm">
@@ -250,7 +250,7 @@ function ProfileMenu({ pathname }: { pathname: string }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  if (!isAuthenticated || !address) return null;
+  if (!address) return null;
 
   return (
     <div className="relative hidden sm:block" ref={ref}>
