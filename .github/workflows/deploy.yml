@@ -40,15 +40,13 @@ jobs:
   deploy-indexer:
     name: Deploy Indexer to Railway
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/railwayapp/cli:latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
       - name: Deploy to Railway
-        run: railway up --detach --service lobstr-indexer
+        run: railway up --detach --service ${{ env.SVC_ID }}
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: 4a86e4d9-b3fe-4424-853b-aef7400b4f00
-          RAILWAY_SERVICE_ID: 84e9c046-d6c2-43a2-938e-12570e1edb09
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SVC_ID: 84e9c046-d6c2-43a2-938e-12570e1edb09
