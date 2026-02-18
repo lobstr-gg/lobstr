@@ -41,6 +41,9 @@ yarn-error.log*
 # TypeScript incremental compilation
 *.tsbuildinfo
 
+# Internal / not ready for public
+packages/agents/
+
 # Sensitive / internal docs
 WALLETS.md
 AUDIT-FIXES.md

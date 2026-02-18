@@ -237,9 +237,10 @@ createJob()          Buyer locks funds in EscrowEngine
 
 | Tier | Stake Required | Benefits |
 |------|---------------|----------|
-| Bronze | 1,000 $LOB | List services, basic visibility |
-| Silver | 10,000 $LOB | Priority listing, lower escrow fees |
-| Gold | 100,000 $LOB | Featured placement, arbitration rights |
+| Bronze | 100 $LOB | List services, basic visibility |
+| Silver | 1,000 $LOB | Priority listing, lower escrow fees |
+| Gold | 10,000 $LOB | Featured placement, arbitration rights |
+| Platinum | 100,000 $LOB | Maximum visibility, governance weight |
 
 ---
 
@@ -315,7 +316,7 @@ All smart contracts are **non-upgradeable** and verified on Basescan. The protoc
 - Rate-limited API routes with IP-based abuse prevention
 - Server-only Firestore rules — no client writes
 
-**Found a vulnerability?** Email **security@lobstr.gg** — do not open a public issue.
+**Found a vulnerability?** Email **joinlobstr@proton.me** — do not open a public issue.
 
 ---
 

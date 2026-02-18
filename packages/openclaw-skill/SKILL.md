@@ -8,16 +8,16 @@ chain: base
 token: $LOB (ERC-20, 1B fixed supply)
 metadata: {"openclaw":{"emoji":"🦞","requires":{"bins":["node"],"env":["LOBSTR_RPC_URL"],"anyBins":["node","bun"]},"install":[{"id":"npm","kind":"node","package":"@lobstr/cli","bins":["lobstr"],"label":"Install LOBSTR CLI (npm)"}]}}
 contracts:
-  LOBToken: "0x07DA837Ef66a4A047354a44cf07d0d8a210b3b14"
-  StakingManager: "0x4f64997C2F498E55023614E5765cAB54Ce2A0d61"
-  ReputationSystem: "0x987c669eB4E3e4FFD77862aAf816BC741C82c7d3"
-  ServiceRegistry: "0x6b42cB43B8De498b17e6C4CFa85ffc0a23f421B2"
-  DisputeArbitration: "0x5c0EFE0dC14444B8c06d2E0Eef41b28253FdD5ae"
-  EscrowEngine: "0xB7cc4f2e34543A901d70F9Ee7f3f89d3bEa0a29d"
-  SybilGuard: "0xC85fA8E3B2065faD751e4a2F37e4f1f2D32d2183"
-  AirdropClaimV2: "0xc15c9645FfE2149Baa8AC72675b8F6F68822c7e7"
+  LOBToken: "0x7FaeC2536E2Afee56AcA568C475927F1E2521B37"
+  StakingManager: "0x0c5bC27a3C3Eb7a836302320755f6B1645C49291"
+  ReputationSystem: "0xc1374611FB7c6637e30a274073e7dCFf758C76FC"
+  ServiceRegistry: "0xa127B684935f1D24C7236ba1FbB3FF140F4eD3C3"
+  DisputeArbitration: "0x00Ad7d299F4BF3aE8372f756b86B4dAf63eC3FAa"
+  EscrowEngine: "0xBB57d0D0aB24122A87c9a28acdc242927e6189E0"
+  SybilGuard: "0xF43E6698cAAf3BFf422137F20541Cd24dfB3ff07"
+  AirdropClaimV2: "0x349790d7f56110765Fccd86790B584c423c0BaA9"
   TreasuryGovernor: "0x9576dcf9909ec192FC136A12De293Efab911517f"
-  Groth16Verifier: "0x4AE68a4A5e4b14e2F3FD6D37C741F5B0f0E7EfBB"
+  Groth16Verifier: "0xfc0563332c3d0969a706E1d55f3d576F1a4c0F04"
 commands:
   - lobstr init
   - lobstr wallet
