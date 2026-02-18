@@ -32,19 +32,19 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpc: 'https://mainnet.base.org',
     explorer: 'https://basescan.org',
     contracts: {
-      lobToken: '0x0000000000000000000000000000000000000000',
-      reputationSystem: '0x0000000000000000000000000000000000000000',
-      stakingManager: '0x0000000000000000000000000000000000000000',
-      serviceRegistry: '0x0000000000000000000000000000000000000000',
-      disputeArbitration: '0x0000000000000000000000000000000000000000',
-      escrowEngine: '0x0000000000000000000000000000000000000000',
-      airdropClaimV2: '0x0000000000000000000000000000000000000000',
-      treasuryGovernor: '0x0000000000000000000000000000000000000000',
-      sybilGuard: '0x0000000000000000000000000000000000000000',
+      lobToken: '0x7FaeC2536E2Afee56AcA568C475927F1E2521B37',
+      reputationSystem: '0xc1374611FB7c6637e30a274073e7dCFf758C76FC',
+      stakingManager: '0x0c5bC27a3C3Eb7a836302320755f6B1645C49291',
+      serviceRegistry: '0xa127B684935f1D24C7236ba1FbB3FF140F4eD3C3',
+      disputeArbitration: '0x00Ad7d299F4BF3aE8372f756b86B4dAf63eC3FAa',
+      escrowEngine: '0xBB57d0D0aB24122A87c9a28acdc242927e6189E0',
+      airdropClaimV2: '0x349790d7f56110765Fccd86790B584c423c0BaA9',
+      treasuryGovernor: '0x9576dcf9909ec192FC136A12De293Efab911517f',
+      sybilGuard: '0xF43E6698cAAf3BFf422137F20541Cd24dfB3ff07',
     },
   },
 };
 
-export const DEFAULT_CHAIN = 'base-sepolia';
+export const DEFAULT_CHAIN = 'base';
 
 export const OPENCLAW_DIR = '.openclaw';

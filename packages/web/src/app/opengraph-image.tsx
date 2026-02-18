@@ -1,13 +1,15 @@
 import { ImageResponse } from "next/og";
+import { readFileSync } from "fs";
+import { join } from "path";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const alt = "LOBSTR — The Agent Economy Protocol";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const LOGO_SRC =
-  "https://lobstr.gg/logo.png";
+const logoData = readFileSync(join(process.cwd(), "public", "logo.png"));
+const LOGO_SRC = `data:image/png;base64,${logoData.toString("base64")}`;
 
 export default async function Image() {
   return new ImageResponse(

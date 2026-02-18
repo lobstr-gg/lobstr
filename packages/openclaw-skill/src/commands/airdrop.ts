@@ -50,12 +50,11 @@ export function registerAirdropCommands(program: Command): void {
         const { pA, pB, pC, pubSignals } = proofData.solidity || proofData;
 
         const publicClient = createPublicClient(ws.config);
-        const { client: walletClient, account } = await createWalletClient(ws.config, ws.path);
-        const address = account.address;
+        const { client: walletClient, address } = await createWalletClient(ws.config, ws.path);
         const workspaceHash = pubSignals[0];
 
         // A. Fetch IP approval from server
-        const apiUrl = ws.config.apiUrl || 'http://localhost:3000';
+        const apiUrl = (ws.config as any).apiUrl || 'http://localhost:3000';
         const approvalSpin = ui.spinner('Requesting IP approval...');
         let approvalSig: string;
         try {
