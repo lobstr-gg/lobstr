@@ -24,6 +24,13 @@ export default function MessagesPage() {
   const [composeSending, setComposeSending] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
 
+  // Mod team DM state
+  const [showModContact, setShowModContact] = useState(false);
+  const [modSubject, setModSubject] = useState("");
+  const [modBody, setModBody] = useState("");
+  const [modSending, setModSending] = useState(false);
+  const [modError, setModError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isConnected || !currentUser) {
       setLoading(false);
@@ -73,6 +80,37 @@ export default function MessagesPage() {
     }
   };
 
+  const handleModTeamSend = async () => {
+    const body = modBody.trim();
+    if (!body || modSending) return;
+
+    setModSending(true);
+    setModError(null);
+
+    try {
+      const res = await fetch("/api/forum/messages/mod-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: modSubject.trim(), body }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send");
+      }
+
+      const data = await res.json();
+      setShowModContact(false);
+      setModSubject("");
+      setModBody("");
+      router.push(`/forum/messages/${data.conversationId}`);
+    } catch (err) {
+      setModError(err instanceof Error ? err.message : "Failed to send");
+    } finally {
+      setModSending(false);
+    }
+  };
+
   if (!isConnected || !currentUser) {
     return (
       <motion.div initial="hidden" animate="show" variants={fadeUp}>
@@ -113,12 +151,20 @@ export default function MessagesPage() {
 
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-text-primary">Messages</h1>
-        <button
-          onClick={() => setShowCompose(true)}
-          className="btn-primary text-sm px-3 py-1.5"
-        >
-          New Message
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowModContact(true); setShowCompose(false); }}
+            className="text-sm px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors"
+          >
+            Contact Mod Team
+          </button>
+          <button
+            onClick={() => { setShowCompose(true); setShowModContact(false); }}
+            className="btn-primary text-sm px-3 py-1.5"
+          >
+            New Message
+          </button>
+        </div>
       </div>
 
       {/* Compose modal */}
@@ -159,6 +205,52 @@ export default function MessagesPage() {
               className="btn-primary text-sm px-3 py-1.5"
             >
               {composeSending ? "Sending..." : "Send"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mod team contact form */}
+      {showModContact && (
+        <div className="card p-4 mb-4 border border-amber-500/20">
+          <h2 className="text-sm font-semibold text-text-primary mb-1">
+            Contact Mod Team
+          </h2>
+          <p className="text-[11px] text-text-tertiary mb-3">
+            Your message will be assigned to an available moderator who will respond in this thread.
+          </p>
+          <input
+            type="text"
+            value={modSubject}
+            onChange={(e) => setModSubject(e.target.value)}
+            placeholder="Subject (optional) — e.g., Report inappropriate content"
+            className="input-field w-full text-sm mb-2"
+          />
+          <textarea
+            value={modBody}
+            onChange={(e) => setModBody(e.target.value)}
+            placeholder="Describe what you need help with..."
+            className="input-field w-full text-sm min-h-[80px] resize-none"
+          />
+          {modError && (
+            <p className="text-xs text-red-400 mt-1">{modError}</p>
+          )}
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <button
+              onClick={() => {
+                setShowModContact(false);
+                setModError(null);
+              }}
+              className="text-xs text-text-tertiary hover:text-text-secondary px-3 py-1.5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleModTeamSend}
+              disabled={!modBody.trim() || modSending}
+              className="text-sm px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            >
+              {modSending ? "Sending..." : "Send to Mod Team"}
             </button>
           </div>
         </div>

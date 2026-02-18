@@ -6,8 +6,13 @@ import {
   deletePost,
   nextId,
   createModLogEntry,
+  getUserWarningCount,
+  incrementUserWarning,
 } from "@/lib/firestore-store";
 import type { ModLogEntry } from "@/lib/forum-types";
+
+// Minimum warnings required before escalation to ban
+const MIN_WARNINGS_BEFORE_BAN = 2;
 
 // POST /api/forum/mod/action — take a moderation action (mod-only)
 export async function POST(request: NextRequest) {
@@ -22,7 +27,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { targetId, action, reason } = body;
+  const { targetId, action, reason, targetAddress } = body;
 
   if (!targetId || !action) {
     return NextResponse.json(
@@ -37,6 +42,21 @@ export async function POST(request: NextRequest) {
       { error: `Invalid action. Must be one of: ${validActions.join(", ")}` },
       { status: 400 }
     );
+  }
+
+  // Enforce warning escalation before bans
+  if ((action === "ban" || action === "ip_ban") && targetAddress) {
+    const warningCount = await getUserWarningCount(targetAddress);
+    if (warningCount < MIN_WARNINGS_BEFORE_BAN) {
+      return NextResponse.json(
+        {
+          error: `Cannot ban user with only ${warningCount} warning(s). At least ${MIN_WARNINGS_BEFORE_BAN} warnings are required before a ban. Issue a warning first.`,
+          warningCount,
+          requiredWarnings: MIN_WARNINGS_BEFORE_BAN,
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const post = await getPostById(targetId);
@@ -56,6 +76,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Track warnings on the user record
+  let newWarningCount: number | undefined;
+  if (action === "warn" && targetAddress) {
+    newWarningCount = await incrementUserWarning(targetAddress);
+  }
+
   // Log the action
   const entry: ModLogEntry = {
     id: await nextId("modLog"),
@@ -68,5 +94,11 @@ export async function POST(request: NextRequest) {
 
   await createModLogEntry(entry);
 
-  return NextResponse.json({ entry }, { status: 201 });
+  return NextResponse.json(
+    {
+      entry,
+      ...(newWarningCount !== undefined && { warningCount: newWarningCount }),
+    },
+    { status: 201 }
+  );
 }

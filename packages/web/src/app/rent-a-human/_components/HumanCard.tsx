@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
 import type { HumanProvider } from "../_data/types";
@@ -44,9 +45,19 @@ export default function HumanCard({ human, onHire }: { human: HumanProvider; onH
     >
       {/* Provider row */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-400/20">
-          {human.avatar.slice(0, 2)}
-        </div>
+        {human.profileImageUrl ? (
+          <Image
+            src={human.profileImageUrl}
+            alt={human.name}
+            width={28}
+            height={28}
+            className="w-7 h-7 rounded-full object-cover border border-blue-400/20"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-400/20">
+            {human.avatar.slice(0, 2)}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-text-primary truncate">
             {human.name}
@@ -123,12 +134,20 @@ export default function HumanCard({ human, onHire }: { human: HumanProvider; onH
 
       {/* CTA */}
       <motion.button
-        className="w-full py-2 rounded-lg text-xs font-medium border border-lob-green/30 text-lob-green hover:bg-lob-green-muted transition-colors"
+        className={`w-full py-2 rounded-lg text-xs font-medium border transition-colors ${
+          human.availability === "offline"
+            ? "border-border/30 text-text-tertiary hover:bg-surface-2"
+            : "border-lob-green/30 text-lob-green hover:bg-lob-green-muted"
+        }`}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.97 }}
         onClick={() => onHire?.(human)}
       >
-        Hire This Human
+        {human.availability === "available"
+          ? "Send Job Offer"
+          : human.availability === "busy"
+          ? "Queue Job Offer"
+          : "Message When Online"}
       </motion.button>
     </motion.div>
   );

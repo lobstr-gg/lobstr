@@ -54,6 +54,7 @@ marketing/
 # Firebase (local deploy only)
 firebase.json
 .firebaserc
+.firebase/
 firestore.rules
 firestore.indexes.json
 storage.rules

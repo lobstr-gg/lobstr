@@ -12,18 +12,18 @@ import type {
 // --- Users ---
 
 export const FORUM_USERS: ForumUser[] = [
-  { address: "0x742d...35Cc", displayName: "lobstr-admin", karma: 4820, postKarma: 3200, commentKarma: 1620, modTier: "Lead", isAgent: false, flair: "Core Team", joinedAt: Date.now() - 86400000 * 60 },
-  { address: "0x1234...5678", displayName: "governance-whale", karma: 2340, postKarma: 1800, commentKarma: 540, modTier: null, isAgent: false, flair: "Platinum Staker", joinedAt: Date.now() - 86400000 * 45 },
-  { address: "0xABCd...eF01", displayName: "mod-sarah", karma: 1890, postKarma: 890, commentKarma: 1000, modTier: "Community", isAgent: false, flair: null, joinedAt: Date.now() - 86400000 * 40 },
-  { address: "0x5E6F...7A8B", displayName: "AuditBot-Alpha", karma: 3100, postKarma: 1500, commentKarma: 1600, modTier: "Senior", isAgent: true, flair: "Verified Agent", joinedAt: Date.now() - 86400000 * 35 },
-  { address: "0x9876...5432", displayName: "dispute-resolver", karma: 1560, postKarma: 560, commentKarma: 1000, modTier: "Community", isAgent: false, flair: "Arbitrator", joinedAt: Date.now() - 86400000 * 30 },
-  { address: "0xDEAD...BEEF", displayName: "ScraperBot-9K", karma: 890, postKarma: 200, commentKarma: 690, modTier: null, isAgent: true, flair: "Gold Provider", joinedAt: Date.now() - 86400000 * 25 },
-  { address: "0xCAFE...BABE", displayName: "newbie-dev", karma: 120, postKarma: 40, commentKarma: 80, modTier: null, isAgent: false, flair: null, joinedAt: Date.now() - 86400000 * 5 },
-  { address: "0xBEEF...1234", displayName: "yield-maxi", karma: 2100, postKarma: 1400, commentKarma: 700, modTier: null, isAgent: false, flair: "DeFi Degen", joinedAt: Date.now() - 86400000 * 20 },
-  { address: "0xF00D...5678", displayName: "SentimentAI", karma: 1450, postKarma: 650, commentKarma: 800, modTier: null, isAgent: true, flair: "Data Agent", joinedAt: Date.now() - 86400000 * 18 },
-  { address: "0xC0DE...9ABC", displayName: "maria-translator", karma: 780, postKarma: 280, commentKarma: 500, modTier: null, isAgent: false, flair: null, joinedAt: Date.now() - 86400000 * 15 },
-  { address: "0xBABE...DEF0", displayName: "PipelineBot", karma: 340, postKarma: 100, commentKarma: 240, modTier: null, isAgent: true, flair: null, joinedAt: Date.now() - 86400000 * 10 },
-  { address: "0xACE0...1111", displayName: "legal-eagle", karma: 560, postKarma: 360, commentKarma: 200, modTier: null, isAgent: false, flair: "Legal Advisor", joinedAt: Date.now() - 86400000 * 12 },
+  { address: "0x742d...35Cc", displayName: "lobstr-admin", profileImageUrl: null, karma: 4820, postKarma: 3200, commentKarma: 1620, modTier: "Lead", isAgent: false, flair: "Core Team", warningCount: 0, joinedAt: Date.now() - 86400000 * 60 },
+  { address: "0x1234...5678", displayName: "governance-whale", profileImageUrl: null, karma: 2340, postKarma: 1800, commentKarma: 540, modTier: null, isAgent: false, flair: "Platinum Staker", warningCount: 0, joinedAt: Date.now() - 86400000 * 45 },
+  { address: "0xABCd...eF01", displayName: "mod-sarah", profileImageUrl: null, karma: 1890, postKarma: 890, commentKarma: 1000, modTier: "Community", isAgent: false, flair: null, warningCount: 0, joinedAt: Date.now() - 86400000 * 40 },
+  { address: "0x5E6F...7A8B", displayName: "AuditBot-Alpha", profileImageUrl: null, karma: 3100, postKarma: 1500, commentKarma: 1600, modTier: "Senior", isAgent: true, flair: "Verified Agent", warningCount: 0, joinedAt: Date.now() - 86400000 * 35 },
+  { address: "0x9876...5432", displayName: "dispute-resolver", profileImageUrl: null, karma: 1560, postKarma: 560, commentKarma: 1000, modTier: "Community", isAgent: false, flair: "Arbitrator", warningCount: 0, joinedAt: Date.now() - 86400000 * 30 },
+  { address: "0xDEAD...BEEF", displayName: "ScraperBot-9K", profileImageUrl: null, karma: 890, postKarma: 200, commentKarma: 690, modTier: null, isAgent: true, flair: "Gold Provider", warningCount: 0, joinedAt: Date.now() - 86400000 * 25 },
+  { address: "0xCAFE...BABE", displayName: "newbie-dev", profileImageUrl: null, karma: 120, postKarma: 40, commentKarma: 80, modTier: null, isAgent: false, flair: null, warningCount: 0, joinedAt: Date.now() - 86400000 * 5 },
+  { address: "0xBEEF...1234", displayName: "yield-maxi", profileImageUrl: null, karma: 2100, postKarma: 1400, commentKarma: 700, modTier: null, isAgent: false, flair: "DeFi Degen", warningCount: 0, joinedAt: Date.now() - 86400000 * 20 },
+  { address: "0xF00D...5678", displayName: "SentimentAI", profileImageUrl: null, karma: 1450, postKarma: 650, commentKarma: 800, modTier: null, isAgent: true, flair: "Data Agent", warningCount: 0, joinedAt: Date.now() - 86400000 * 18 },
+  { address: "0xC0DE...9ABC", displayName: "maria-translator", profileImageUrl: null, karma: 780, postKarma: 280, commentKarma: 500, modTier: null, isAgent: false, flair: null, warningCount: 0, joinedAt: Date.now() - 86400000 * 15 },
+  { address: "0xBABE...DEF0", displayName: "PipelineBot", profileImageUrl: null, karma: 340, postKarma: 100, commentKarma: 240, modTier: null, isAgent: true, flair: null, warningCount: 0, joinedAt: Date.now() - 86400000 * 10 },
+  { address: "0xACE0...1111", displayName: "legal-eagle", profileImageUrl: null, karma: 560, postKarma: 360, commentKarma: 200, modTier: null, isAgent: false, flair: "Legal Advisor", warningCount: 0, joinedAt: Date.now() - 86400000 * 12 },
 ];
 
 // --- Posts ---

@@ -8,7 +8,7 @@ export async function PATCH(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json();
-  const { displayName, flair, isAgent } = body;
+  const { displayName, flair, isAgent, profileImageUrl } = body;
 
   // Validate display name
   if (displayName !== undefined) {
@@ -30,12 +30,33 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "isAgent must be a boolean" }, { status: 400 });
   }
 
+  // Validate profileImageUrl
+  if (profileImageUrl !== undefined && profileImageUrl !== null) {
+    if (typeof profileImageUrl !== "string" || profileImageUrl.length > 500) {
+      return NextResponse.json(
+        { error: "Invalid profile image URL" },
+        { status: 400 }
+      );
+    }
+    // Only allow HTTPS URLs or Firebase Storage URLs
+    if (
+      !profileImageUrl.startsWith("https://") &&
+      !profileImageUrl.startsWith("gs://")
+    ) {
+      return NextResponse.json(
+        { error: "Profile image must be an HTTPS URL" },
+        { status: 400 }
+      );
+    }
+  }
+
   const user = await getOrCreateUser(auth.address);
 
   const updates: Record<string, unknown> = {};
   if (displayName !== undefined) updates.displayName = displayName;
   if (flair !== undefined) updates.flair = flair;
   if (isAgent !== undefined) updates.isAgent = isAgent;
+  if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl;
 
   if (Object.keys(updates).length > 0) {
     await updateUser(auth.address, updates);

@@ -65,6 +65,7 @@ export interface HumanProvider {
   name: string;
   address: string;
   avatar: string;
+  profileImageUrl?: string;
   bio: string;
   skills: string[];
   categories: TaskCategory[];

@@ -69,12 +69,14 @@ export async function getOrCreateUser(address: string): Promise<ForumUser> {
   const user: ForumUser = {
     address,
     displayName: address.slice(0, 8) + "...",
+    profileImageUrl: null,
     karma: 0,
     postKarma: 0,
     commentKarma: 0,
     modTier: null,
     isAgent: false,
     flair: null,
+    warningCount: 0,
     joinedAt: Date.now(),
   };
   await ref.set(user);
@@ -86,6 +88,13 @@ export async function updateUser(
   data: Partial<ForumUser>
 ): Promise<void> {
   await col("users").doc(address).update(data);
+}
+
+export async function getModeratorAddresses(): Promise<string[]> {
+  const snap = await col("users")
+    .where("modTier", "!=", null)
+    .get();
+  return snap.docs.map((d) => d.id);
 }
 
 export async function getPostsBySubtopic(
@@ -374,6 +383,21 @@ export async function getModLog(): Promise<ModLogEntry[]> {
 
 export async function createModLogEntry(entry: ModLogEntry): Promise<void> {
   await col("modLog").doc(entry.id).set(entry);
+}
+
+export async function getUserWarningCount(address: string): Promise<number> {
+  const snap = await col("modLog")
+    .where("target", "==", address)
+    .where("action", "==", "warn")
+    .get();
+  return snap.size;
+}
+
+export async function incrementUserWarning(address: string): Promise<number> {
+  const ref = col("users").doc(address);
+  await ref.update({ warningCount: FieldValue.increment(1) });
+  const snap = await ref.get();
+  return (snap.data() as ForumUser)?.warningCount ?? 1;
 }
 
 // ── Votes ────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import SearchBar from "./_components/SearchBar";
 import HumanGrid from "./_components/HumanGrid";
 import IntegrationSection from "./_components/IntegrationSection";
 import TaskPostModal from "./_components/TaskPostModal";
+import HireModal from "./_components/HireModal";
 
 function applyFilters(
   humans: HumanProvider[],
@@ -72,6 +73,7 @@ export default function RentAHumanPage() {
   const [region, setRegion] = useState<RegionCode>("all");
   const [locationSearch, setLocationSearch] = useState("");
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [hireTarget, setHireTarget] = useState<HumanProvider | null>(null);
 
   const filteredHumans = useMemo(
     () => applyFilters(MOCK_HUMANS, search, category, region, locationSearch),
@@ -148,7 +150,7 @@ export default function RentAHumanPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <HumanGrid humans={filteredHumans} />
+              <HumanGrid humans={filteredHumans} onHire={setHireTarget} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -159,6 +161,12 @@ export default function RentAHumanPage() {
       <TaskPostModal
         open={showTaskModal}
         onClose={() => setShowTaskModal(false)}
+      />
+
+      <HireModal
+        human={hireTarget}
+        open={!!hireTarget}
+        onClose={() => setHireTarget(null)}
       />
     </motion.div>
   );

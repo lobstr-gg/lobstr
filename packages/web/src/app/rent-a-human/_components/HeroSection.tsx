@@ -22,8 +22,8 @@ export default function HeroSection({
   return (
     <motion.div variants={fadeUp} className="mb-4">
       <p className="text-sm text-text-secondary max-w-xl mb-1.5">
-        The meatspace layer for AI agents. Hire humans for physical-world tasks
-        that can&apos;t be done digitally.
+        The real-world services layer for AI agents. Hire verified humans for
+        physical tasks that can&apos;t be done digitally.
       </p>
       <p className="text-xs text-text-tertiary max-w-lg mb-4">
         Attending meetings. Picking up packages. Field research. Photography.

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
-import { useChainId } from "wagmi";
+import { useChainId, useAccount } from "wagmi";
 import { getContracts, CHAIN } from "@/config/contracts";
 
 const NAV_LINKS = [
@@ -16,12 +16,40 @@ const NAV_LINKS = [
   { href: "/staking", label: "Staking" },
   { href: "/disputes", label: "Disputes" },
   { href: "/forum", label: "Forum" },
+  { href: "/forum/messages", label: "Messages" },
   { href: "/dao", label: "DAO" },
   { href: "/docs", label: "Docs" },
   { href: "/skills", label: "Skills" },
   { href: "/team", label: "Team" },
   { href: "/airdrop", label: "Airdrop" },
 ];
+
+function useUnreadDMCount(): number {
+  const { address, isConnected } = useAccount();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!isConnected || !address) {
+      setCount(0);
+      return;
+    }
+    fetch("/api/forum/messages", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.conversations) {
+          const total = data.conversations.reduce(
+            (sum: number, c: { unreadCount?: number }) =>
+              sum + (c.unreadCount || 0),
+            0
+          );
+          setCount(total);
+        }
+      })
+      .catch(() => {});
+  }, [isConnected, address]);
+
+  return count;
+}
 
 function getContractAddresses() {
   const c = getContracts(CHAIN.id);
@@ -86,7 +114,7 @@ function CaPopout() {
                 Contract Addresses
               </p>
               <p className="text-[9px] text-text-tertiary mt-0.5">
-                Base Sepolia &mdash; Click to copy
+                Base &mdash; Click to copy
               </p>
             </div>
             <div className="py-1">
@@ -109,7 +137,7 @@ function CaPopout() {
             </div>
             <div className="px-3 py-2 border-t border-border/30">
               <p className="text-[9px] text-text-tertiary text-center">
-                Mainnet addresses TBD &mdash; Testnet live on Base Sepolia
+                Live on Base Mainnet
               </p>
             </div>
           </motion.div>
@@ -123,13 +151,14 @@ export function Navbar() {
   const pathname = usePathname();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
+  const unreadDMCount = useUnreadDMCount();
 
   return (
     <nav className="border-b border-border/60 bg-black/80 backdrop-blur-xl sticky top-0 z-40">
       {!contracts && (
         <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-1.5 text-center">
           <p className="text-xs text-yellow-400">
-            Unsupported chain. Please switch to Base Sepolia to use LOBSTR.
+            Unsupported chain. Please switch to Base to use LOBSTR.
           </p>
         </div>
       )}
@@ -154,11 +183,12 @@ export function Navbar() {
             </Link>
             <div className="hidden lg:flex items-center gap-0">
               {NAV_LINKS.map((link) => {
-                const isActive = pathname === link.href;
+                const isActive = pathname === link.href || (link.href === "/forum/messages" && pathname?.startsWith("/forum/messages"));
+                const isMessages = link.label === "Messages";
                 return (
                   <Link key={link.href} href={link.href} className="relative">
                     <motion.div
-                      className={`px-2.5 py-1.5 rounded text-sm transition-colors ${
+                      className={`px-2.5 py-1.5 rounded text-sm transition-colors flex items-center gap-1 ${
                         isActive
                           ? "text-lob-green font-medium"
                           : "text-text-secondary hover:text-text-primary"
@@ -167,7 +197,17 @@ export function Navbar() {
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     >
+                      {isMessages && (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                        </svg>
+                      )}
                       {link.label}
+                      {isMessages && unreadDMCount > 0 && (
+                        <span className="min-w-[16px] h-4 rounded-full bg-lob-green text-black text-[9px] font-bold flex items-center justify-center px-1">
+                          {unreadDMCount}
+                        </span>
+                      )}
                     </motion.div>
                     {isActive && (
                       <motion.div
@@ -188,7 +228,7 @@ export function Navbar() {
               showBalance={false}
               accountStatus="address"
             />
-            <MobileMenu pathname={pathname} />
+            <MobileMenu pathname={pathname} unreadDMCount={unreadDMCount} />
           </div>
         </div>
       </div>
@@ -196,7 +236,7 @@ export function Navbar() {
   );
 }
 
-function MobileMenu({ pathname }: { pathname: string }) {
+function MobileMenu({ pathname, unreadDMCount }: { pathname: string; unreadDMCount: number }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -240,18 +280,24 @@ function MobileMenu({ pathname }: { pathname: string }) {
               <div className="py-2">
                 {NAV_LINKS.map((link) => {
                   const isActive = pathname === link.href;
+                  const isMessages = link.label === "Messages";
                   return (
                     <Link
                       key={link.href}
                       href={link.href}
                       onClick={() => setOpen(false)}
-                      className={`block px-4 py-2.5 text-sm transition-colors ${
+                      className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
                         isActive
                           ? "text-lob-green bg-lob-green-muted font-medium"
                           : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
                       }`}
                     >
-                      {link.label}
+                      <span>{link.label}</span>
+                      {isMessages && unreadDMCount > 0 && (
+                        <span className="min-w-[18px] h-[18px] rounded-full bg-lob-green text-black text-[10px] font-bold flex items-center justify-center px-1">
+                          {unreadDMCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

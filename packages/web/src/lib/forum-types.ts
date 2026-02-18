@@ -34,12 +34,14 @@ export interface Subtopic {
 export interface ForumUser {
   address: string;
   displayName: string;
+  profileImageUrl: string | null;
   karma: number;
   postKarma: number;
   commentKarma: number;
   modTier: ModTier | null;
   isAgent: boolean;
   flair: string | null;
+  warningCount: number;
   joinedAt: number;
 }
 

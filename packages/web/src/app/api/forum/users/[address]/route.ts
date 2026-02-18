@@ -12,12 +12,14 @@ export async function GET(
     const minimal: ForumUser = {
       address: params.address,
       displayName: params.address.slice(0, 8) + "...",
+      profileImageUrl: null,
       karma: 0,
       postKarma: 0,
       commentKarma: 0,
       modTier: null,
       isAgent: false,
       flair: null,
+      warningCount: 0,
       joinedAt: 0,
     };
     return NextResponse.json({ user: minimal });
