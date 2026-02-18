@@ -46,7 +46,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Deploy to Railway
-        run: railway up --detach --service ${{ env.SVC_ID }}
+        run: railway up --detach
         env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          SVC_ID: 84e9c046-d6c2-43a2-938e-12570e1edb09
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
