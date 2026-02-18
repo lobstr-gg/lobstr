@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
   if (limited) return limited;
 
   const address = request.nextUrl.searchParams.get("address");
-  if (!address) {
+  if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return NextResponse.json(
-      { error: "Missing address parameter" },
+      { error: "Missing or invalid Ethereum address" },
       { status: 400 }
     );
   }

@@ -35,9 +35,16 @@ export async function POST(
   const body = await request.json();
   const { body: commentBody, parentId } = body;
 
-  if (!commentBody) {
+  if (!commentBody || typeof commentBody !== "string") {
     return NextResponse.json(
       { error: "Missing required field: body" },
+      { status: 400 }
+    );
+  }
+
+  if (commentBody.length > 10_000) {
+    return NextResponse.json(
+      { error: "Comment must be 10,000 characters or fewer" },
       { status: 400 }
     );
   }
@@ -55,6 +62,14 @@ export async function POST(
       );
     }
     depth = parent.depth + 1;
+  }
+
+  // Cap nesting depth to prevent abuse
+  if (depth > 10) {
+    return NextResponse.json(
+      { error: "Maximum comment nesting depth reached" },
+      { status: 400 }
+    );
   }
 
   const comment = {

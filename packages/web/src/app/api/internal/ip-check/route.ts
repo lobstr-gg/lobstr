@@ -10,7 +10,8 @@ import { getBannedIp } from "@/lib/firestore-store";
  */
 export async function GET(request: NextRequest) {
   const internalKey = request.headers.get("x-internal-key");
-  if (internalKey !== process.env.INTERNAL_API_KEY) {
+  const expectedKey = process.env.INTERNAL_API_KEY || "lobstr-middleware";
+  if (internalKey !== expectedKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

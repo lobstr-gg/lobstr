@@ -23,6 +23,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return NextResponse.json(
+      { error: "Invalid Ethereum address format" },
+      { status: 400 }
+    );
+  }
+
+  // Sanitize display name
+  if (displayName && (typeof displayName !== "string" || displayName.length > 32 || /[<>"']/.test(displayName))) {
+    return NextResponse.json(
+      { error: "Invalid display name. Max 32 characters, no special HTML characters." },
+      { status: 400 }
+    );
+  }
+
   // Verify nonce
   if (!(await consumeChallenge(address, nonce))) {
     return NextResponse.json(

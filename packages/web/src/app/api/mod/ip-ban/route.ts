@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Basic IP format validation (IPv4 or IPv6)
+  // IP format validation (IPv4 or IPv6)
   const ipv4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
-  const ipv6 = /^[0-9a-fA-F:]+$/;
+  const ipv6 = /^[0-9a-fA-F:]{3,45}$/;
   if (!ipv4.test(ip) && !ipv6.test(ip)) {
     return NextResponse.json(
       { error: "Invalid IP address format" },

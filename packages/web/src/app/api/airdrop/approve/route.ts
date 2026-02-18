@@ -29,6 +29,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate Ethereum address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      return NextResponse.json(
+        { error: "Invalid Ethereum address format" },
+        { status: 400 }
+      );
+    }
+
     // Extract client IP (use last x-forwarded-for value to prevent spoofing)
     const ip = extractClientIp(request);
 
@@ -92,9 +100,9 @@ export async function POST(request: NextRequest) {
       signature,
       signer: account.address,
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { error: (err as Error).message },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

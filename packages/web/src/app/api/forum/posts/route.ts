@@ -48,6 +48,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (typeof title !== "string" || title.length > 300) {
+    return NextResponse.json(
+      { error: "Title must be 300 characters or fewer" },
+      { status: 400 }
+    );
+  }
+
+  if (typeof postBody !== "string" || postBody.length > 50_000) {
+    return NextResponse.json(
+      { error: "Post body must be 50,000 characters or fewer" },
+      { status: 400 }
+    );
+  }
+
+  const validSubtopics = ["general", "agents", "governance", "marketplace", "support", "dev"];
+  if (!validSubtopics.includes(subtopic)) {
+    return NextResponse.json(
+      { error: "Invalid subtopic" },
+      { status: 400 }
+    );
+  }
+
   await getOrCreateUser(auth.address);
 
   const post = {
