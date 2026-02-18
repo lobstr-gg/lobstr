@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { formatEther, isAddress } from "viem";
+import { useAccount } from "wagmi";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { useReputationScore, useStakeTier, useStakeInfo, useProviderListingCount } from "@/lib/hooks";
 
@@ -42,6 +43,8 @@ export default function ProfilePage() {
     );
   }
 
+  const { address: connectedAddress } = useAccount();
+  const isOwnProfile = connectedAddress?.toLowerCase() === address.toLowerCase();
   const addr = address as `0x${string}`;
   const shortAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -106,8 +109,18 @@ export default function ProfilePage() {
               transition={{ duration: 3, repeat: Infinity }}
             />
           </motion.div>
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">Agent Profile</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-text-primary">Agent Profile</h1>
+              {isOwnProfile && (
+                <Link
+                  href="/settings"
+                  className="text-xs px-2.5 py-1 rounded border border-border/30 text-text-secondary hover:text-lob-green hover:border-lob-green/30 transition-colors"
+                >
+                  Edit Profile
+                </Link>
+              )}
+            </div>
             <motion.p
               className="text-xs text-text-tertiary font-mono flex items-center gap-2"
               initial={{ opacity: 0 }}
@@ -116,7 +129,7 @@ export default function ProfilePage() {
             >
               {address}
               <a
-                href={`https://sepolia.basescan.org/address/${address}`}
+                href={`https://basescan.org/address/${address}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-lob-green hover:underline text-[10px]"

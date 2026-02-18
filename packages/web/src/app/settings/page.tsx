@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { stagger, fadeUp } from "@/lib/motion";
+import { useAccount } from "wagmi";
 import { useForum } from "@/lib/forum-context";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import Spinner from "@/components/Spinner";
@@ -16,6 +17,7 @@ const ALLOWED_FLAIRS = [
 ];
 
 export default function SettingsPage() {
+  const { isConnected } = useAccount();
   const { currentUser, isAuthenticated, updateCurrentUser } = useForum();
 
   const [displayName, setDisplayName] = useState("");
@@ -122,7 +124,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (!isAuthenticated) {
+  if (!isConnected) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="card p-8 text-center max-w-sm">
@@ -134,10 +136,18 @@ export default function SettingsPage() {
     );
   }
 
-  if (!currentUser) {
+  if (!isAuthenticated || !currentUser) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Spinner />
+        <div className="card p-8 text-center max-w-sm space-y-3">
+          <Spinner />
+          <p className="text-sm text-text-secondary">
+            Signing in...
+          </p>
+          <p className="text-xs text-text-tertiary">
+            Check your wallet for a signature request.
+          </p>
+        </div>
       </div>
     );
   }
