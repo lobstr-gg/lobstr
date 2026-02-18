@@ -15,6 +15,9 @@ interface ForumContextValue {
   currentUser: ForumUser | null;
   isConnected: boolean;
   isAuthenticated: boolean;
+  needsProfileSetup: boolean;
+  dismissProfileSetup: () => void;
+  updateCurrentUser: (updates: Partial<ForumUser>) => void;
   votes: Record<string, 1 | -1>;
   vote: (id: string, direction: 1 | -1) => void;
   unreadDMCount: number;
@@ -26,6 +29,9 @@ const ForumContext = createContext<ForumContextValue>({
   currentUser: null,
   isConnected: false,
   isAuthenticated: false,
+  needsProfileSetup: false,
+  dismissProfileSetup: () => {},
+  updateCurrentUser: () => {},
   votes: {},
   vote: () => {},
   unreadDMCount: 0,
@@ -40,6 +46,8 @@ export function ForumProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<ForumUser | null>(null);
   const [unreadDMCount, setUnreadDMCount] = useState(0);
+  const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
+  const [setupDismissed, setSetupDismissed] = useState(false);
 
   // Check authentication status and fetch user profile
   useEffect(() => {
@@ -47,10 +55,12 @@ export function ForumProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(false);
       setCurrentUser(null);
       setUnreadDMCount(0);
+      setNeedsProfileSetup(false);
+      setSetupDismissed(false);
       return;
     }
 
-    // Fetch user profile from API
+    // Fetch user profile from API (getOrCreate)
     fetch("/api/forum/users/me", {
       method: "PATCH",
       credentials: "include",
@@ -68,6 +78,11 @@ export function ForumProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         if (data?.user) {
           setCurrentUser(data.user);
+          // Check if profile is still in default state (address-based name, no image)
+          const user = data.user as ForumUser;
+          const isDefault =
+            user.displayName.endsWith("...") && !user.profileImageUrl;
+          setNeedsProfileSetup(isDefault);
         }
       })
       .catch(() => setIsAuthenticated(false));
@@ -99,12 +114,25 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const dismissProfileSetup = useCallback(() => {
+    setSetupDismissed(true);
+    setNeedsProfileSetup(false);
+  }, []);
+
+  const updateCurrentUser = useCallback((updates: Partial<ForumUser>) => {
+    setCurrentUser((prev) => (prev ? { ...prev, ...updates } : prev));
+    setNeedsProfileSetup(false);
+  }, []);
+
   return (
     <ForumContext.Provider
       value={{
         currentUser,
         isConnected: !!isConnected,
         isAuthenticated,
+        needsProfileSetup: needsProfileSetup && !setupDismissed,
+        dismissProfileSetup,
+        updateCurrentUser,
         votes,
         vote,
         unreadDMCount,
