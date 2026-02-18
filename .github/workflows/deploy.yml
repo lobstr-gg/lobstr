@@ -47,6 +47,8 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Deploy to Railway
-        run: cd packages/indexer && railway up --detach
+        run: railway up --detach --service lobstr-indexer
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: 4a86e4d9-b3fe-4424-853b-aef7400b4f00
+          RAILWAY_SERVICE_ID: 84e9c046-d6c2-43a2-938e-12570e1edb09
