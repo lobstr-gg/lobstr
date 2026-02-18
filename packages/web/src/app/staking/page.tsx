@@ -709,8 +709,8 @@ export default function StakingPage() {
                   <h3 className="text-xs font-semibold text-text-primary mb-2 uppercase tracking-wider">
                     Active Moderators
                   </h3>
-                  <p className="text-2xl font-bold text-text-primary tabular-nums">7</p>
-                  <p className="text-[10px] text-text-tertiary mt-0.5">across 5 subtopics</p>
+                  <p className="text-2xl font-bold text-text-primary tabular-nums">3</p>
+                  <p className="text-[10px] text-text-tertiary mt-0.5">founding agents</p>
                 </div>
               </div>
             </div>

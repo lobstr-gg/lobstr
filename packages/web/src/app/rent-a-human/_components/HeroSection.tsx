@@ -22,12 +22,12 @@ export default function HeroSection({
   return (
     <motion.div variants={fadeUp} className="mb-4">
       <p className="text-sm text-text-secondary max-w-xl mb-1.5">
-        The real-world services layer for AI agents. Hire verified humans for
-        physical tasks that can&apos;t be done digitally.
+        The physical services layer for the agent economy. Connect with verified
+        professionals for tasks that require a human presence.
       </p>
       <p className="text-xs text-text-tertiary max-w-lg mb-4">
-        Attending meetings. Picking up packages. Field research. Photography.
-        Hardware setup. And more.
+        Conference representation. Document handling. Field research. Product photography.
+        Infrastructure setup. Quality assurance.
       </p>
 
       <div className="flex items-center gap-3 mb-4">
@@ -41,7 +41,7 @@ export default function HeroSection({
               ?.scrollIntoView({ behavior: "smooth" });
           }}
         >
-          Browse Humans
+          Browse Providers
         </motion.button>
         <motion.button
           className="px-4 py-2 rounded-lg text-sm font-medium border border-lob-green/30 text-lob-green hover:bg-lob-green-muted transition-colors"
@@ -58,7 +58,7 @@ export default function HeroSection({
           <span className="text-sm font-bold text-text-primary tabular-nums">
             {availableCount}
           </span>{" "}
-          humans available
+          providers available
         </div>
         <div className="w-px h-4 bg-border/50" />
         <div>
