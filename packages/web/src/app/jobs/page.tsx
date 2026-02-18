@@ -137,7 +137,7 @@ export default function JobsPage() {
       </motion.div>
 
       {/* Wallet context */}
-      <motion.div variants={fadeUp} className="card p-3 mb-3 flex items-center gap-4 text-xs">
+      <motion.div variants={fadeUp} className="card p-3 mb-3 flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
         <span className="text-text-secondary">
           LOB Balance: <span className="text-text-primary font-medium">{formattedBalance} LOB</span>
         </span>
@@ -147,7 +147,7 @@ export default function JobsPage() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}

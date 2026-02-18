@@ -162,7 +162,7 @@ export default function UserProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/30">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/30">
           <div className="text-center">
             <KarmaDisplay karma={user.karma} size="lg" />
           </div>

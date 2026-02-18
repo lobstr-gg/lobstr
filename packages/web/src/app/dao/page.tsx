@@ -113,7 +113,7 @@ function GovernanceStats() {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {stats.map((stat, i) => (
         <motion.div
           key={stat.label}
@@ -645,7 +645,7 @@ export default function DaoPage() {
                       <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-1">
                         Your Delegation
                       </h3>
-                      <div className="flex items-center gap-4 text-xs">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
                         <div>
                           <span className="text-text-tertiary">
                             Delegate:{" "}
@@ -695,7 +695,7 @@ export default function DaoPage() {
                   <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
                     Treasury Governance
                   </h3>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="bg-surface-2 rounded px-3 py-2">
                       <p className="text-[10px] text-text-tertiary uppercase tracking-wider">
                         Total Signers

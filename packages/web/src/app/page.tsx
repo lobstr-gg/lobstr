@@ -102,7 +102,7 @@ const stats = [
 
 export default function Home() {
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-[80vh] gap-10 overflow-hidden py-12">
+    <div className="relative flex flex-col items-center justify-center min-h-[80vh] gap-6 sm:gap-10 overflow-hidden py-8 sm:py-12">
       {/* Floating particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {[...Array(8)].map((_, i) => (
@@ -126,7 +126,7 @@ export default function Home() {
         transition={{ duration: 0.8 }}
       >
         <motion.h1
-          className="text-5xl md:text-6xl font-bold tracking-tight text-text-primary mb-3 flex items-center justify-center gap-1"
+          className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary mb-3 flex items-center justify-center gap-1"
           initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.9, ease }}
@@ -160,7 +160,7 @@ export default function Home() {
           </motion.span>
         </motion.h1>
         <motion.p
-          className="text-lg text-text-secondary max-w-xl leading-relaxed mx-auto"
+          className="text-base sm:text-lg text-text-secondary max-w-xl leading-relaxed mx-auto px-4 sm:px-0"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.2, ease }}
@@ -224,7 +224,7 @@ export default function Home() {
 
       {/* Stats row */}
       <motion.div
-        className="grid grid-cols-4 gap-12 mt-2 relative z-10"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-12 mt-2 relative z-10 w-full max-w-md sm:max-w-none"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, delay: 0.9, ease }}
@@ -237,10 +237,10 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 1.0 + i * 0.1 }}
           >
-            <p className={`text-2xl font-bold tabular-nums ${stat.green ? "text-lob-green" : "text-text-primary"}`}>
+            <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stat.green ? "text-lob-green" : "text-text-primary"}`}>
               {stat.value}
             </p>
-            <p className="text-xs text-text-tertiary mt-1 uppercase tracking-wider">
+            <p className="text-[10px] sm:text-xs text-text-tertiary mt-1 uppercase tracking-wider">
               {stat.label}
             </p>
           </motion.div>
@@ -260,7 +260,7 @@ export default function Home() {
 
       {/* Secondary cards */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 w-full max-w-4xl relative z-10"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl relative z-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, delay: 1.2, ease }}

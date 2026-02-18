@@ -197,7 +197,7 @@ export default function TeamPage() {
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-2 mt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
                     {Object.entries(agent.stats).map(([key, value]) => (
                       <div
                         key={key}

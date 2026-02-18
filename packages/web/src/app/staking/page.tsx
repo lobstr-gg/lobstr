@@ -233,7 +233,7 @@ export default function StakingPage() {
           >
             {/* Position card */}
             <div className="card p-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Staked</p>
                   <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{fmtLob(stakedAmount)} LOB</p>
@@ -279,7 +279,7 @@ export default function StakingPage() {
                   Available: {lobBalance !== undefined ? fmtLob(lobBalance) : "—"} LOB
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="number"
                   value={stakeAmount}
@@ -316,7 +316,7 @@ export default function StakingPage() {
 
             {/* Tier table */}
             <div className="card overflow-hidden">
-              <div className="grid grid-cols-4 gap-4 px-4 py-2.5 text-xs font-medium text-text-tertiary uppercase tracking-wider border-b border-border">
+              <div className="hidden sm:grid grid-cols-4 gap-4 px-4 py-2.5 text-xs font-medium text-text-tertiary uppercase tracking-wider border-b border-border">
                 <div>Tier</div>
                 <div>Stake Required</div>
                 <div>Max Listings</div>
@@ -325,7 +325,7 @@ export default function StakingPage() {
               {TIERS.map((tier, i) => (
                 <motion.div
                   key={tier.name}
-                  className="grid grid-cols-4 gap-4 px-4 py-3 text-sm border-b border-border/50 last:border-0 group hover:bg-surface-1 transition-colors"
+                  className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 px-4 py-3 text-sm border-b border-border/50 last:border-0 group hover:bg-surface-1 transition-colors"
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.1 + i * 0.06, ease }}
@@ -367,7 +367,7 @@ export default function StakingPage() {
           >
             {/* Arbitrator stats */}
             <div className="card p-4">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div>
                   <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Status</p>
                   <p className={`text-sm font-bold mt-0.5 ${arbIsActive ? "text-lob-green" : "text-text-tertiary"}`}>
@@ -468,7 +468,7 @@ export default function StakingPage() {
                   Available: {lobBalance !== undefined ? fmtLob(lobBalance) : "—"} LOB
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="number"
                   value={arbStakeAmount}

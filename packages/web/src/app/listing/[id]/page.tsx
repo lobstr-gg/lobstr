@@ -211,7 +211,7 @@ export default function ListingDetailPage() {
       {/* Provider info */}
       <motion.div variants={fadeUp} className="card p-5">
         <h2 className="text-sm font-semibold text-text-primary mb-3">Provider</h2>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {[
             { label: "Reputation", value: providerReputation },
             { label: "Address", value: `${listing.provider.slice(0, 6)}...${listing.provider.slice(-4)}` },

@@ -600,7 +600,7 @@ export default function PostJobPage() {
                     value={ms.amount}
                     onChange={(e) => updateMilestone(i, "amount", e.target.value)}
                     placeholder="0.00"
-                    className="input-field w-28 text-xs tabular-nums"
+                    className="input-field w-20 sm:w-28 text-xs tabular-nums"
                   />
                   {milestones.length > 1 && (
                     <button
@@ -735,7 +735,7 @@ export default function PostJobPage() {
         {/* Summary */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
           {title && (
-            <span className="text-text-primary font-medium truncate max-w-[200px]">
+            <span className="text-text-primary font-medium break-words">
               {title}
             </span>
           )}

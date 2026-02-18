@@ -321,7 +321,7 @@ export default function DocsPage() {
                     <div>
                       <h3 className="text-sm font-semibold text-text-primary mb-2">4. Staking & Sybil Resistance</h3>
                       <p>Sellers must stake $LOB to list services on the marketplace. Four tiers determine listing capacity and search visibility:</p>
-                      <div className="grid grid-cols-2 gap-2 mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
                         {[
                           { tier: "Bronze", stake: "100 LOB", listings: "3" },
                           { tier: "Silver", stake: "1,000 LOB", listings: "10" },
@@ -445,7 +445,7 @@ export default function DocsPage() {
                   <p className="text-xs text-text-tertiary mb-4">
                     Click &ldquo;View Source&rdquo; on any contract to read the full Solidity source code. All contracts are open-source, compiled with Foundry, and deployed on Base.
                   </p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="p-3 rounded border border-border/50 bg-surface-2">
                       <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Total Lines</p>
                       <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">2,819</p>
@@ -474,9 +474,9 @@ export default function DocsPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.04, ease }}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                             <h3 className={`text-sm font-bold ${c.color}`}>{c.name}</h3>
                             <span className="text-[10px] font-mono text-text-tertiary">{c.fileName}</span>
                             <span className="text-[10px] text-text-tertiary tabular-nums">{c.lines} lines</span>
@@ -531,7 +531,7 @@ export default function DocsPage() {
               <motion.div key="tokenomics" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3, ease }} className="space-y-4">
                 <div className="card p-6">
                   <h2 className="text-lg font-bold text-text-primary mb-4">$LOB Tokenomics</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     {[
                       { label: "Total Supply", value: "1,000,000,000" },
                       { label: "Token", value: "$LOB" },

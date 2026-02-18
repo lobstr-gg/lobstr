@@ -106,7 +106,7 @@ function CaPopout() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-border/60 bg-black/95 backdrop-blur-xl shadow-2xl z-50 overflow-hidden"
+            className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full sm:mt-2 w-auto sm:w-80 rounded-lg border border-border/60 bg-black/95 backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
           >
             <div className="px-3 py-2 border-b border-border/30">
               <p className="text-[10px] text-text-tertiary uppercase tracking-widest font-semibold">
@@ -209,8 +209,8 @@ export function Navbar() {
               })}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/forum/messages" className="relative group">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/forum/messages" className="relative group hidden sm:block">
               <motion.div
                 className={`p-2 rounded transition-colors ${
                   pathname?.startsWith("/forum/messages")
@@ -230,12 +230,16 @@ export function Navbar() {
                 )}
               </motion.div>
             </Link>
-            <CaPopout />
-            <ConnectButton
-              chainStatus="icon"
-              showBalance={false}
-              accountStatus="address"
-            />
+            <div className="hidden sm:block">
+              <CaPopout />
+            </div>
+            <div className="[&_button]:!px-2 [&_button]:!py-1.5 [&_button]:!text-xs sm:[&_button]:!px-3 sm:[&_button]:!py-2 sm:[&_button]:!text-sm">
+              <ConnectButton
+                chainStatus="icon"
+                showBalance={false}
+                accountStatus={{ smallScreen: "avatar", largeScreen: "address" }}
+              />
+            </div>
             <MobileMenu pathname={pathname} />
           </div>
         </div>
@@ -246,46 +250,62 @@ export function Navbar() {
 
 function MobileMenu({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
+  const unreadDMCount = useUnreadDMCount();
+
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="lg:hidden flex flex-col gap-1 p-2"
+        className="lg:hidden flex flex-col gap-1.5 p-2 -mr-2"
         aria-label="Open menu"
       >
-        <span className="w-4 h-0.5 bg-text-secondary" />
-        <span className="w-4 h-0.5 bg-text-secondary" />
-        <span className="w-4 h-0.5 bg-text-secondary" />
+        <span className="w-5 h-0.5 bg-text-secondary rounded-full" />
+        <span className="w-5 h-0.5 bg-text-secondary rounded-full" />
+        <span className="w-5 h-0.5 bg-text-secondary rounded-full" />
       </button>
 
       <AnimatePresence>
         {open && (
           <>
             <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] lg:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setOpen(false)}
             />
             <motion.div
-              className="fixed top-0 right-0 h-full w-64 bg-surface-1 border-l border-border/60 z-50 lg:hidden overflow-y-auto"
+              className="fixed top-0 right-0 h-[100dvh] w-72 bg-surface-1 border-l border-border/60 z-[101] lg:hidden flex flex-col"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             >
-              <div className="flex items-center justify-between p-4 border-b border-border/30">
+              <div className="flex items-center justify-between p-4 border-b border-border/30 shrink-0">
                 <span className="text-sm font-bold text-lob-green">Menu</span>
                 <button
                   onClick={() => setOpen(false)}
-                  className="text-text-tertiary hover:text-text-primary text-lg"
+                  className="w-8 h-8 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+                  aria-label="Close menu"
                 >
-                  &times;
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-              <div className="py-2">
+              <div className="flex-1 overflow-y-auto overscroll-contain py-2 -webkit-overflow-scrolling-touch">
                 {NAV_LINKS.map((link) => {
                   const isActive = pathname === link.href;
                   return (
@@ -293,30 +313,41 @@ function MobileMenu({ pathname }: { pathname: string }) {
                       key={link.href}
                       href={link.href}
                       onClick={() => setOpen(false)}
-                      className={`flex items-center px-4 py-2.5 text-sm transition-colors ${
+                      className={`flex items-center px-4 py-3 text-sm transition-colors ${
                         isActive
                           ? "text-lob-green bg-lob-green-muted font-medium"
-                          : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+                          : "text-text-primary hover:bg-surface-2"
                       }`}
                     >
                       {link.label}
                     </Link>
                   );
                 })}
+                <div className="mx-4 my-2 h-px bg-border/30" />
                 <Link
                   href="/forum/messages"
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+                  className={`flex items-center justify-between px-4 py-3 text-sm transition-colors ${
                     pathname?.startsWith("/forum/messages")
                       ? "text-lob-green bg-lob-green-muted font-medium"
-                      : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+                      : "text-text-primary hover:bg-surface-2"
                   }`}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                  </svg>
-                  Messages
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                    Messages
+                  </span>
+                  {unreadDMCount > 0 && (
+                    <span className="min-w-[20px] h-5 rounded-full bg-lob-green text-black text-[10px] font-bold flex items-center justify-center px-1.5">
+                      {unreadDMCount}
+                    </span>
+                  )}
                 </Link>
+              </div>
+              <div className="shrink-0 p-4 border-t border-border/30">
+                <p className="text-[10px] text-text-tertiary text-center">LOBSTR Protocol</p>
               </div>
             </motion.div>
           </>
