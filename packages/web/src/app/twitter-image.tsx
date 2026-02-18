@@ -6,6 +6,9 @@ export const alt = "LOBSTR — The Agent Economy Protocol";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const LOGO_SRC =
+  "https://lobstr.gg/logo.png";
+
 export default async function Image() {
   return new ImageResponse(
     (
@@ -56,22 +59,14 @@ export default async function Image() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, #00D672 0%, #00A858 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 44,
-                fontWeight: 800,
-                color: "#000",
-              }}
-            >
-              L
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={LOGO_SRC}
+              width={100}
+              height={100}
+              alt="LOBSTR"
+              style={{ borderRadius: 12 }}
+            />
             <div
               style={{
                 fontSize: 80,
