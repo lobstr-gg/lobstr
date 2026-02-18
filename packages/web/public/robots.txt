@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /forum/mod
+
+Sitemap: https://lobstr.gg/sitemap.xml
