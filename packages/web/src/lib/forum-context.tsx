@@ -17,6 +17,7 @@ interface ForumContextValue {
   isConnected: boolean;
   isAuthenticated: boolean;
   authLoading: boolean;
+  authError: string | null;
   retryAuth: () => void;
   needsProfileSetup: boolean;
   dismissProfileSetup: () => void;
@@ -38,6 +39,7 @@ const ForumContext = createContext<ForumContextValue>({
   isConnected: false,
   isAuthenticated: false,
   authLoading: false,
+  authError: null,
   retryAuth: () => {},
   needsProfileSetup: false,
   dismissProfileSetup: () => {},
@@ -57,33 +59,36 @@ const ForumContext = createContext<ForumContextValue>({
 async function authenticate(
   address: string,
   signMessageAsync: (args: { message: string }) => Promise<string>
-): Promise<ForumUser | null> {
-  try {
-    // 1. Get challenge nonce
-    const challengeRes = await fetch(
-      `/api/forum/auth/challenge?address=${address}`,
-      { credentials: "include" }
-    );
-    if (!challengeRes.ok) return null;
-    const { nonce } = await challengeRes.json();
-
-    // 2. Sign the message
-    const message = `LOBSTR Forum\nNonce: ${nonce}\nAddress: ${address}`;
-    const signature = await signMessageAsync({ message });
-
-    // 3. Register / login — returns user object + sets cookie
-    const registerRes = await fetch("/api/forum/auth/register", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address, signature, nonce }),
-    });
-    if (!registerRes.ok) return null;
-    const data = await registerRes.json();
-    return data?.user ?? null;
-  } catch {
-    return null;
+): Promise<ForumUser> {
+  // 1. Get challenge nonce
+  const challengeRes = await fetch(
+    `/api/forum/auth/challenge?address=${address}`,
+    { credentials: "include" }
+  );
+  if (!challengeRes.ok) {
+    const err = await challengeRes.text().catch(() => "");
+    throw new Error(`Challenge failed (${challengeRes.status}): ${err}`);
   }
+  const { nonce } = await challengeRes.json();
+
+  // 2. Sign the message
+  const message = `LOBSTR Forum\nNonce: ${nonce}\nAddress: ${address}`;
+  const signature = await signMessageAsync({ message });
+
+  // 3. Register / login — returns user object + sets cookie
+  const registerRes = await fetch("/api/forum/auth/register", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, signature, nonce }),
+  });
+  if (!registerRes.ok) {
+    const err = await registerRes.text().catch(() => "");
+    throw new Error(`Register failed (${registerRes.status}): ${err}`);
+  }
+  const data = await registerRes.json();
+  if (!data?.user) throw new Error("Register returned no user object");
+  return data.user;
 }
 
 export function ForumProvider({ children }: { children: ReactNode }) {
@@ -99,6 +104,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const authAttempted = useRef<string | null>(null);
   const authInProgress = useRef(false);
 
@@ -155,6 +161,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     if (authInProgress.current) return;
     authInProgress.current = true;
     setAuthLoading(true);
+    setAuthError(null);
 
     try {
       // Try existing cookie first
@@ -177,8 +184,15 @@ export function ForumProvider({ children }: { children: ReactNode }) {
       const addr = authAttempted.current;
       if (!addr) return;
       const user = await authenticate(addr, signMessageRef.current);
-      if (user) {
-        applyUser(user);
+      applyUser(user);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // User rejected signature is not an error — just stop loading
+      if (msg.includes("User rejected") || msg.includes("user rejected")) {
+        setAuthError(null);
+      } else {
+        console.error("[LOBSTR auth]", msg);
+        setAuthError(msg);
       }
     } finally {
       setAuthLoading(false);
@@ -329,6 +343,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
         isConnected: !!isConnected,
         isAuthenticated,
         authLoading,
+        authError,
         retryAuth,
         needsProfileSetup: needsProfileSetup && !setupDismissed,
         dismissProfileSetup,

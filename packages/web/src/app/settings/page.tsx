@@ -18,7 +18,7 @@ const ALLOWED_FLAIRS = [
 
 export default function SettingsPage() {
   const { isConnected } = useAccount();
-  const { currentUser, isAuthenticated, authLoading, retryAuth, updateCurrentUser } = useForum();
+  const { currentUser, isAuthenticated, authLoading, authError, retryAuth, updateCurrentUser } = useForum();
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -155,6 +155,11 @@ export default function SettingsPage() {
               <p className="text-sm text-text-secondary">
                 Sign in to access settings
               </p>
+              {authError && (
+                <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400 text-left break-all">
+                  {authError}
+                </div>
+              )}
               <button
                 onClick={retryAuth}
                 className="btn-primary text-sm px-4 py-2"

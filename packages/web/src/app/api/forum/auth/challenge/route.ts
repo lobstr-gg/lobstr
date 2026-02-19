@@ -14,6 +14,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const nonce = await generateChallenge(address);
-  return NextResponse.json({ nonce });
+  try {
+    const nonce = await generateChallenge(address);
+    return NextResponse.json({ nonce });
+  } catch (err) {
+    console.error("[challenge] Firestore error:", err);
+    return NextResponse.json(
+      { error: "Internal server error generating challenge" },
+      { status: 500 }
+    );
+  }
 }
