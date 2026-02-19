@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   const apiKey = generateApiKey();
   await setApiKey({ key: apiKey, address, createdAt: Date.now(), expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 });
 
-  const response = NextResponse.json({ rotated: true });
+  const response = NextResponse.json({ rotated: true, apiKey });
 
   // Set new API key as httpOnly cookie
   response.cookies.set("lobstr_api_key", apiKey, {
