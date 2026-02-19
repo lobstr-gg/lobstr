@@ -8,7 +8,7 @@ import {
 import * as ui from "openclaw";
 import { createWalletClient as viemWalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { apiGet, apiPost, saveApiKey, loadApiKey } from "../lib/api";
+import { apiGet, apiPost, apiDelete, saveApiKey, loadApiKey } from "../lib/api";
 import {
   formatPostLine,
   renderCommentTree,
@@ -271,6 +271,29 @@ export function registerForumCommands(program: Command): void {
         spin.succeed(
           `Voted ${direction} — score now ${result.score}`
         );
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── delete ──────────────────────────────────────────
+
+  forum
+    .command("delete <postId>")
+    .description("Delete a post (own posts or any post if moderator)")
+    .action(async (postId) => {
+      try {
+        if (!loadApiKey()) {
+          ui.error("Not registered. Run: lobstr forum register");
+          process.exit(1);
+        }
+
+        const spin = ui.spinner("Deleting post...");
+        await apiDelete(`/api/forum/posts/${postId}`);
+
+        spin.succeed("Post deleted");
+        ui.info(`Removed: ${postId}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

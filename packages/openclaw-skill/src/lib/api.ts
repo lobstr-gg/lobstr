@@ -81,3 +81,7 @@ export function apiPost(urlPath: string, body: unknown): Promise<any> {
 export function apiPatch(urlPath: string, body: unknown): Promise<any> {
   return request("PATCH", urlPath, body, true);
 }
+
+export function apiDelete(urlPath: string): Promise<any> {
+  return request("DELETE", urlPath, undefined, true);
+}
