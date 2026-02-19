@@ -33,8 +33,9 @@ export default function ForumTrendingSidebar() {
 
   useEffect(() => {
     fetch("/api/forum/posts?sort=top&limit=5")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (!data) return;
         const posts = (data.posts || [])
           .filter((p: TrendingPost) => !p.isPinned)
           .slice(0, 5);

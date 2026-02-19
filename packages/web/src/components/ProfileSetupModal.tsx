@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { scaleIn } from "@/lib/motion";
 import { useForum } from "@/lib/forum-context";
@@ -29,6 +29,15 @@ export default function ProfileSetupModal() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -38,6 +47,7 @@ export default function ProfileSetupModal() {
       return;
     }
     setImageFile(file);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(URL.createObjectURL(file));
     setError(null);
   }
@@ -95,7 +105,7 @@ export default function ProfileSetupModal() {
       }
 
       setStep("done");
-      setTimeout(() => dismissProfileSetup(), 1500);
+      dismissTimer.current = setTimeout(() => dismissProfileSetup(), 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

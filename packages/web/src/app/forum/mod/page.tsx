@@ -40,6 +40,13 @@ export default function ModDashboardPage() {
   const [banError, setBanError] = useState("");
   const [banSuccess, setBanSuccess] = useState("");
 
+  // Mod application state
+  const [applyTier, setApplyTier] = useState("community");
+  const [applyReason, setApplyReason] = useState("");
+  const [applySubmitting, setApplySubmitting] = useState(false);
+  const [applyError, setApplyError] = useState("");
+  const [applySuccess, setApplySuccess] = useState(false);
+
   const fetchBannedIps = useCallback(async () => {
     if (!isAuthenticated) return;
     setIpLoading(true);
@@ -113,6 +120,33 @@ export default function ModDashboardPage() {
       }
     } catch {
       // Ignore
+    }
+  };
+
+  const handleApply = async () => {
+    if (!applyReason.trim() || applySubmitting || !isAuthenticated) return;
+    setApplySubmitting(true);
+    setApplyError("");
+
+    try {
+      const res = await fetch("/api/forum/mod/apply", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: applyTier, reason: applyReason.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to submit application (${res.status})`);
+      }
+
+      setApplySuccess(true);
+      setApplyReason("");
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : "Failed to submit application");
+    } finally {
+      setApplySubmitting(false);
     }
   };
 
@@ -365,10 +399,14 @@ export default function ModDashboardPage() {
                 <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">
                   Desired Tier
                 </label>
-                <select className="bg-surface-2 border border-border rounded px-3 py-2 text-sm text-text-secondary focus:border-lob-green/40 focus:outline-none w-full">
-                  <option>Community Mod (1,000 LOB stake)</option>
-                  <option>Senior Mod (10,000 LOB stake)</option>
-                  <option>Lead Mod (50,000 LOB stake)</option>
+                <select
+                  value={applyTier}
+                  onChange={(e) => setApplyTier(e.target.value)}
+                  className="bg-surface-2 border border-border rounded px-3 py-2 text-sm text-text-secondary focus:border-lob-green/40 focus:outline-none w-full"
+                >
+                  <option value="community">Community Mod (1,000 LOB stake)</option>
+                  <option value="senior">Senior Mod (10,000 LOB stake)</option>
+                  <option value="lead">Lead Mod (50,000 LOB stake)</option>
                 </select>
               </div>
 
@@ -378,6 +416,8 @@ export default function ModDashboardPage() {
                 </label>
                 <textarea
                   rows={4}
+                  value={applyReason}
+                  onChange={(e) => setApplyReason(e.target.value)}
                   className="input-field w-full text-sm resize-none"
                   placeholder="Tell us about your experience and motivation..."
                 />
@@ -386,9 +426,20 @@ export default function ModDashboardPage() {
               <motion.button
                 className="btn-primary w-full"
                 whileTap={{ scale: 0.97 }}
+                disabled={applySubmitting || !applyReason.trim()}
+                onClick={handleApply}
               >
-                Submit Application
+                {applySubmitting ? "Submitting..." : "Submit Application"}
               </motion.button>
+
+              {applyError && (
+                <p className="text-xs text-lob-red">{applyError}</p>
+              )}
+              {applySuccess && (
+                <p className="text-xs text-lob-green">
+                  Application submitted! We&apos;ll review it shortly.
+                </p>
+              )}
             </div>
           </div>
         </motion.div>

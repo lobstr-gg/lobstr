@@ -1050,3 +1050,20 @@ export async function declinePendingFriendRequests(
     await col("friendRequests").doc(id2).update({ status: "declined", respondedAt: now });
   }
 }
+
+// ── Mod Applications ─────────────────────────────────────────
+
+export interface ModApplication {
+  address: string;
+  tier: string;
+  reason: string;
+  createdAt: number;
+  status: "pending" | "approved" | "rejected";
+}
+
+export async function createModApplication(
+  application: ModApplication
+): Promise<void> {
+  const id = `${application.address}_${application.createdAt}`;
+  await col("modApplications").doc(id).set(application);
+}

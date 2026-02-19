@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isModerator } from "@/lib/forum-auth";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 import {
   getBannedIp,
   setBannedIp,
@@ -14,6 +15,9 @@ import type { ModLogEntry } from "@/lib/forum-types";
  * Body: { ip: string, reason: string }
  */
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`ip-ban:${getIPKey(request)}`, 60_000, 20);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

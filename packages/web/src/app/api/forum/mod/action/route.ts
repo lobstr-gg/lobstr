@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isModerator } from "@/lib/forum-auth";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 import {
   getPostById,
   updatePost,
@@ -16,6 +17,9 @@ const MIN_WARNINGS_BEFORE_BAN = 2;
 
 // POST /api/forum/mod/action — take a moderation action (mod-only)
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`mod-action:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

@@ -22,16 +22,55 @@ export default function PostComposer({
   subtopic: SubtopicId;
 }) {
   const router = useRouter();
-  const { isConnected } = useForum();
+  const { isConnected, isAuthenticated } = useForum();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [flair, setFlair] = useState<PostFlair>("discussion");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!title.trim() || !body.trim() || submitting) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/forum/posts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), subtopic, flair, body: body.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to create post (${res.status})`);
+      }
+
+      const { post } = await res.json();
+      router.push(`/forum/${subtopic}/${post.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create post");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (!isConnected) {
     return (
       <div className="card p-8 text-center">
         <p className="text-sm text-text-secondary">
           Connect your wallet to create a post
+        </p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="card p-8 text-center">
+        <p className="text-sm text-text-secondary">
+          Sign in to create a post
         </p>
       </div>
     );
@@ -100,11 +139,16 @@ export default function PostComposer({
         <motion.button
           className="btn-primary text-sm px-6"
           whileTap={{ scale: 0.97 }}
-          disabled={!title.trim() || !body.trim()}
+          disabled={submitting || !title.trim() || !body.trim()}
+          onClick={handleSubmit}
         >
-          Post to {subtopic}
+          {submitting ? "Posting..." : `Post to ${subtopic}`}
         </motion.button>
       </div>
+
+      {error && (
+        <p className="text-xs text-red-400">{error}</p>
+      )}
     </div>
   );
 }

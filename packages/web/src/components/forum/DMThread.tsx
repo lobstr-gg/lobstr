@@ -22,7 +22,7 @@ export default function DMThread({
 
   const otherAddress = conversation.participants.find(
     (p) => p !== currentUserAddress
-  )!;
+  ) ?? conversation.participants[0];
   const otherUser = getUserByAddress(otherAddress);
   const currentUserData = getUserByAddress(currentUserAddress);
 
@@ -39,6 +39,7 @@ export default function DMThread({
     try {
       const res = await fetch("/api/forum/messages", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: otherAddress, body }),
       });
@@ -64,6 +65,7 @@ export default function DMThread({
       if (isBlocked) {
         await fetch("/api/forum/users/block", {
           method: "DELETE",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address: otherAddress }),
         });
@@ -75,6 +77,7 @@ export default function DMThread({
         }
         await fetch("/api/forum/users/block", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address: otherAddress }),
         });

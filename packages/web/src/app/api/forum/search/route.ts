@@ -7,7 +7,11 @@ export async function GET(request: NextRequest) {
   if (limited) return limited;
 
   const query = request.nextUrl.searchParams.get("q");
-  const typeFilter = request.nextUrl.searchParams.get("type"); // posts, comments, users
+  const typeParam = request.nextUrl.searchParams.get("type");
+  const validTypes = ["posts", "comments", "users"] as const;
+  const typeFilter = typeParam && validTypes.includes(typeParam as typeof validTypes[number])
+    ? typeParam
+    : null;
 
   if (!query) {
     return NextResponse.json(

@@ -57,6 +57,8 @@ export default function SettingsPage() {
       return;
     }
     setImageFile(file);
+    // Revoke old blob URL if it was created by us (not from currentUser profile)
+    if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
     setImagePreview(URL.createObjectURL(file));
     setError(null);
   }

@@ -48,8 +48,7 @@ export async function POST(
     }
 
     return NextResponse.json({ success: true, action });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to respond";
-    return NextResponse.json({ error: message }, { status: 400 });
+  } catch {
+    return NextResponse.json({ error: "Failed to respond to friend request" }, { status: 500 });
   }
 }

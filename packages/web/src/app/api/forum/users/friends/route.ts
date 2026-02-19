@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/forum-auth";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 import {
   getFriends,
   getFriendCount,
@@ -12,6 +13,9 @@ import {
 
 // GET /api/forum/users/friends — list friends
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(`friends-list:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
@@ -22,6 +26,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/forum/users/friends — send friend request
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`friend-req:${getIPKey(request)}`, 60_000, 10);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
@@ -68,9 +75,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ sent: true, request: request_doc }, { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to send request";
-    return NextResponse.json({ error: message }, { status: 400 });
+  } catch {
+    return NextResponse.json({ error: "Failed to send friend request" }, { status: 500 });
   }
 }
 

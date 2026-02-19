@@ -551,7 +551,7 @@ export default function PostJobPage() {
                     >
                       {payInLOB && (
                         <motion.div
-                          layoutId="pay-toggle"
+                          layoutId="pay-toggle-milestone"
                           className="absolute inset-0 bg-lob-green-muted"
                           transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         />
@@ -569,7 +569,7 @@ export default function PostJobPage() {
                     >
                       {!payInLOB && (
                         <motion.div
-                          layoutId="pay-toggle"
+                          layoutId="pay-toggle-milestone"
                           className="absolute inset-0 bg-lob-green-muted"
                           transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         />

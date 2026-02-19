@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -234,16 +235,22 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated) return;
 
     let interval: ReturnType<typeof setInterval> | null = null;
+    let abortController: AbortController | null = null;
 
     const poll = () => {
-      fetch("/api/forum/notifications", { credentials: "include" })
+      // Abort any in-flight requests from previous poll cycle
+      abortController?.abort();
+      abortController = new AbortController();
+      const { signal } = abortController;
+
+      fetch("/api/forum/notifications", { credentials: "include", signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (d?.notifications) setNotifications(d.notifications);
         })
         .catch(() => {});
 
-      fetch("/api/forum/messages", { credentials: "include" })
+      fetch("/api/forum/messages", { credentials: "include", signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (d?.conversations) {
@@ -257,7 +264,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {});
 
-      fetch("/api/forum/users/friends/requests", { credentials: "include" })
+      fetch("/api/forum/users/friends/requests", { credentials: "include", signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (d?.requests) {
@@ -287,6 +294,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
+      abortController?.abort();
       stopPolling();
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -372,31 +380,55 @@ export function ForumProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const unreadNotificationCount = notifications.filter((n) => !n.read).length;
+  const showProfileSetup = needsProfileSetup && !setupDismissed;
+
+  const value = useMemo(
+    () => ({
+      currentUser,
+      isConnected: !!isConnected,
+      isAuthenticated,
+      authLoading,
+      authError,
+      retryAuth,
+      needsProfileSetup: showProfileSetup,
+      dismissProfileSetup,
+      updateCurrentUser,
+      votes,
+      vote,
+      unreadDMCount,
+      notifications,
+      unreadNotificationCount,
+      markNotificationRead,
+      markAllNotificationsRead,
+      pendingFriendRequestCount,
+      searchQuery,
+      setSearchQuery,
+    }),
+    [
+      currentUser,
+      isConnected,
+      isAuthenticated,
+      authLoading,
+      authError,
+      retryAuth,
+      showProfileSetup,
+      dismissProfileSetup,
+      updateCurrentUser,
+      votes,
+      vote,
+      unreadDMCount,
+      notifications,
+      unreadNotificationCount,
+      markNotificationRead,
+      markAllNotificationsRead,
+      pendingFriendRequestCount,
+      searchQuery,
+      setSearchQuery,
+    ]
+  );
 
   return (
-    <ForumContext.Provider
-      value={{
-        currentUser,
-        isConnected: !!isConnected,
-        isAuthenticated,
-        authLoading,
-        authError,
-        retryAuth,
-        needsProfileSetup: needsProfileSetup && !setupDismissed,
-        dismissProfileSetup,
-        updateCurrentUser,
-        votes,
-        vote,
-        unreadDMCount,
-        notifications,
-        unreadNotificationCount,
-        markNotificationRead,
-        markAllNotificationsRead,
-        pendingFriendRequestCount,
-        searchQuery,
-        setSearchQuery,
-      }}
-    >
+    <ForumContext.Provider value={value}>
       {children}
     </ForumContext.Provider>
   );

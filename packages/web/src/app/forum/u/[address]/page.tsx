@@ -51,6 +51,7 @@ export default function UserProfilePage() {
       if (isBlocked) {
         await fetch("/api/forum/users/block", {
           method: "DELETE",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address }),
         });
@@ -62,6 +63,7 @@ export default function UserProfilePage() {
         }
         await fetch("/api/forum/users/block", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address }),
         });
@@ -80,6 +82,7 @@ export default function UserProfilePage() {
       if (friendshipStatus === "none") {
         const res = await fetch("/api/forum/users/friends", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address }),
         });
@@ -88,6 +91,7 @@ export default function UserProfilePage() {
         const requestId = `${address}_${currentUser.address}`;
         const res = await fetch(`/api/forum/users/friends/requests/${requestId}`, {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "accept" }),
         });
@@ -102,6 +106,7 @@ export default function UserProfilePage() {
         }
         const res = await fetch("/api/forum/users/friends", {
           method: "DELETE",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address }),
         });
@@ -122,6 +127,7 @@ export default function UserProfilePage() {
       const requestId = `${address}_${currentUser.address}`;
       const res = await fetch(`/api/forum/users/friends/requests/${requestId}`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "decline" }),
       });

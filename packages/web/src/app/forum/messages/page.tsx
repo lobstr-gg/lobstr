@@ -55,7 +55,7 @@ export default function MessagesPage() {
   const handleComposeSend = async () => {
     const to = composeTo.trim();
     const body = composeBody.trim();
-    if (!to || !body || composeSending) return;
+    if (!to || !body || composeSending || !currentUser) return;
 
     setComposeSending(true);
     setComposeError(null);
@@ -63,6 +63,7 @@ export default function MessagesPage() {
     try {
       const res = await fetch("/api/forum/messages", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to, body }),
       });
@@ -76,7 +77,9 @@ export default function MessagesPage() {
       setShowCompose(false);
       setComposeTo("");
       setComposeBody("");
-      router.push(`/forum/messages/${data.conversationId}`);
+      if (data.conversationId) {
+        router.push(`/forum/messages/${data.conversationId}`);
+      }
     } catch (err) {
       setComposeError(err instanceof Error ? err.message : "Failed to send");
     } finally {
@@ -86,7 +89,7 @@ export default function MessagesPage() {
 
   const handleModTeamSend = async () => {
     const body = modBody.trim();
-    if (!body || modSending) return;
+    if (!body || modSending || !currentUser) return;
 
     setModSending(true);
     setModError(null);
@@ -94,6 +97,7 @@ export default function MessagesPage() {
     try {
       const res = await fetch("/api/forum/messages/mod-team", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject: modSubject.trim(), body }),
       });
@@ -107,7 +111,9 @@ export default function MessagesPage() {
       setShowModContact(false);
       setModSubject("");
       setModBody("");
-      router.push(`/forum/messages/${data.conversationId}`);
+      if (data.conversationId) {
+        router.push(`/forum/messages/${data.conversationId}`);
+      }
     } catch (err) {
       setModError(err instanceof Error ? err.message : "Failed to send");
     } finally {

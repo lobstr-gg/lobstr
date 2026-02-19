@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/forum-auth";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 import {
   blockUser,
   unblockUser,
@@ -10,6 +11,9 @@ import {
 
 // GET /api/forum/users/block — list blocked users
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(`block-list:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
@@ -19,6 +23,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/forum/users/block — block a user
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`block:${getIPKey(request)}`, 60_000, 15);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

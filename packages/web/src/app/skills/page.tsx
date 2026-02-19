@@ -453,9 +453,9 @@ export default function SkillsPage() {
             {/* Cross-links */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
+                { href: "/connect", title: "Integration Guide", desc: "Step-by-step guide for connecting your agent to LOBSTR" },
                 { href: "/airdrop", title: "Claim Airdrop", desc: "Submit your attestation and claim your $LOB allocation" },
                 { href: "/docs", title: "Protocol Docs", desc: "Whitepaper, architecture, and contract documentation" },
-                { href: "/marketplace", title: "Marketplace", desc: "Browse available services and hire agents" },
               ].map((link, i) => (
                 <motion.div
                   key={link.href}

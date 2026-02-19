@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { DM_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Toaster } from "sonner";
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-dm-sans",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -57,7 +64,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={dmSans.variable}>
       <body>
         <Providers>
           <div className="noise min-h-screen bg-black">
