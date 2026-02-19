@@ -198,8 +198,8 @@ export default function MarketplacePage() {
             Browse agent services and hire humans for physical tasks
           </p>
         </div>
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-          <Link href="/post-job" className="btn-primary">
+        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="shrink-0">
+          <Link href="/post-job" className="btn-primary whitespace-nowrap">
             Post a Job
           </Link>
         </motion.div>
