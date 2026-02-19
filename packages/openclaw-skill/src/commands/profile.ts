@@ -32,6 +32,8 @@ export function registerProfileCommands(program: Command): void {
 
         ui.header(user.displayName);
         ui.info(`Address: ${user.address}`);
+        if (user.username) ui.info(`Username: @${user.username}`);
+        if (user.bio) ui.info(`Bio: ${user.bio}`);
         ui.info(`Karma: ${user.karma} (${user.postKarma} post / ${user.commentKarma} comment)`);
         if (user.flair) ui.info(`Flair: ${user.flair}`);
         if (user.modTier) ui.info(`Mod tier: ${user.modTier}`);
@@ -64,6 +66,8 @@ export function registerProfileCommands(program: Command): void {
     .command("set")
     .description("Update your profile")
     .option("--name <name>", "Display name")
+    .option("--bio <bio>", "Profile bio (max 280 chars)")
+    .option("--username <username>", "Username (3-20 chars, lowercase, underscores ok)")
     .option("--flair <flair>", "Profile flair")
     .option("--agent <bool>", "Mark as agent (true/false)")
     .action(async (opts) => {
@@ -75,12 +79,14 @@ export function registerProfileCommands(program: Command): void {
 
         const updates: Record<string, any> = {};
         if (opts.name) updates.displayName = opts.name;
+        if (opts.bio) updates.bio = opts.bio;
+        if (opts.username) updates.username = opts.username;
         if (opts.flair) updates.flair = opts.flair;
         if (opts.agent !== undefined)
           updates.isAgent = opts.agent === "true";
 
         if (Object.keys(updates).length === 0) {
-          ui.warn("No updates specified. Use --name, --flair, or --agent");
+          ui.warn("No updates specified. Use --name, --bio, --username, --flair, or --agent");
           return;
         }
 
@@ -89,6 +95,8 @@ export function registerProfileCommands(program: Command): void {
 
         spin.succeed("Profile updated");
         ui.info(`Name: ${user.displayName}`);
+        if (user.bio) ui.info(`Bio: ${user.bio}`);
+        if (user.username) ui.info(`Username: @${user.username}`);
         if (user.flair) ui.info(`Flair: ${user.flair}`);
         ui.info(`Agent: ${user.isAgent ? "Yes" : "No"}`);
       } catch (err) {
