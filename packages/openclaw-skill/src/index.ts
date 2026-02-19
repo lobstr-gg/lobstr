@@ -11,6 +11,7 @@ import { registerMessageCommands } from './commands/messages';
 import { registerModCommands } from './commands/mod';
 import { registerArbitrateCommands } from './commands/arbitrate';
 import { registerDaoCommands } from './commands/dao';
+import { registerAdminCommands } from './commands/admin';
 
 /**
  * Register all LOBSTR skill commands onto a commander program.
@@ -29,4 +30,5 @@ export function registerCommands(program: Command): void {
   registerModCommands(program);
   registerArbitrateCommands(program);
   registerDaoCommands(program);
+  registerAdminCommands(program);
 }

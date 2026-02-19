@@ -1,0 +1,188 @@
+import { Command } from "commander";
+import { keccak256, toBytes, parseAbi, type Address } from "viem";
+import {
+  ensureWorkspace,
+  createPublicClient,
+  createWalletClient,
+  getContractAddress,
+  SYBIL_GUARD_ABI,
+} from "openclaw";
+import * as ui from "openclaw";
+
+// Minimal ABI for AccessControl.grantRole / revokeRole / hasRole
+const ACCESS_CONTROL_ABI = parseAbi([
+  "function grantRole(bytes32 role, address account)",
+  "function revokeRole(bytes32 role, address account)",
+  "function hasRole(bytes32 role, address account) view returns (bool)",
+  "function getRoleAdmin(bytes32 role) view returns (bytes32)",
+]);
+
+// Map of contract name -> config key for getContractAddress
+const CONTRACT_MAP: Record<string, string> = {
+  SybilGuard: "sybilGuard",
+  StakingManager: "stakingManager",
+  TreasuryGovernor: "treasuryGovernor",
+  ServiceRegistry: "serviceRegistry",
+  DisputeArbitration: "disputeArbitration",
+  EscrowEngine: "escrowEngine",
+  ReputationSystem: "reputationSystem",
+};
+
+function resolveRoleHash(role: string): `0x${string}` {
+  // If it already looks like a bytes32 hash, use it directly
+  if (role.startsWith("0x") && role.length === 66) {
+    return role as `0x${string}`;
+  }
+  // DEFAULT_ADMIN_ROLE is 0x0
+  if (role === "DEFAULT_ADMIN_ROLE") {
+    return "0x0000000000000000000000000000000000000000000000000000000000000000";
+  }
+  // Otherwise hash the role name
+  return keccak256(toBytes(role));
+}
+
+export function registerAdminCommands(program: Command): void {
+  const admin = program
+    .command("admin")
+    .description("Contract admin — role management and access control");
+
+  // ── grant-role ────────────────────────────────────
+
+  admin
+    .command("grant-role")
+    .description("Grant a role on a contract (requires DEFAULT_ADMIN_ROLE)")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--role <role>", "Role name (e.g. WATCHER_ROLE, JUDGE_ROLE, GUARDIAN_ROLE)")
+    .requiredOption("--account <address>", "Address to grant the role to")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey);
+        const roleHash = resolveRoleHash(opts.role);
+        const account = opts.account as Address;
+
+        // Check if already granted
+        const already = await publicClient.readContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "hasRole",
+          args: [roleHash, account],
+        });
+
+        if (already) {
+          ui.info(`${opts.role} already granted to ${account} on ${opts.contract}`);
+          return;
+        }
+
+        const spin = ui.spinner(`Granting ${opts.role} to ${account.slice(0, 10)}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "grantRole",
+          args: [roleHash, account],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`${opts.role} granted`);
+        ui.info(`Contract: ${opts.contract} (${contractAddr})`);
+        ui.info(`Account: ${account}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── revoke-role ───────────────────────────────────
+
+  admin
+    .command("revoke-role")
+    .description("Revoke a role on a contract (requires DEFAULT_ADMIN_ROLE)")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--role <role>", "Role name")
+    .requiredOption("--account <address>", "Address to revoke the role from")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey);
+        const roleHash = resolveRoleHash(opts.role);
+        const account = opts.account as Address;
+
+        const spin = ui.spinner(`Revoking ${opts.role} from ${account.slice(0, 10)}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "revokeRole",
+          args: [roleHash, account],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`${opts.role} revoked`);
+        ui.info(`Contract: ${opts.contract} (${contractAddr})`);
+        ui.info(`Account: ${account}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── check-role ────────────────────────────────────
+
+  admin
+    .command("check-role")
+    .description("Check if an address has a role on a contract")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--role <role>", "Role name")
+    .requiredOption("--account <address>", "Address to check")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey);
+        const roleHash = resolveRoleHash(opts.role);
+        const account = opts.account as Address;
+
+        const has = await publicClient.readContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "hasRole",
+          args: [roleHash, account],
+        });
+
+        if (has) {
+          ui.info(`✓ ${account} HAS ${opts.role} on ${opts.contract}`);
+        } else {
+          ui.info(`✗ ${account} does NOT have ${opts.role} on ${opts.contract}`);
+        }
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+}
