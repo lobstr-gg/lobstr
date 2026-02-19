@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseAbi, formatUnits, keccak256, encodePacked } from 'viem';
+import { parseAbi, formatEther, formatUnits, keccak256, encodePacked } from 'viem';
 import {
   ensureWorkspace,
   createPublicClient,
@@ -181,6 +181,58 @@ export function registerAirdropCommands(program: Command): void {
         } else {
           ui.info('Not claimed yet. Run "openclaw attestation generate" first');
         }
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  airdrop
+    .command('stats')
+    .description('View airdrop stats (total claimed, claim window, pool usage)')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const airdropAbi = parseAbi(AIRDROP_CLAIM_V2_ABI as unknown as string[]);
+        const airdropAddr = getContractAddress(ws.config, 'airdropClaimV2');
+
+        const publicClient = createPublicClient(ws.config);
+        const spin = ui.spinner('Fetching airdrop stats...');
+
+        const [totalClaimed, windowStart, windowEnd, lobBalance] = await Promise.all([
+          publicClient.readContract({
+            address: airdropAddr,
+            abi: airdropAbi,
+            functionName: 'totalClaimed',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: airdropAddr,
+            abi: airdropAbi,
+            functionName: 'claimWindowStart',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: airdropAddr,
+            abi: airdropAbi,
+            functionName: 'claimWindowEnd',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: getContractAddress(ws.config, 'lobToken'),
+            abi: parseAbi(['function balanceOf(address) view returns (uint256)'] as unknown as string[]),
+            functionName: 'balanceOf',
+            args: [airdropAddr],
+          }) as Promise<bigint>,
+        ]);
+
+        const now = Math.floor(Date.now() / 1000);
+        const isOpen = now >= Number(windowStart) && now <= Number(windowEnd);
+        const daysLeft = isOpen ? Math.ceil((Number(windowEnd) - now) / 86400) : 0;
+
+        spin.succeed('Airdrop Stats');
+        console.log(`  Contract:       ${airdropAddr}`);
+        console.log(`  Total claimed:  ${formatLob(totalClaimed)}`);
+        console.log(`  Pool remaining: ${formatLob(lobBalance)}`);
+        console.log(`  Window:         ${new Date(Number(windowStart) * 1000).toISOString().split('T')[0]} → ${new Date(Number(windowEnd) * 1000).toISOString().split('T')[0]}`);
+        console.log(`  Status:         ${isOpen ? `Open (${daysLeft} days left)` : now < Number(windowStart) ? 'Not started' : 'Closed'}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
