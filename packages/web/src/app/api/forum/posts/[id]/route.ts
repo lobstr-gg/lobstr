@@ -44,11 +44,15 @@ export async function DELETE(
     return NextResponse.json({ error: "Post not found" }, { status: 404 });
   }
 
+  // Allow post author or any mod to delete
   if (post.author !== auth.address) {
-    return NextResponse.json(
-      { error: "You can only delete your own posts" },
-      { status: 403 }
-    );
+    const user = await getUserByAddress(auth.address);
+    if (!user?.modTier) {
+      return NextResponse.json(
+        { error: "You can only delete your own posts" },
+        { status: 403 }
+      );
+    }
   }
 
   await deletePost(params.id);

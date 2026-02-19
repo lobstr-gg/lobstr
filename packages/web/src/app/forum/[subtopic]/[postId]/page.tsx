@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { stagger, fadeUp } from "@/lib/motion";
 import { useForum } from "@/lib/forum-context";
@@ -18,9 +18,23 @@ import Spinner from "@/components/Spinner";
 
 export default function PostDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const subtopicId = params.subtopic as SubtopicId;
   const postId = params.postId as string;
   const { currentUser } = useForum();
+
+  const handleModAction = useCallback(async (action: string) => {
+    if (action === "remove") {
+      if (!confirm("Delete this post? This can't be undone.")) return;
+      const res = await fetch(`/api/forum/posts/${postId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push(`/forum/${subtopicId}`);
+      } else {
+        const data = await res.json();
+        alert(data.error ?? "Failed to delete post");
+      }
+    }
+  }, [postId, subtopicId, router]);
 
   const subtopic = SUBTOPIC_LIST.find((s) => s.id === subtopicId);
 
@@ -135,7 +149,7 @@ export default function PostDetailPage() {
                     #{post.id.slice(-6)}
                   </button>
                   <ModActionMenu
-                    onAction={() => {}}
+                    onAction={handleModAction}
                   />
                 </>
               )}
