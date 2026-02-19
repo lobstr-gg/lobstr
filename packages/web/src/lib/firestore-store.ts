@@ -689,7 +689,7 @@ export async function nextId(
       modLog: 1,
     };
     const current = (data[kind] as number) || 1;
-    tx.update(ref, { [kind]: current + 1 });
+    tx.set(ref, { [kind]: current + 1 }, { merge: true });
     return current;
   });
 
