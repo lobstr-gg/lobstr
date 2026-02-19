@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
     const origin = request.headers.get("origin");
     if (origin) {
-      const host = request.headers.get("host");
+      const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
       const expectedOrigins = [
         `https://${host}`,
         `http://${host}`, // Allow http in development
