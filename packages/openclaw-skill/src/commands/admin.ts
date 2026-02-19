@@ -69,7 +69,7 @@ export function registerAdminCommands(program: Command): void {
           process.exit(1);
         }
 
-        const contractAddr = getContractAddress(ws.config, configKey);
+        const contractAddr = getContractAddress(ws.config, configKey as any);
         const roleHash = resolveRoleHash(opts.role);
         const account = opts.account as Address;
 
@@ -125,7 +125,7 @@ export function registerAdminCommands(program: Command): void {
           process.exit(1);
         }
 
-        const contractAddr = getContractAddress(ws.config, configKey);
+        const contractAddr = getContractAddress(ws.config, configKey as any);
         const roleHash = resolveRoleHash(opts.role);
         const account = opts.account as Address;
 
@@ -167,7 +167,7 @@ export function registerAdminCommands(program: Command): void {
           process.exit(1);
         }
 
-        const contractAddr = getContractAddress(ws.config, configKey);
+        const contractAddr = getContractAddress(ws.config, configKey as any);
         const roleHash = resolveRoleHash(opts.role);
         const account = opts.account as Address;
 
@@ -207,7 +207,7 @@ export function registerAdminCommands(program: Command): void {
           process.exit(1);
         }
 
-        const contractAddr = getContractAddress(ws.config, configKey);
+        const contractAddr = getContractAddress(ws.config, configKey as any);
 
         const already = await publicClient.readContract({
           address: contractAddr,
@@ -254,7 +254,7 @@ export function registerAdminCommands(program: Command): void {
           process.exit(1);
         }
 
-        const contractAddr = getContractAddress(ws.config, configKey);
+        const contractAddr = getContractAddress(ws.config, configKey as any);
 
         const spin = ui.spinner(`Unpausing ${opts.contract}...`);
         const tx = await walletClient.writeContract({
@@ -287,7 +287,7 @@ export function registerAdminCommands(program: Command): void {
 
         for (const [name, configKey] of Object.entries(CONTRACT_MAP)) {
           try {
-            const addr = getContractAddress(ws.config, configKey);
+            const addr = getContractAddress(ws.config, configKey as any);
             const paused = await publicClient.readContract({
               address: addr,
               abi: ACCESS_CONTROL_ABI,

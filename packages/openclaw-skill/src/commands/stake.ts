@@ -16,7 +16,8 @@ export function registerStakeCommands(program: Command): void {
   program
     .command('stake [amount]')
     .description('Stake LOB tokens or view stake info')
-    .action(async (amount?: string) => {
+    .option('--format <fmt>', 'Output format: text, json', 'text')
+    .action(async (amount: string | undefined, opts: any) => {
       try {
         const ws = ensureWorkspace();
         const stakingAbi = parseAbi(STAKING_MANAGER_ABI as unknown as string[]);
@@ -30,7 +31,7 @@ export function registerStakeCommands(program: Command): void {
           const wallet = loadWallet(ws.path);
           const address = wallet.address as `0x${string}`;
 
-          const spin = ui.spinner('Fetching stake info...');
+          const spin = opts.format !== 'json' ? ui.spinner('Fetching stake info...') : null;
 
           const result = await publicClient.readContract({
             address: stakingAddr,
@@ -52,7 +53,18 @@ export function registerStakeCommands(program: Command): void {
             args: [address],
           }) as number;
 
-          spin.succeed('Stake Info');
+          if (opts.format === 'json') {
+            console.log(JSON.stringify({
+              address,
+              stakedAmount: formatLob(stakeInfo.amount),
+              tier: TIER_NAMES[tier] || 'Unknown',
+              unstakeRequestTime: stakeInfo.unstakeRequestTime > 0n ? Number(stakeInfo.unstakeRequestTime) : null,
+              unstakeRequestAmount: stakeInfo.unstakeRequestTime > 0n ? formatLob(stakeInfo.unstakeRequestAmount) : null,
+            }));
+            return;
+          }
+
+          spin!.succeed('Stake Info');
           console.log(`  Address:  ${address}`);
           console.log(`  Staked:   ${formatLob(stakeInfo.amount)}`);
           console.log(`  Tier:     ${TIER_NAMES[tier] || 'Unknown'}`);

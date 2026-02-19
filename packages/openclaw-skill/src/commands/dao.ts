@@ -24,13 +24,14 @@ export function registerDaoCommands(program: Command): void {
   dao
     .command("proposals")
     .description("List active spending proposals")
-    .action(async () => {
+    .option("--format <fmt>", "Output format: text, json", "text")
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const govAddr = getContractAddress(ws.config, "treasuryGovernor");
 
-        const spin = ui.spinner("Loading proposals...");
+        const spin = opts.format !== "json" ? ui.spinner("Loading proposals...") : null;
         const found: any[] = [];
 
         for (let i = 1; i <= 100; i++) {
@@ -61,11 +62,31 @@ export function registerDaoCommands(program: Command): void {
         }
 
         if (found.length === 0) {
-          spin.succeed("No proposals found");
+          if (opts.format === "json") {
+            console.log(JSON.stringify([]));
+            return;
+          }
+          spin!.succeed("No proposals found");
           return;
         }
 
-        spin.succeed(`${found.length} proposal(s)`);
+        if (opts.format === "json") {
+          console.log(JSON.stringify(found.map((p) => ({
+            id: p.id.toString(),
+            proposer: p.proposer,
+            token: p.token,
+            recipient: p.recipient,
+            amount: formatLob(p.amount),
+            description: p.description,
+            status: PROPOSAL_STATUS[p.status] || "Unknown",
+            approvalCount: Number(p.approvalCount),
+            createdAt: Number(p.createdAt),
+            timelockEnd: Number(p.timelockEnd),
+          }))));
+          return;
+        }
+
+        spin!.succeed(`${found.length} proposal(s)`);
         ui.table(
           ["ID", "Proposer", "Recipient", "Amount", "Status", "Approvals"],
           found.map((p) => [
@@ -375,14 +396,15 @@ export function registerDaoCommands(program: Command): void {
   dao
     .command("streams")
     .description("List your payment streams")
-    .action(async () => {
+    .option("--format <fmt>", "Output format: text, json", "text")
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { address } = await createWalletClient(ws.config, ws.path);
         const govAddr = getContractAddress(ws.config, "treasuryGovernor");
 
-        const spin = ui.spinner("Loading streams...");
+        const spin = opts.format !== "json" ? ui.spinner("Loading streams...") : null;
         const streamIds = (await publicClient.readContract({
           address: govAddr,
           abi: govAbi,
@@ -391,7 +413,11 @@ export function registerDaoCommands(program: Command): void {
         })) as bigint[];
 
         if (streamIds.length === 0) {
-          spin.succeed("No payment streams");
+          if (opts.format === "json") {
+            console.log(JSON.stringify([]));
+            return;
+          }
+          spin!.succeed("No payment streams");
           return;
         }
 
@@ -423,7 +449,20 @@ export function registerDaoCommands(program: Command): void {
           streams.push({ ...s, claimable });
         }
 
-        spin.succeed(`${streams.length} stream(s)`);
+        if (opts.format === "json") {
+          console.log(JSON.stringify(streams.map((s: any) => ({
+            id: s.id.toString(),
+            role: s.role,
+            totalAmount: formatLob(s.totalAmount),
+            claimedAmount: formatLob(s.claimedAmount),
+            claimable: formatLob(s.claimable),
+            active: s.active,
+            endTime: Number(s.endTime),
+          }))));
+          return;
+        }
+
+        spin!.succeed(`${streams.length} stream(s)`);
         ui.table(
           ["ID", "Role", "Total", "Claimed", "Claimable", "Active", "Ends"],
           streams.map((s: any) => [
@@ -489,14 +528,15 @@ export function registerDaoCommands(program: Command): void {
   dao
     .command("treasury")
     .description("View treasury balances")
-    .action(async () => {
+    .option("--format <fmt>", "Output format: text, json", "text")
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const govAddr = getContractAddress(ws.config, "treasuryGovernor");
         const tokenAddr = getContractAddress(ws.config, "lobToken");
 
-        const spin = ui.spinner("Loading treasury...");
+        const spin = opts.format !== "json" ? ui.spinner("Loading treasury...") : null;
         const lobBalance = (await publicClient.readContract({
           address: govAddr,
           abi: govAbi,
@@ -516,7 +556,16 @@ export function registerDaoCommands(program: Command): void {
           functionName: "signerCount",
         })) as bigint;
 
-        spin.succeed("Treasury status");
+        if (opts.format === "json") {
+          console.log(JSON.stringify({
+            lobBalance: formatLob(lobBalance),
+            requiredApprovals: Number(reqApprovals),
+            signerCount: Number(signers),
+          }));
+          return;
+        }
+
+        spin!.succeed("Treasury status");
         ui.info(`LOB balance: ${formatLob(lobBalance)}`);
         ui.info(`Multisig: ${reqApprovals.toString()}-of-${signers.toString()}`);
       } catch (err) {

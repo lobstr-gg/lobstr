@@ -149,13 +149,15 @@ export function registerModCommands(program: Command): void {
   mod
     .command("reports")
     .description("View pending sybil reports")
-    .action(async () => {
+    .option("--status <status>", "Filter by status: pending, confirmed, rejected, expired")
+    .option("--format <fmt>", "Output format: text, json", "text")
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const sgAddr = getContractAddress(ws.config, "sybilGuard");
 
-        const spin = ui.spinner("Loading reports...");
+        const spin = opts.format !== "json" ? ui.spinner("Loading reports...") : null;
         const totalReports = (await publicClient.readContract({
           address: sgAddr,
           abi: sybilAbi,
@@ -163,7 +165,11 @@ export function registerModCommands(program: Command): void {
         })) as bigint;
 
         if (totalReports === 0n) {
-          spin.succeed("No reports");
+          if (opts.format === "json") {
+            console.log(JSON.stringify([]));
+            return;
+          }
+          spin!.succeed("No reports");
           return;
         }
 
@@ -176,7 +182,7 @@ export function registerModCommands(program: Command): void {
               functionName: "reports",
               args: [BigInt(i)],
             })) as any;
-            found.push({
+            const report = {
               id: r[0],
               reporter: r[1],
               violation: r[2],
@@ -185,13 +191,33 @@ export function registerModCommands(program: Command): void {
               confirmations: r[5],
               createdAt: r[6],
               notes: r[7],
-            });
+            };
+            // Filter by status if specified
+            if (opts.status) {
+              const statusName = (REPORT_STATUS[report.status] || "").toLowerCase();
+              if (statusName !== opts.status.toLowerCase()) continue;
+            }
+            found.push(report);
           } catch {
             break;
           }
         }
 
-        spin.succeed(`${found.length} report(s)`);
+        if (opts.format === "json") {
+          console.log(JSON.stringify(found.map((r) => ({
+            id: r.id.toString(),
+            reporter: r.reporter,
+            violation: VIOLATION_TYPE[r.violation] || "Unknown",
+            evidenceURI: r.evidenceURI,
+            status: REPORT_STATUS[r.status] || "Unknown",
+            confirmations: Number(r.confirmations),
+            createdAt: Number(r.createdAt),
+            notes: r.notes,
+          }))));
+          return;
+        }
+
+        spin!.succeed(`${found.length} report(s)`);
         ui.table(
           ["ID", "Reporter", "Violation", "Status", "Confirms", "Age"],
           found.map((r) => [

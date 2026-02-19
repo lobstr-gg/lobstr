@@ -79,14 +79,15 @@ export function registerWalletCommands(program: Command): void {
   wallet
     .command('balance')
     .description('Show LOB and ETH balance')
-    .action(async () => {
+    .option('--format <fmt>', 'Output format: text, json', 'text')
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const w = loadWallet(ws.path);
         const publicClient = createPublicClient(ws.config);
         const address = w.address as `0x${string}`;
 
-        const spin = ui.spinner('Fetching balances...');
+        const spin = opts.format !== 'json' ? ui.spinner('Fetching balances...') : null;
 
         // ETH balance
         const ethBalance = await publicClient.getBalance({ address });
@@ -105,7 +106,16 @@ export function registerWalletCommands(program: Command): void {
           // Token contract not configured
         }
 
-        spin.succeed('Balances');
+        if (opts.format === 'json') {
+          console.log(JSON.stringify({
+            address,
+            ethBalance: formatUnits(ethBalance, 18),
+            lobBalance: formatUnits(lobBalance, 18),
+          }));
+          return;
+        }
+
+        spin!.succeed('Balances');
         console.log(`  Address: ${address}`);
         console.log(`  ETH:     ${formatUnits(ethBalance, 18)}`);
         console.log(`  LOB:     ${formatUnits(lobBalance, 18)}`);

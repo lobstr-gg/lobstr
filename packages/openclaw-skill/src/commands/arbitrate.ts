@@ -154,7 +154,8 @@ export function registerArbitrateCommands(program: Command): void {
   arb
     .command("disputes")
     .description("List disputes assigned to you")
-    .action(async () => {
+    .option("--format <fmt>", "Output format: text, json", "text")
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
@@ -162,7 +163,7 @@ export function registerArbitrateCommands(program: Command): void {
 
         const arbAddr = getContractAddress(ws.config, "disputeArbitration");
 
-        const spin = ui.spinner("Scanning disputes...");
+        const spin = opts.format !== "json" ? ui.spinner("Scanning disputes...") : null;
         const found: any[] = [];
 
         // Scan recent disputes (last 200 IDs)
@@ -188,11 +189,37 @@ export function registerArbitrateCommands(program: Command): void {
         }
 
         if (found.length === 0) {
-          spin.succeed("No disputes assigned to you");
+          if (opts.format === "json") {
+            console.log(JSON.stringify([]));
+            return;
+          }
+          spin!.succeed("No disputes assigned to you");
           return;
         }
 
-        spin.succeed(`${found.length} dispute(s) found`);
+        if (opts.format === "json") {
+          console.log(JSON.stringify(found.map((d) => ({
+            id: d[0].toString(),
+            jobId: d[1].toString(),
+            buyer: d[2],
+            seller: d[3],
+            amount: formatLob(d[4]),
+            token: d[5],
+            buyerEvidence: d[6],
+            sellerEvidence: d[7],
+            status: DISPUTE_STATUS[d[8]] || "Unknown",
+            ruling: RULING[d[9]] || "Pending",
+            createdAt: Number(d[10]),
+            counterDeadline: Number(d[11]),
+            votingDeadline: Number(d[12]),
+            votesForBuyer: Number(d[14]),
+            votesForSeller: Number(d[15]),
+            totalVotes: Number(d[16]),
+          }))));
+          return;
+        }
+
+        spin!.succeed(`${found.length} dispute(s) found`);
         ui.table(
           ["ID", "Job", "Amount", "Status", "Ruling", "Votes"],
           found.map((d) => [
