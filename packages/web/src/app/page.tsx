@@ -299,7 +299,7 @@ export default function Home() {
         transition={{ delay: 1.5 }}
       >
         <a
-          href="https://github.com/magnacollective/lobstr"
+          href="https://github.com/lobstr-gg/lobstr"
           target="_blank"
           rel="noopener noreferrer"
           className="hover:text-text-secondary transition-colors"

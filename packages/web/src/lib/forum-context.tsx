@@ -16,6 +16,8 @@ interface ForumContextValue {
   currentUser: ForumUser | null;
   isConnected: boolean;
   isAuthenticated: boolean;
+  authLoading: boolean;
+  retryAuth: () => void;
   needsProfileSetup: boolean;
   dismissProfileSetup: () => void;
   updateCurrentUser: (updates: Partial<ForumUser>) => void;
@@ -35,6 +37,8 @@ const ForumContext = createContext<ForumContextValue>({
   currentUser: null,
   isConnected: false,
   isAuthenticated: false,
+  authLoading: false,
+  retryAuth: () => {},
   needsProfileSetup: false,
   dismissProfileSetup: () => {},
   updateCurrentUser: () => {},
@@ -92,6 +96,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
   const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState(0);
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const [setupDismissed, setSetupDismissed] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const authAttempted = useRef<string | null>(null);
 
   // Fetch user profile and related data (called after auth succeeds)
@@ -175,17 +180,42 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     authAttempted.current = address;
 
     // Try existing cookie first
+    setAuthLoading(true);
     fetchUserData().then((success) => {
-      if (success) return;
+      if (success) {
+        setAuthLoading(false);
+        return;
+      }
 
       // No valid cookie — trigger SIWE auth flow
       authenticate(address, signMessageAsync).then((authed) => {
         if (authed) {
-          fetchUserData();
+          fetchUserData().finally(() => setAuthLoading(false));
+        } else {
+          setAuthLoading(false);
         }
       });
     });
   }, [isConnected, address, signMessageAsync, fetchUserData]);
+
+  const retryAuth = useCallback(() => {
+    if (!address) return;
+    authAttempted.current = null;
+    setAuthLoading(true);
+    fetchUserData().then((success) => {
+      if (success) {
+        setAuthLoading(false);
+        return;
+      }
+      authenticate(address, signMessageAsync).then((authed) => {
+        if (authed) {
+          fetchUserData().finally(() => setAuthLoading(false));
+        } else {
+          setAuthLoading(false);
+        }
+      });
+    });
+  }, [address, signMessageAsync, fetchUserData]);
 
   // Poll for new notifications every 60 seconds (pauses when tab is hidden)
   useEffect(() => {
@@ -300,6 +330,8 @@ export function ForumProvider({ children }: { children: ReactNode }) {
         currentUser,
         isConnected: !!isConnected,
         isAuthenticated,
+        authLoading,
+        retryAuth,
         needsProfileSetup: needsProfileSetup && !setupDismissed,
         dismissProfileSetup,
         updateCurrentUser,

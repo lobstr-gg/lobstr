@@ -18,7 +18,7 @@ const ALLOWED_FLAIRS = [
 
 export default function SettingsPage() {
   const { isConnected } = useAccount();
-  const { currentUser, isAuthenticated, updateCurrentUser } = useForum();
+  const { currentUser, isAuthenticated, authLoading, retryAuth, updateCurrentUser } = useForum();
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -140,13 +140,29 @@ export default function SettingsPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="card p-8 text-center max-w-sm space-y-3">
-          <Spinner />
-          <p className="text-sm text-text-secondary">
-            Signing in...
-          </p>
-          <p className="text-xs text-text-tertiary">
-            Check your wallet for a signature request.
-          </p>
+          {authLoading ? (
+            <>
+              <Spinner />
+              <p className="text-sm text-text-secondary">
+                Signing in...
+              </p>
+              <p className="text-xs text-text-tertiary">
+                Check your wallet for a signature request.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-text-secondary">
+                Sign in to access settings
+              </p>
+              <button
+                onClick={retryAuth}
+                className="btn-primary text-sm px-4 py-2"
+              >
+                Sign In
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
