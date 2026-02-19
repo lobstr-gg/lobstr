@@ -139,19 +139,17 @@ export default function PostDetailPage() {
               <UserCard address={post.author} />
               <span>{timeAgo(post.createdAt)}</span>
               <span>{post.commentCount} comments</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(post.id)}
+                title={post.id}
+                className="text-[10px] text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
+              >
+                #{post.id}
+              </button>
               {currentUser?.modTier && (
-                <>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(post.id)}
-                    title={post.id}
-                    className="text-[10px] text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
-                  >
-                    #{post.id.slice(-6)}
-                  </button>
-                  <ModActionMenu
-                    onAction={handleModAction}
-                  />
-                </>
+                <ModActionMenu
+                  onAction={handleModAction}
+                />
               )}
             </div>
 

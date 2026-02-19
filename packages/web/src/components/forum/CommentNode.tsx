@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ease } from "@/lib/motion";
 import type { Comment } from "@/lib/forum-types";
 import { timeAgo } from "@/lib/forum-data";
-import { useForum } from "@/lib/forum-context";
 import VoteButton from "./VoteButton";
 import UserCard from "./UserCard";
 import CommentComposer from "./CommentComposer";
@@ -13,7 +12,6 @@ import CommentComposer from "./CommentComposer";
 const MAX_DEPTH = 6;
 
 export default function CommentNode({ comment }: { comment: Comment }) {
-  const { currentUser } = useForum();
   const [collapsed, setCollapsed] = useState(false);
   const [showReply, setShowReply] = useState(false);
 
@@ -36,15 +34,13 @@ export default function CommentNode({ comment }: { comment: Comment }) {
             <span className="text-[10px] text-text-tertiary">
               {timeAgo(comment.createdAt)}
             </span>
-            {currentUser?.modTier && (
-              <button
-                onClick={() => navigator.clipboard.writeText(comment.id)}
-                title={comment.id}
-                className="text-[10px] text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
-              >
-                #{comment.id.slice(-6)}
-              </button>
-            )}
+            <button
+              onClick={() => navigator.clipboard.writeText(comment.id)}
+              title={comment.id}
+              className="text-[10px] text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
+            >
+              #{comment.id}
+            </button>
             {comment.depth === 0 && (
               <button
                 onClick={() => setCollapsed(!collapsed)}

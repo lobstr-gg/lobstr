@@ -23,7 +23,7 @@ interface ForumContextValue {
   dismissProfileSetup: () => void;
   updateCurrentUser: (updates: Partial<ForumUser>) => void;
   votes: Record<string, 1 | -1>;
-  vote: (id: string, direction: 1 | -1) => void;
+  vote: (id: string, direction: 1 | -1) => Promise<void>;
   unreadDMCount: number;
   notifications: Notification[];
   unreadNotificationCount: number;
@@ -45,7 +45,7 @@ const ForumContext = createContext<ForumContextValue>({
   dismissProfileSetup: () => {},
   updateCurrentUser: () => {},
   votes: {},
-  vote: () => {},
+  vote: async () => {},
   unreadDMCount: 0,
   notifications: [],
   unreadNotificationCount: 0,
@@ -292,16 +292,53 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     };
   }, [isAuthenticated]);
 
-  const vote = useCallback((id: string, direction: 1 | -1) => {
-    setVotes((prev) => {
-      if (prev[id] === direction) {
-        const next = { ...prev };
-        delete next[id];
-        return next;
+  const vote = useCallback(
+    async (id: string, direction: 1 | -1) => {
+      // Optimistic local update
+      setVotes((prev) => {
+        if (prev[id] === direction) {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        }
+        return { ...prev, [id]: direction };
+      });
+
+      // Determine endpoint from ID prefix: p = post, c = comment
+      const isComment = id.startsWith("c");
+      const endpoint = isComment
+        ? `/api/forum/comments/${id}/vote`
+        : `/api/forum/posts/${id}/vote`;
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            direction: direction === 1 ? "up" : "down",
+          }),
+        });
+
+        if (!res.ok) {
+          // Revert optimistic update on failure
+          setVotes((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+        }
+      } catch {
+        // Revert on network error
+        setVotes((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
       }
-      return { ...prev, [id]: direction };
-    });
-  }, []);
+    },
+    []
+  );
 
   const dismissProfileSetup = useCallback(() => {
     setSetupDismissed(true);
