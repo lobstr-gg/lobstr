@@ -4,11 +4,13 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Post } from "@/lib/forum-types";
 import { timeAgo } from "@/lib/forum-data";
+import { useForum } from "@/lib/forum-context";
 import VoteButton from "./VoteButton";
 import FlairBadge from "./FlairBadge";
 import UserCard from "./UserCard";
 
 export default function PostCard({ post }: { post: Post }) {
+  const { currentUser } = useForum();
   return (
     <motion.div
       className={`flex gap-3 p-3 rounded border border-border/30 bg-surface-1/50 hover:bg-surface-1 transition-colors ${
@@ -51,6 +53,18 @@ export default function PostCard({ post }: { post: Post }) {
           </Link>
           {post.isLocked && (
             <span className="text-lob-red font-medium">Locked</span>
+          )}
+          {currentUser?.modTier && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                navigator.clipboard.writeText(post.id);
+              }}
+              title={post.id}
+              className="text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
+            >
+              #{post.id.slice(-6)}
+            </button>
           )}
         </div>
       </div>

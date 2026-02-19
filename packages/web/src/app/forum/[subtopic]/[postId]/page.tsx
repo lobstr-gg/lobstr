@@ -126,9 +126,18 @@ export default function PostDetailPage() {
               <span>{timeAgo(post.createdAt)}</span>
               <span>{post.commentCount} comments</span>
               {currentUser?.modTier && (
-                <ModActionMenu
-                  onAction={() => {}}
-                />
+                <>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(post.id)}
+                    title={post.id}
+                    className="text-[10px] text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
+                  >
+                    #{post.id.slice(-6)}
+                  </button>
+                  <ModActionMenu
+                    onAction={() => {}}
+                  />
+                </>
               )}
             </div>
 
