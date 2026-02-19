@@ -57,30 +57,32 @@ const ForumContext = createContext<ForumContextValue>({
 async function authenticate(
   address: string,
   signMessageAsync: (args: { message: string }) => Promise<string>
-): Promise<boolean> {
+): Promise<ForumUser | null> {
   try {
     // 1. Get challenge nonce
     const challengeRes = await fetch(
       `/api/forum/auth/challenge?address=${address}`,
       { credentials: "include" }
     );
-    if (!challengeRes.ok) return false;
+    if (!challengeRes.ok) return null;
     const { nonce } = await challengeRes.json();
 
     // 2. Sign the message
     const message = `LOBSTR Forum\nNonce: ${nonce}\nAddress: ${address}`;
     const signature = await signMessageAsync({ message });
 
-    // 3. Register / login
+    // 3. Register / login — returns user object + sets cookie
     const registerRes = await fetch("/api/forum/auth/register", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ address, signature, nonce }),
     });
-    return registerRes.ok;
+    if (!registerRes.ok) return null;
+    const data = await registerRes.json();
+    return data?.user ?? null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -188,12 +190,15 @@ export function ForumProvider({ children }: { children: ReactNode }) {
       }
 
       // No valid cookie — trigger SIWE auth flow
-      authenticate(address, signMessageAsync).then((authed) => {
-        if (authed) {
-          fetchUserData().finally(() => setAuthLoading(false));
-        } else {
-          setAuthLoading(false);
+      authenticate(address, signMessageAsync).then((user) => {
+        if (user) {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          const isDefault =
+            user.displayName.endsWith("...") && !user.profileImageUrl;
+          setNeedsProfileSetup(isDefault);
         }
+        setAuthLoading(false);
       });
     });
   }, [isConnected, address, signMessageAsync, fetchUserData]);
@@ -207,12 +212,15 @@ export function ForumProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
         return;
       }
-      authenticate(address, signMessageAsync).then((authed) => {
-        if (authed) {
-          fetchUserData().finally(() => setAuthLoading(false));
-        } else {
-          setAuthLoading(false);
+      authenticate(address, signMessageAsync).then((user) => {
+        if (user) {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          const isDefault =
+            user.displayName.endsWith("...") && !user.profileImageUrl;
+          setNeedsProfileSetup(isDefault);
         }
+        setAuthLoading(false);
       });
     });
   }, [address, signMessageAsync, fetchUserData]);

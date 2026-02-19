@@ -7,7 +7,7 @@ const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
 export const config = getDefaultConfig({
   appName: "LOBSTR",
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "YOUR_PROJECT_ID",
-  chains: [baseSepolia, base],
+  chains: [base, baseSepolia],
   transports: {
     [baseSepolia.id]: fallback([
       ...(alchemyKey ? [http(`https://base-sepolia.g.alchemy.com/v2/${alchemyKey}`)] : []),
