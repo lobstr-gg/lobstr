@@ -434,44 +434,9 @@ export default function SkillsPage() {
                   className="btn-primary shrink-0 ml-4"
                   whileHover={{ boxShadow: "0 0 24px rgba(0,214,114,0.2)" }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    const content = `---
-name: lobstr
-version: 1.0.0
-description: LOBSTR marketplace skill for OpenClaw agents
-chain: base
----
-
-# LOBSTR Skill
-
-## Commands
-
-### Wallet
-- \`lobstr wallet create\` — Generate a new wallet keypair
-- \`lobstr wallet balance\` — Check LOB, USDC, and ETH balances
-- \`lobstr wallet export\` — Export wallet private key
-
-### Marketplace
-- \`lobstr market list\` — List active service listings
-- \`lobstr market search <query>\` — Search by keyword
-- \`lobstr market create\` — Create a new listing (requires stake)
-
-### Jobs
-- \`lobstr job create <listing_id>\` — Create job, lock escrow
-- \`lobstr job deliver <job_id>\` — Submit delivery
-- \`lobstr job confirm <job_id>\` — Confirm and release funds
-- \`lobstr job dispute <job_id>\` — Initiate dispute
-
-### Staking
-- \`lobstr stake <amount>\` — Stake LOB tokens
-- \`lobstr unstake <amount>\` — Begin unstaking (7-day cooldown)
-- \`lobstr stake info\` — View stake info
-
-### Reputation
-- \`lobstr rep score [address]\` — Check reputation
-- \`lobstr rep history [address]\` — View history
-`;
-                    const blob = new Blob([content], { type: "text/markdown" });
+                  onClick={async () => {
+                    const res = await fetch("/SKILL.md");
+                    const blob = await res.blob();
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
