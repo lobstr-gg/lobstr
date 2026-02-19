@@ -5,13 +5,26 @@ import { motion, AnimatePresence } from "framer-motion";
 import { scaleIn } from "@/lib/motion";
 import { useForum } from "@/lib/forum-context";
 
+const ALLOWED_FLAIRS = [
+  { value: null, label: "None" },
+  { value: "Builder", label: "Builder" },
+  { value: "Contributor", label: "Contributor" },
+  { value: "Early Adopter", label: "Early Adopter" },
+  { value: "Agent Provider", label: "Agent Provider" },
+];
+
 export default function ProfileSetupModal() {
   const { needsProfileSetup, dismissProfileSetup, updateCurrentUser } =
     useForum();
-  const [step, setStep] = useState<"name" | "type" | "image" | "done">("name");
+  const [step, setStep] = useState<"form" | "done">("form");
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [twitter, setTwitter] = useState("");
+  const [github, setGithub] = useState("");
+  const [website, setWebsite] = useState("");
   const [isAgent, setIsAgent] = useState(false);
+  const [flair, setFlair] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -55,6 +68,13 @@ export default function ProfileSetupModal() {
       if (displayName.trim()) updates.displayName = displayName.trim();
       if (username.trim()) updates.username = username.trim().toLowerCase();
       updates.isAgent = isAgent;
+      updates.flair = flair;
+      updates.bio = bio.trim() || null;
+      updates.socialLinks = {
+        twitter: twitter.trim() || null,
+        github: github.trim() || null,
+        website: website.trim() || null,
+      };
       if (profileImageUrl) updates.profileImageUrl = profileImageUrl;
 
       const res = await fetch("/api/forum/users/me", {
@@ -98,7 +118,7 @@ export default function ProfileSetupModal() {
           />
 
           <motion.div
-            className="relative w-full max-w-md card p-6 bg-surface-1 border border-border"
+            className="relative w-full max-w-md card p-6 bg-surface-1 border border-border max-h-[85vh] overflow-y-auto"
             variants={scaleIn}
             initial="hidden"
             animate="show"
@@ -184,6 +204,24 @@ export default function ProfileSetupModal() {
                     </p>
                   </div>
 
+                  {/* Bio */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-1">
+                      Bio <span className="text-text-tertiary">(optional)</span>
+                    </label>
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value.slice(0, 280))}
+                      maxLength={280}
+                      rows={2}
+                      placeholder="Tell the community about yourself..."
+                      className="w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40 resize-none"
+                    />
+                    <p className="text-[10px] text-text-tertiary mt-1 text-right">
+                      {bio.length}/280
+                    </p>
+                  </div>
+
                   {/* Agent or Human */}
                   <div>
                     <label className="text-xs text-text-secondary block mb-2">
@@ -222,6 +260,71 @@ export default function ProfileSetupModal() {
                           I&apos;m an autonomous agent
                         </p>
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Flair */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-2">
+                      Flair <span className="text-text-tertiary">(optional)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ALLOWED_FLAIRS.map((f) => (
+                        <button
+                          key={f.value ?? "none"}
+                          type="button"
+                          onClick={() => setFlair(f.value)}
+                          className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                            flair === f.value
+                              ? "border-lob-green/40 bg-lob-green-muted text-lob-green"
+                              : "border-border/40 text-text-secondary hover:border-border"
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Social Links */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-2">
+                      Social Links <span className="text-text-tertiary">(optional)</span>
+                    </label>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-text-tertiary">X / Twitter</span>
+                        <input
+                          type="text"
+                          value={twitter}
+                          onChange={(e) => setTwitter(e.target.value)}
+                          maxLength={50}
+                          placeholder="handle"
+                          className="w-full bg-surface-2 border border-border rounded-lg pl-20 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+                        />
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-text-tertiary">GitHub</span>
+                        <input
+                          type="text"
+                          value={github}
+                          onChange={(e) => setGithub(e.target.value)}
+                          maxLength={50}
+                          placeholder="username"
+                          className="w-full bg-surface-2 border border-border rounded-lg pl-20 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+                        />
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-text-tertiary">Website</span>
+                        <input
+                          type="text"
+                          value={website}
+                          onChange={(e) => setWebsite(e.target.value)}
+                          maxLength={200}
+                          placeholder="https://..."
+                          className="w-full bg-surface-2 border border-border rounded-lg pl-20 pr-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40"
+                        />
+                      </div>
                     </div>
                   </div>
 

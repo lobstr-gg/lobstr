@@ -39,12 +39,15 @@ export default function MessagesPage() {
     }
 
     setLoading(true);
-    fetch("/api/forum/messages")
+    fetch("/api/forum/messages", { credentials: "include" })
       .then((res) => {
+        if (res.status === 401) return null;
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
       })
-      .then((data) => setConversations(data.conversations))
+      .then((data) => {
+        if (data) setConversations(data.conversations ?? []);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [isConnected, currentUser]);
