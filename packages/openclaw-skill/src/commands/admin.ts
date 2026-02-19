@@ -9,12 +9,15 @@ import {
 } from "openclaw";
 import * as ui from "openclaw";
 
-// Minimal ABI for AccessControl.grantRole / revokeRole / hasRole
+// Minimal ABI for AccessControl + Pausable
 const ACCESS_CONTROL_ABI = parseAbi([
   "function grantRole(bytes32 role, address account)",
   "function revokeRole(bytes32 role, address account)",
   "function hasRole(bytes32 role, address account) view returns (bool)",
   "function getRoleAdmin(bytes32 role) view returns (bytes32)",
+  "function pause()",
+  "function unpause()",
+  "function paused() view returns (bool)",
 ]);
 
 // Map of contract name -> config key for getContractAddress
@@ -180,6 +183,124 @@ export function registerAdminCommands(program: Command): void {
         } else {
           ui.info(`✗ ${account} does NOT have ${opts.role} on ${opts.contract}`);
         }
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── pause ─────────────────────────────────────────
+
+  admin
+    .command("pause")
+    .description("Emergency pause a contract (requires DEFAULT_ADMIN_ROLE)")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey);
+
+        const already = await publicClient.readContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "paused",
+        });
+
+        if (already) {
+          ui.info(`${opts.contract} is already paused`);
+          return;
+        }
+
+        const spin = ui.spinner(`Pausing ${opts.contract}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "pause",
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`${opts.contract} PAUSED`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── unpause ───────────────────────────────────────
+
+  admin
+    .command("unpause")
+    .description("Unpause a contract (requires DEFAULT_ADMIN_ROLE)")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey);
+
+        const spin = ui.spinner(`Unpausing ${opts.contract}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "unpause",
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`${opts.contract} UNPAUSED`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── status ────────────────────────────────────────
+
+  admin
+    .command("status")
+    .description("Check pause status of all contracts")
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+
+        const spin = ui.spinner("Checking contract status...");
+        const results: string[][] = [];
+
+        for (const [name, configKey] of Object.entries(CONTRACT_MAP)) {
+          try {
+            const addr = getContractAddress(ws.config, configKey);
+            const paused = await publicClient.readContract({
+              address: addr,
+              abi: ACCESS_CONTROL_ABI,
+              functionName: "paused",
+            });
+            results.push([name, addr, paused ? "PAUSED" : "Active"]);
+          } catch {
+            results.push([name, "—", "N/A (no Pausable)"]);
+          }
+        }
+
+        spin.succeed("Contract status");
+        ui.table(["Contract", "Address", "Status"], results);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
