@@ -100,68 +100,91 @@ export function ForumProvider({ children }: { children: ReactNode }) {
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const authAttempted = useRef<string | null>(null);
+  const authInProgress = useRef(false);
 
-  // Fetch user profile and related data (called after auth succeeds)
-  const fetchUserData = useCallback(async () => {
+  // Keep a stable ref to signMessageAsync so it doesn't trigger useEffect re-runs
+  const signMessageRef = useRef(signMessageAsync);
+  signMessageRef.current = signMessageAsync;
+
+  // Applies user data from either register response or fetchUserData
+  const applyUser = useCallback((user: ForumUser) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    const isDefault =
+      user.displayName.endsWith("...") && !user.profileImageUrl;
+    setNeedsProfileSetup(isDefault);
+  }, []);
+
+  // Fetch DMs, notifications, friend requests (non-blocking sidebar data)
+  const fetchSidebarData = useCallback(() => {
+    fetch("/api/forum/messages", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.conversations) {
+          const total = d.conversations.reduce(
+            (sum: number, c: { unreadCount?: number }) =>
+              sum + (c.unreadCount || 0),
+            0
+          );
+          setUnreadDMCount(total);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/forum/notifications", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.notifications) {
+          setNotifications(d.notifications);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/forum/users/friends/requests", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.requests) {
+          setPendingFriendRequestCount(d.requests.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Full auth flow: try cookie, then SIWE
+  const runAuth = useCallback(async () => {
+    if (authInProgress.current) return;
+    authInProgress.current = true;
+    setAuthLoading(true);
+
     try {
+      // Try existing cookie first
       const res = await fetch("/api/forum/users/me", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (!res.ok) return false;
-
-      const data = await res.json();
-      if (data?.user) {
-        setCurrentUser(data.user);
-        setIsAuthenticated(true);
-        const user = data.user as ForumUser;
-        const isDefault =
-          user.displayName.endsWith("...") && !user.profileImageUrl;
-        setNeedsProfileSetup(isDefault);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.user) {
+          applyUser(data.user);
+          fetchSidebarData();
+          return;
+        }
       }
 
-      // Fetch unread DMs
-      fetch("/api/forum/messages", { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.conversations) {
-            const total = d.conversations.reduce(
-              (sum: number, c: { unreadCount?: number }) =>
-                sum + (c.unreadCount || 0),
-              0
-            );
-            setUnreadDMCount(total);
-          }
-        })
-        .catch(() => {});
-
-      // Fetch notifications
-      fetch("/api/forum/notifications", { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.notifications) {
-            setNotifications(d.notifications);
-          }
-        })
-        .catch(() => {});
-
-      // Fetch pending friend request count
-      fetch("/api/forum/users/friends/requests", { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.requests) {
-            setPendingFriendRequestCount(d.requests.length);
-          }
-        })
-        .catch(() => {});
-
-      return true;
-    } catch {
-      return false;
+      // No valid cookie — trigger SIWE auth flow
+      const addr = authAttempted.current;
+      if (!addr) return;
+      const user = await authenticate(addr, signMessageRef.current);
+      if (user) {
+        applyUser(user);
+      }
+    } finally {
+      setAuthLoading(false);
+      authInProgress.current = false;
     }
-  }, []);
+  }, [applyUser, fetchSidebarData]);
 
   // Auth + profile flow on wallet connection
   useEffect(() => {
@@ -181,49 +204,16 @@ export function ForumProvider({ children }: { children: ReactNode }) {
     if (authAttempted.current === address) return;
     authAttempted.current = address;
 
-    // Try existing cookie first
-    setAuthLoading(true);
-    fetchUserData().then((success) => {
-      if (success) {
-        setAuthLoading(false);
-        return;
-      }
-
-      // No valid cookie — trigger SIWE auth flow
-      authenticate(address, signMessageAsync).then((user) => {
-        if (user) {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          const isDefault =
-            user.displayName.endsWith("...") && !user.profileImageUrl;
-          setNeedsProfileSetup(isDefault);
-        }
-        setAuthLoading(false);
-      });
-    });
-  }, [isConnected, address, signMessageAsync, fetchUserData]);
+    runAuth();
+    // Only re-run when wallet connection changes, not when signMessageAsync ref changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
 
   const retryAuth = useCallback(() => {
-    if (!address) return;
-    authAttempted.current = null;
-    setAuthLoading(true);
-    fetchUserData().then((success) => {
-      if (success) {
-        setAuthLoading(false);
-        return;
-      }
-      authenticate(address, signMessageAsync).then((user) => {
-        if (user) {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          const isDefault =
-            user.displayName.endsWith("...") && !user.profileImageUrl;
-          setNeedsProfileSetup(isDefault);
-        }
-        setAuthLoading(false);
-      });
-    });
-  }, [address, signMessageAsync, fetchUserData]);
+    if (!address || authInProgress.current) return;
+    // Don't reset authAttempted — just re-run the flow
+    runAuth();
+  }, [address, runAuth]);
 
   // Poll for new notifications every 60 seconds (pauses when tab is hidden)
   useEffect(() => {
