@@ -47,7 +47,6 @@ export default function UserCard({ address }: { address: string }) {
       <Link
         href={`/forum/u/${address}`}
         className="inline-flex items-center gap-1.5 group"
-        title={address}
       >
         <ProfileAvatar user={user} size="xs" />
         <span

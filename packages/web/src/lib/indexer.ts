@@ -38,7 +38,7 @@ export async function fetchProtocolCounts(): Promise<IndexerCounts> {
   };
 
   const data = await gqlFetch<CountResponse>(`{
-    accounts { totalCount items { id } }
+    accounts { totalCount items { address } }
     listings(where: { active: true }) { totalCount items { id } }
     jobs { totalCount items { id } }
   }`);

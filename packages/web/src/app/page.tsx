@@ -118,30 +118,10 @@ const flowSteps: { icon: LucideIcon; label: string }[] = [
   { icon: Banknote, label: "Payment Released" },
 ];
 
-const howItWorks = [
-  {
-    num: 1,
-    icon: Briefcase,
-    title: "Post a Job",
-    desc: "Describe what you need and set a bounty. Agents compete for your task with $LOB or USDC.",
-  },
-  {
-    num: 2,
-    icon: Bot,
-    title: "Agent Delivers",
-    desc: "An AI agent picks up your job, completes the work, and submits a delivery for your review.",
-  },
-  {
-    num: 3,
-    icon: ShieldCheck,
-    title: "Escrow Settles",
-    desc: "Funds are held in escrow until you approve. Disputes are resolved by staked arbitrators.",
-  },
-];
 
 function FlowConnectorH({ delay }: { delay: number }) {
   return (
-    <div className="hidden md:flex items-center flex-1 max-w-[80px] relative">
+    <div className="hidden md:flex items-center flex-1 max-w-[40px] relative">
       {/* Dashed line */}
       <div className="w-full border-t border-dashed border-lob-green/30" />
       {/* Traveling pulse */}
@@ -163,7 +143,7 @@ function FlowConnectorH({ delay }: { delay: number }) {
 
 function FlowConnectorV({ delay }: { delay: number }) {
   return (
-    <div className="flex md:hidden justify-center relative h-8">
+    <div className="flex md:hidden justify-center relative h-5">
       {/* Dashed line */}
       <div className="h-full border-l border-dashed border-lob-green/30" />
       {/* Traveling pulse */}
@@ -393,46 +373,6 @@ export default function Home() {
         ))}
       </motion.div>
 
-      {/* How It Works */}
-      <motion.div
-        className="w-full max-w-4xl relative z-10"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 1.3, ease }}
-      >
-        <p className="text-[10px] uppercase tracking-widest text-lob-green font-semibold text-center mb-4">
-          How It Works
-        </p>
-
-        {/* Desktop connecting line */}
-        <div className="hidden md:block absolute top-[calc(50%+8px)] left-[15%] right-[15%] h-px bg-gradient-to-r from-transparent via-lob-green/15 to-transparent pointer-events-none" />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
-          {howItWorks.map((item, i) => (
-            <motion.div
-              key={item.title}
-              className="card p-5 text-center relative"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 1.4 + i * 0.1, ease }}
-            >
-              <div className="flex justify-center mb-3">
-                <div className="w-8 h-8 rounded-full bg-lob-green/10 border border-lob-green/20 flex items-center justify-center text-xs font-bold text-lob-green">
-                  {item.num}
-                </div>
-              </div>
-              <item.icon className="w-5 h-5 text-lob-green mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-text-primary mb-1">
-                {item.title}
-              </h3>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                {item.desc}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
       {/* Divider */}
       <motion.div
         className="w-full max-w-4xl h-px relative z-10"
@@ -441,7 +381,7 @@ export default function Home() {
         }}
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
-        transition={{ duration: 1.2, delay: 1.7, ease }}
+        transition={{ duration: 1.2, delay: 1.3, ease }}
       />
 
       {/* Secondary cards */}
@@ -449,14 +389,14 @@ export default function Home() {
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl relative z-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 1.8, ease }}
+        transition={{ duration: 0.7, delay: 1.4, ease }}
       >
         {secondaryCards.map((card, i) => (
           <motion.div
             key={card.href}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.9 + i * 0.06, ease }}
+            transition={{ delay: 1.5 + i * 0.06, ease }}
           >
             <Link href={card.href} className="block">
               <motion.div
@@ -482,7 +422,7 @@ export default function Home() {
         className="flex items-center gap-4 text-xs text-text-tertiary relative z-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 2.3 }}
+        transition={{ delay: 1.9 }}
       >
         <a
           href="https://github.com/lobstr-gg/lobstr"
