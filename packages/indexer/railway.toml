@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "corepack enable && pnpm install && pnpm codegen"
+buildCommand = "npm install && npm run codegen"
 
 [deploy]
-startCommand = "corepack enable && pnpm start"
+startCommand = "npm start"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
