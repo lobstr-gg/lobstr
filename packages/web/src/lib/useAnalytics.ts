@@ -193,7 +193,11 @@ export function useAnalytics() {
     treasuryLob: toBigIntNum(treasuryLob.data),
     treasurySeizedLob: toBigIntNum(treasurySeizedLob.data),
     treasurySeizedUsdc: toBigIntNum(treasurySeizedUsdc.data, 6),
-    daoBounties: toNum(daoBounties.data),
+    // nextBountyId starts at 1, so subtract 1 to get actual count
+    daoBounties:
+      daoBounties.data != null
+        ? Math.max(0, Number(daoBounties.data as bigint) - 1)
+        : null,
   };
 
   const chainLoading =

@@ -2,10 +2,21 @@
 
 import Link from "next/link";
 import { motion, useSpring, useTransform } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ease } from "@/lib/motion";
-import { useAnalytics } from "@/lib/useAnalytics";
+import { useAnalytics, type AnalyticsData } from "@/lib/useAnalytics";
 import { LOBSTR_CONTRACTS } from "@/lib/dune";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import {
   BarChart3,
   Copy,
@@ -17,6 +28,7 @@ import {
   Shield,
   Landmark,
   TrendingUp,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -193,14 +205,6 @@ const CONTRACT_INFO: {
   },
 ];
 
-const DUNE_DASHBOARDS = [
-  "Staking & SybilGuard",
-  "Escrow & Jobs",
-  "Disputes",
-  "Reputation",
-  "Treasury",
-  "Airdrop",
-];
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -321,6 +325,238 @@ function SectionLabel({
     >
       {children}
     </motion.h2>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Charts
+// ---------------------------------------------------------------------------
+
+const TOTAL_SUPPLY = 1_000_000_000;
+
+const DONUT_COLORS = [
+  "#00D672", // staked — lob-green
+  "#3B82F6", // treasury
+  "#F59E0B", // airdrop claimed
+  "#6366F1", // airdrop remaining
+  "#64748B", // circulating
+];
+
+function ChartTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; payload: { fill: string } }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0];
+  return (
+    <div className="rounded-md border border-border/60 bg-black/95 backdrop-blur-xl px-3 py-2 shadow-lg">
+      <p className="text-xs font-medium text-text-primary">{d.name}</p>
+      <p className="text-xs tabular-nums" style={{ color: d.payload.fill }}>
+        {formatCompact(d.value)} LOB
+      </p>
+    </div>
+  );
+}
+
+function BarTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; payload: { fill: string; name: string } }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0];
+  return (
+    <div className="rounded-md border border-border/60 bg-black/95 backdrop-blur-xl px-3 py-2 shadow-lg">
+      <p className="text-xs font-medium text-text-primary">
+        {d.payload.name}
+      </p>
+      <p className="text-xs tabular-nums text-lob-green">
+        {formatCompact(d.value)}
+      </p>
+    </div>
+  );
+}
+
+function TokenDistributionChart({
+  data,
+  isLoading,
+}: {
+  data: AnalyticsData;
+  isLoading: boolean;
+}) {
+  const chartData = useMemo(() => {
+    const staked = data.lobStaked ?? 0;
+    const treasury = data.treasuryLob ?? 0;
+    const claimed = data.airdropClaimed ?? 0;
+    const airdropRemaining =
+      data.airdropMaxPool != null ? data.airdropMaxPool - claimed : 0;
+    const circulating = Math.max(
+      0,
+      TOTAL_SUPPLY - staked - treasury - claimed - airdropRemaining,
+    );
+
+    return [
+      { name: "Staked", value: staked, fill: DONUT_COLORS[0] },
+      { name: "Treasury", value: treasury, fill: DONUT_COLORS[1] },
+      { name: "Airdrop Claimed", value: claimed, fill: DONUT_COLORS[2] },
+      { name: "Airdrop Pool", value: airdropRemaining, fill: DONUT_COLORS[3] },
+      { name: "Circulating", value: circulating, fill: DONUT_COLORS[4] },
+    ].filter((d) => d.value > 0);
+  }, [data]);
+
+  return (
+    <motion.div
+      className="rounded-lg border border-border-default bg-surface-1/50 backdrop-blur-sm p-5"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 1.05, ease }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <PieChartIcon className="w-4 h-4 text-lob-green" />
+        <h3 className="text-xs font-semibold text-text-primary">
+          LOB Token Distribution
+        </h3>
+        <span className="text-[10px] text-text-tertiary ml-auto">
+          1B Total Supply
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="h-[200px] flex items-center justify-center">
+          <div className="w-32 h-32 rounded-full bg-surface-3 animate-pulse" />
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="w-[200px] h-[200px] shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  dataKey="value"
+                  strokeWidth={0}
+                  animationBegin={0}
+                  animationDuration={1200}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  content={<ChartTooltipContent />}
+                  cursor={false}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-2 min-w-0">
+            {chartData.map((d) => (
+              <div key={d.name} className="flex items-center gap-2">
+                <div
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: d.fill }}
+                />
+                <span className="text-[11px] text-text-secondary truncate">
+                  {d.name}
+                </span>
+                <span className="text-[11px] font-bold text-text-primary tabular-nums ml-auto">
+                  {formatCompact(d.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function ProtocolActivityChart({
+  data,
+  isLoading,
+}: {
+  data: AnalyticsData;
+  isLoading: boolean;
+}) {
+  const chartData = useMemo(
+    () => [
+      { name: "Wallets", value: data.wallets ?? 0, fill: "#00D672" },
+      { name: "Services", value: data.services ?? 0, fill: "#3B82F6" },
+      { name: "Jobs", value: data.jobs ?? 0, fill: "#F59E0B" },
+      { name: "Reports", value: data.totalReports ?? 0, fill: "#6366F1" },
+      { name: "Bans", value: data.totalBans ?? 0, fill: "#EF4444" },
+      { name: "Bounties", value: data.daoBounties ?? 0, fill: "#8B5CF6" },
+    ],
+    [data],
+  );
+
+  return (
+    <motion.div
+      className="rounded-lg border border-border-default bg-surface-1/50 backdrop-blur-sm p-5"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 1.1, ease }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <BarChart3 className="w-4 h-4 text-lob-green" />
+        <h3 className="text-xs font-semibold text-text-primary">
+          Protocol Activity
+        </h3>
+      </div>
+
+      {isLoading ? (
+        <div className="h-[200px] flex items-end gap-3 px-4">
+          {[60, 40, 80, 30, 20, 50].map((h, i) => (
+            <div
+              key={i}
+              className="flex-1 bg-surface-3 animate-pulse rounded-t"
+              style={{ height: `${h}%` }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+            >
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10, fill: "#5E6673" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#5E6673" }}
+                axisLine={false}
+                tickLine={false}
+                width={35}
+                tickFormatter={(v: number) => formatCompact(v)}
+              />
+              <Tooltip
+                content={<BarTooltipContent />}
+                cursor={{ fill: "rgba(255,255,255,0.03)" }}
+              />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={1200}>
+                {chartData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -721,61 +957,16 @@ export default function AnalyticsPage() {
         </div>
       </section>
 
-      {/* ─── Section 6: Dune Analytics CTA ─── */}
-      <motion.section
-        className="rounded-lg border border-border-default bg-surface-1/50 backdrop-blur-sm p-6"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 1.0, ease }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-text-primary">
-            Explore on Dune Analytics
-          </h2>
-          <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-lob-green-muted text-lob-green border border-lob-green/20">
-            Coming Soon
-          </span>
+      {/* ─── Section 6: On-Chain Charts ─── */}
+      <section>
+        <SectionLabel delay={1.0}>On-Chain Breakdown</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* LOB Token Distribution donut */}
+          <TokenDistributionChart data={data} isLoading={isLoading} />
+          {/* Protocol Activity bar chart */}
+          <ProtocolActivityChart data={data} isLoading={isLoading} />
         </div>
-        <p className="text-xs text-text-secondary mb-4">
-          Deep-dive into historical on-chain data with our SQL playbook.
-          Time-series charts for staking TVL, job volume, and dispute trends
-          will be embedded here once Dune dashboards are live.
-        </p>
-
-        {/* Chart placeholder grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-          {[
-            { title: "Staking TVL", desc: "Cumulative LOB staked over time" },
-            { title: "Daily Jobs", desc: "Job creation & escrow volume" },
-            { title: "Dispute Trends", desc: "Weekly disputes & resolutions" },
-          ].map((chart) => (
-            <div
-              key={chart.title}
-              className="rounded border border-dashed border-border/40 bg-surface-2/30 p-4 flex flex-col items-center justify-center text-center min-h-[120px]"
-            >
-              <BarChart3 className="w-6 h-6 text-text-tertiary mb-2" />
-              <p className="text-xs font-medium text-text-secondary">
-                {chart.title}
-              </p>
-              <p className="text-[10px] text-text-tertiary mt-0.5">
-                {chart.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Dashboard tags */}
-        <div className="flex flex-wrap gap-2">
-          {DUNE_DASHBOARDS.map((d) => (
-            <span
-              key={d}
-              className="px-2.5 py-1 rounded-full text-[10px] font-medium border border-border/40 text-text-secondary bg-surface-2"
-            >
-              {d}
-            </span>
-          ))}
-        </div>
-      </motion.section>
+      </section>
     </div>
   );
 }
