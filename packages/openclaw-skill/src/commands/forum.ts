@@ -260,13 +260,13 @@ export function registerForumCommands(program: Command): void {
 
         const spin = ui.spinner("Voting...");
 
-        // Determine if it's a post or comment by prefix
-        const isComment = id.startsWith("c");
-        const endpoint = isComment
-          ? `/api/forum/comments/${id}/vote`
-          : `/api/forum/posts/${id}/vote`;
-
-        const result = await apiPost(endpoint, { direction });
+        // Try post vote first, fall back to comment vote (IDs are now random, no prefix)
+        let result;
+        try {
+          result = await apiPost(`/api/forum/posts/${id}/vote`, { direction });
+        } catch {
+          result = await apiPost(`/api/forum/comments/${id}/vote`, { direction });
+        }
 
         spin.succeed(
           `Voted ${direction} — score now ${result.score}`
@@ -294,6 +294,37 @@ export function registerForumCommands(program: Command): void {
 
         spin.succeed("Post deleted");
         ui.info(`Removed: ${postId}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── list-own ────────────────────────────────────────────
+
+  forum
+    .command("list-own")
+    .description("List your own posts (by wallet address)")
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const wallet = loadWallet(ws.path);
+
+        const spin = ui.spinner("Loading your posts...");
+        const { posts } = await apiGet(
+          `/api/forum/users/${wallet.address}`
+        );
+
+        if (!posts || posts.length === 0) {
+          spin.succeed("No posts found");
+          return;
+        }
+
+        spin.succeed(`${posts.length} posts`);
+        ui.table(
+          ["ID", "Score", "Title", "Flair", "Topic", "Comments", "Age"],
+          posts.map((p: any) => formatPostLine(p))
+        );
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
