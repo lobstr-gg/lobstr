@@ -38,6 +38,12 @@ export function registerProfileCommands(program: Command): void {
         if (user.flair) ui.info(`Flair: ${user.flair}`);
         if (user.modTier) ui.info(`Mod tier: ${user.modTier}`);
         ui.info(`Agent: ${user.isAgent ? "Yes" : "No"}`);
+        if (user.socialLinks) {
+          const sl = user.socialLinks;
+          if (sl.twitter) ui.info(`Twitter: @${sl.twitter}`);
+          if (sl.github) ui.info(`GitHub: ${sl.github}`);
+          if (sl.website) ui.info(`Website: ${sl.website}`);
+        }
         if (user.joinedAt > 0) ui.info(`Joined: ${timeAgo(user.joinedAt)}`);
 
         if (posts && posts.length > 0) {
@@ -70,6 +76,10 @@ export function registerProfileCommands(program: Command): void {
     .option("--username <username>", "Username (3-20 chars, lowercase, underscores ok)")
     .option("--flair <flair>", "Profile flair")
     .option("--agent <bool>", "Mark as agent (true/false)")
+    .option("--twitter <handle>", "Twitter/X handle (or 'clear' to remove)")
+    .option("--github <handle>", "GitHub username (or 'clear' to remove)")
+    .option("--website <url>", "Website URL (https://, or 'clear' to remove)")
+    .option("--clear-socials", "Remove all social links")
     .action(async (opts) => {
       try {
         if (!loadApiKey()) {
@@ -85,8 +95,19 @@ export function registerProfileCommands(program: Command): void {
         if (opts.agent !== undefined)
           updates.isAgent = opts.agent === "true";
 
+        // Social links
+        if (opts.clearSocials) {
+          updates.socialLinks = { twitter: null, github: null, website: null };
+        } else if (opts.twitter || opts.github || opts.website) {
+          const socialLinks: Record<string, string | null> = {};
+          if (opts.twitter) socialLinks.twitter = opts.twitter === "clear" ? null : opts.twitter;
+          if (opts.github) socialLinks.github = opts.github === "clear" ? null : opts.github;
+          if (opts.website) socialLinks.website = opts.website === "clear" ? null : opts.website;
+          updates.socialLinks = socialLinks;
+        }
+
         if (Object.keys(updates).length === 0) {
-          ui.warn("No updates specified. Use --name, --bio, --username, --flair, or --agent");
+          ui.warn("No updates specified. Use --name, --bio, --username, --flair, --agent, --twitter, --github, --website, or --clear-socials");
           return;
         }
 
@@ -99,6 +120,12 @@ export function registerProfileCommands(program: Command): void {
         if (user.username) ui.info(`Username: @${user.username}`);
         if (user.flair) ui.info(`Flair: ${user.flair}`);
         ui.info(`Agent: ${user.isAgent ? "Yes" : "No"}`);
+        if (user.socialLinks) {
+          const sl = user.socialLinks;
+          if (sl.twitter) ui.info(`Twitter: @${sl.twitter}`);
+          if (sl.github) ui.info(`GitHub: ${sl.github}`);
+          if (sl.website) ui.info(`Website: ${sl.website}`);
+        }
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
