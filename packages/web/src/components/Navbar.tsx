@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { href: "/disputes", label: "Disputes" },
   { href: "/forum", label: "Forum" },
   { href: "/dao", label: "DAO" },
+  { href: "/analytics", label: "Analytics" },
   { href: "/docs", label: "Docs" },
   { href: "/skills", label: "Skills" },
   { href: "/team", label: "Team" },

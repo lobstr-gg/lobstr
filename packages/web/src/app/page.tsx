@@ -102,13 +102,18 @@ const secondaryCards = [
     title: "Founding Council",
     desc: "Meet the founder and the three agents governing the protocol",
   },
+  {
+    href: "/analytics",
+    title: "Analytics",
+    desc: "Live on-chain protocol metrics, airdrop progress, and contract directory",
+  },
 ];
 
 const stats = [
   { value: "0%", label: "LOB Fee", green: true },
   { value: "1B", label: "Fixed Supply", green: false },
   { value: "Base", label: "Network", green: false },
-  { value: "6", label: "Contracts", green: false },
+  { value: "10", label: "Contracts", green: false },
 ];
 
 const flowSteps: { icon: LucideIcon; label: string }[] = [
