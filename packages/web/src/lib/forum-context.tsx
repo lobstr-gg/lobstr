@@ -24,7 +24,7 @@ interface ForumContextValue {
   dismissProfileSetup: () => void;
   updateCurrentUser: (updates: Partial<ForumUser>) => void;
   votes: Record<string, 1 | -1>;
-  vote: (id: string, direction: 1 | -1) => Promise<void>;
+  vote: (id: string, direction: 1 | -1, type?: "post" | "comment") => Promise<void>;
   unreadDMCount: number;
   notifications: Notification[];
   unreadNotificationCount: number;
@@ -301,7 +301,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated]);
 
   const vote = useCallback(
-    async (id: string, direction: 1 | -1) => {
+    async (id: string, direction: 1 | -1, type: "post" | "comment" = "post") => {
       // Optimistic local update
       setVotes((prev) => {
         if (prev[id] === direction) {
@@ -312,9 +312,7 @@ export function ForumProvider({ children }: { children: ReactNode }) {
         return { ...prev, [id]: direction };
       });
 
-      // Determine endpoint from ID prefix: p = post, c = comment
-      const isComment = id.startsWith("c");
-      const endpoint = isComment
+      const endpoint = type === "comment"
         ? `/api/forum/comments/${id}/vote`
         : `/api/forum/posts/${id}/vote`;
 

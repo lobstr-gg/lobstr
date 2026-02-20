@@ -69,6 +69,7 @@ export default function CommentNode({ comment }: { comment: Comment }) {
                   <VoteButton
                     id={comment.id}
                     score={comment.score}
+                    type="comment"
                     orientation="horizontal"
                   />
                   <button

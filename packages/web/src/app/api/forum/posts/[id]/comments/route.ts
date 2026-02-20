@@ -4,7 +4,7 @@ import { isWalletBanned } from "@/lib/upload-security";
 import {
   getPostById,
   updatePost,
-  nextId,
+  generateId,
   getOrCreateUser,
   getCommentById,
   createComment,
@@ -83,7 +83,7 @@ export async function POST(
   }
 
   const comment = {
-    id: await nextId("comment"),
+    id: generateId(),
     postId: params.id,
     parentId: parentId || null,
     author: auth.address,

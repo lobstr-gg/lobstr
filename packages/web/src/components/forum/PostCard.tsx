@@ -63,7 +63,7 @@ export default function PostCard({ post }: { post: Post }) {
               title={post.id}
               className="text-text-tertiary/50 hover:text-text-secondary transition-colors font-mono"
             >
-              #{post.id.slice(-6)}
+              #{post.id}
             </button>
           )}
         </div>

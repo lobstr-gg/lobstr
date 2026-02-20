@@ -3,7 +3,7 @@ import type { SubtopicId, SortMode, PostFlair } from "@/lib/forum-types";
 import {
   getPostsBySubtopic,
   sortPosts,
-  nextId,
+  generateId,
   getOrCreateUser,
   createPost,
 } from "@/lib/firestore-store";
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   await getOrCreateUser(auth.address);
 
   const post = {
-    id: await nextId("post"),
+    id: generateId(),
     subtopic: subtopic as SubtopicId,
     title,
     body: postBody,

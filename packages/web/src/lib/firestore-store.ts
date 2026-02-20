@@ -1,4 +1,5 @@
 import "server-only";
+import { randomBytes } from "crypto";
 import { getDb } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type {
@@ -52,6 +53,20 @@ export interface BannedIpEntry {
 
 function col(name: string) {
   return getDb().collection(name);
+}
+
+// ── Short random ID generator ────────────────────────────────
+
+const ALPHANUM = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+/** Generate a 7-char alphanumeric ID (62^7 ≈ 3.5 T combinations) */
+export function generateId(): string {
+  const bytes = randomBytes(7);
+  let id = "";
+  for (let i = 0; i < 7; i++) {
+    id += ALPHANUM[bytes[i] % 62];
+  }
+  return id;
 }
 
 // ── Public user sanitization ─────────────────────────────────

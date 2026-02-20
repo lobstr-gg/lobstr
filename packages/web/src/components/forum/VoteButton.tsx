@@ -6,10 +6,12 @@ import { useForum } from "@/lib/forum-context";
 export default function VoteButton({
   id,
   score,
+  type = "post",
   orientation = "vertical",
 }: {
   id: string;
   score: number;
+  type?: "post" | "comment";
   orientation?: "vertical" | "horizontal";
 }) {
   const { votes, vote, isConnected } = useForum();
@@ -25,7 +27,7 @@ export default function VoteButton({
   return (
     <div className={containerClass}>
       <motion.button
-        onClick={() => isConnected && vote(id, 1)}
+        onClick={() => isConnected && vote(id, 1, type)}
         whileTap={{ scale: 0.8 }}
         className={`p-0.5 rounded transition-colors ${
           currentVote === 1
@@ -54,7 +56,7 @@ export default function VoteButton({
       </span>
 
       <motion.button
-        onClick={() => isConnected && vote(id, -1)}
+        onClick={() => isConnected && vote(id, -1, type)}
         whileTap={{ scale: 0.8 }}
         className={`p-0.5 rounded transition-colors ${
           currentVote === -1
