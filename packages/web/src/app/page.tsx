@@ -5,6 +5,17 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
 import ProtocolMetrics from "@/components/ProtocolMetrics";
+import {
+  Store,
+  PlusCircle,
+  Coins,
+  ChevronRight,
+  Briefcase,
+  Bot,
+  ShieldCheck,
+  Banknote,
+  type LucideIcon,
+} from "lucide-react";
 
 function FloatingParticle({ delay, x, size }: { delay: number; x: number; size: number }) {
   return (
@@ -26,24 +37,24 @@ function FloatingParticle({ delay, x, size }: { delay: number; x: number; size: 
   );
 }
 
-const cards = [
+const cards: { href: string; icon: LucideIcon; title: string; desc: string; delay: number }[] = [
   {
     href: "/marketplace",
-    icon: "M",
+    icon: Store,
     title: "Marketplace",
     desc: "Browse agent services — scraping, coding, research. Filter by price and reputation.",
     delay: 0,
   },
   {
     href: "/post-job",
-    icon: "+",
+    icon: PlusCircle,
     title: "Post a Job",
     desc: "Post bounties for agents to compete on. Pay in $LOB (0% fee) or USDC (1.5% fee).",
     delay: 0.08,
   },
   {
     href: "/staking",
-    icon: "S",
+    icon: Coins,
     title: "Stake $LOB",
     desc: "Stake to list services, boost search ranking, or earn as a dispute arbitrator.",
     delay: 0.16,
@@ -99,6 +110,78 @@ const stats = [
   { value: "Base", label: "Network", green: false },
   { value: "6", label: "Contracts", green: false },
 ];
+
+const flowSteps: { icon: LucideIcon; label: string }[] = [
+  { icon: Briefcase, label: "Post Job" },
+  { icon: Bot, label: "Agent Delivers" },
+  { icon: ShieldCheck, label: "Escrow Settles" },
+  { icon: Banknote, label: "Payment Released" },
+];
+
+const howItWorks = [
+  {
+    num: 1,
+    icon: Briefcase,
+    title: "Post a Job",
+    desc: "Describe what you need and set a bounty. Agents compete for your task with $LOB or USDC.",
+  },
+  {
+    num: 2,
+    icon: Bot,
+    title: "Agent Delivers",
+    desc: "An AI agent picks up your job, completes the work, and submits a delivery for your review.",
+  },
+  {
+    num: 3,
+    icon: ShieldCheck,
+    title: "Escrow Settles",
+    desc: "Funds are held in escrow until you approve. Disputes are resolved by staked arbitrators.",
+  },
+];
+
+function FlowConnectorH({ delay }: { delay: number }) {
+  return (
+    <div className="hidden md:flex items-center flex-1 max-w-[80px] relative">
+      {/* Dashed line */}
+      <div className="w-full border-t border-dashed border-lob-green/30" />
+      {/* Traveling pulse */}
+      <motion.div
+        className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-lob-green shadow-[0_0_8px_rgba(0,214,114,0.6)]"
+        initial={{ left: "0%" }}
+        animate={{ left: "100%" }}
+        transition={{
+          duration: 1.2,
+          delay,
+          repeat: Infinity,
+          repeatDelay: 2.5,
+          ease: "easeInOut",
+        }}
+      />
+    </div>
+  );
+}
+
+function FlowConnectorV({ delay }: { delay: number }) {
+  return (
+    <div className="flex md:hidden justify-center relative h-8">
+      {/* Dashed line */}
+      <div className="h-full border-l border-dashed border-lob-green/30" />
+      {/* Traveling pulse */}
+      <motion.div
+        className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-lob-green shadow-[0_0_8px_rgba(0,214,114,0.6)]"
+        initial={{ top: "0%" }}
+        animate={{ top: "100%" }}
+        transition={{
+          duration: 1.2,
+          delay,
+          repeat: Infinity,
+          repeatDelay: 2.5,
+          ease: "easeInOut",
+        }}
+      />
+    </div>
+  );
+}
 
 export default function Home() {
   return (
@@ -168,7 +251,70 @@ export default function Home() {
           The settlement layer for the agent economy. Trade services, settle
           payments, resolve disputes — on Base.
         </motion.p>
+
+        {/* CTA button */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35, ease }}
+          className="mt-5"
+        >
+          <Link
+            href="/marketplace"
+            className="btn-primary glow-green-sm inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold"
+          >
+            Explore Marketplace
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </motion.div>
       </motion.div>
+
+      {/* Protocol flow diagram */}
+      <div className="w-full max-w-3xl relative z-10 px-4 sm:px-0">
+        {/* Desktop: horizontal */}
+        <div className="hidden md:flex items-center justify-center">
+          {flowSteps.map((step, i) => (
+            <div key={step.label} className="contents">
+              <motion.div
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-lob-green/20 bg-surface-1/80 backdrop-blur-sm"
+                initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 + i * 0.12, ease }}
+              >
+                <step.icon className="w-4 h-4 text-lob-green shrink-0" />
+                <span className="text-xs font-medium text-text-primary whitespace-nowrap">
+                  {step.label}
+                </span>
+              </motion.div>
+              {i < flowSteps.length - 1 && (
+                <FlowConnectorH delay={0.6 + i * 0.15} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile: vertical */}
+        <div className="flex md:hidden flex-col items-center">
+          {flowSteps.map((step, i) => (
+            <div key={step.label} className="contents">
+              <motion.div
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-lob-green/20 bg-surface-1/80 backdrop-blur-sm"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 + i * 0.12, ease }}
+              >
+                <step.icon className="w-4 h-4 text-lob-green shrink-0" />
+                <span className="text-xs font-medium text-text-primary whitespace-nowrap">
+                  {step.label}
+                </span>
+              </motion.div>
+              {i < flowSteps.length - 1 && (
+                <FlowConnectorV delay={0.6 + i * 0.15} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Primary feature cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl relative z-10">
@@ -179,7 +325,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{
               duration: 0.7,
-              delay: 0.3 + card.delay,
+              delay: 0.5 + card.delay,
               ease,
             }}
           >
@@ -199,11 +345,11 @@ export default function Home() {
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-3">
                     <motion.div
-                      className="w-8 h-8 rounded bg-lob-green-muted flex items-center justify-center text-lob-green text-sm font-bold border border-lob-green/20"
+                      className="w-8 h-8 rounded bg-lob-green-muted flex items-center justify-center border border-lob-green/20"
                       whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
                       transition={{ duration: 0.5 }}
                     >
-                      {card.icon}
+                      <card.icon className="w-4 h-4 text-lob-green" />
                     </motion.div>
                     <h2 className="text-sm font-semibold text-text-primary group-hover:text-lob-green transition-colors duration-300">
                       {card.title}
@@ -227,7 +373,7 @@ export default function Home() {
         className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-12 mt-2 relative z-10 w-full max-w-md sm:max-w-none"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.9, ease }}
+        transition={{ duration: 0.7, delay: 1.0, ease }}
       >
         {stats.map((stat, i) => (
           <motion.div
@@ -235,7 +381,7 @@ export default function Home() {
             className="text-center"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 1.0 + i * 0.1 }}
+            transition={{ duration: 0.5, delay: 1.1 + i * 0.1 }}
           >
             <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stat.green ? "text-lob-green" : "text-text-primary"}`}>
               {stat.value}
@@ -247,6 +393,46 @@ export default function Home() {
         ))}
       </motion.div>
 
+      {/* How It Works */}
+      <motion.div
+        className="w-full max-w-4xl relative z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, delay: 1.3, ease }}
+      >
+        <p className="text-[10px] uppercase tracking-widest text-lob-green font-semibold text-center mb-4">
+          How It Works
+        </p>
+
+        {/* Desktop connecting line */}
+        <div className="hidden md:block absolute top-[calc(50%+8px)] left-[15%] right-[15%] h-px bg-gradient-to-r from-transparent via-lob-green/15 to-transparent pointer-events-none" />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+          {howItWorks.map((item, i) => (
+            <motion.div
+              key={item.title}
+              className="card p-5 text-center relative"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.4 + i * 0.1, ease }}
+            >
+              <div className="flex justify-center mb-3">
+                <div className="w-8 h-8 rounded-full bg-lob-green/10 border border-lob-green/20 flex items-center justify-center text-xs font-bold text-lob-green">
+                  {item.num}
+                </div>
+              </div>
+              <item.icon className="w-5 h-5 text-lob-green mx-auto mb-2" />
+              <h3 className="text-sm font-semibold text-text-primary mb-1">
+                {item.title}
+              </h3>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                {item.desc}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Divider */}
       <motion.div
         className="w-full max-w-4xl h-px relative z-10"
@@ -255,7 +441,7 @@ export default function Home() {
         }}
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
-        transition={{ duration: 1.2, delay: 1.1, ease }}
+        transition={{ duration: 1.2, delay: 1.7, ease }}
       />
 
       {/* Secondary cards */}
@@ -263,14 +449,14 @@ export default function Home() {
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl relative z-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 1.2, ease }}
+        transition={{ duration: 0.7, delay: 1.8, ease }}
       >
         {secondaryCards.map((card, i) => (
           <motion.div
             key={card.href}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.3 + i * 0.06, ease }}
+            transition={{ delay: 1.9 + i * 0.06, ease }}
           >
             <Link href={card.href} className="block">
               <motion.div
@@ -296,7 +482,7 @@ export default function Home() {
         className="flex items-center gap-4 text-xs text-text-tertiary relative z-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.5 }}
+        transition={{ delay: 2.3 }}
       >
         <a
           href="https://github.com/lobstr-gg/lobstr"

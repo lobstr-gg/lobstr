@@ -47,7 +47,7 @@ export default function ProtocolMetrics() {
       className="w-full max-w-4xl relative z-10"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.7, delay: 0.6 }}
+      transition={{ duration: 0.7, delay: 0.8 }}
     >
       <div className="rounded-lg border border-border-default bg-surface-1/50 backdrop-blur-sm px-6 py-4">
         {/* Header with live indicator */}
@@ -69,7 +69,7 @@ export default function ProtocolMetrics() {
               className="text-center"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 + i * 0.06 }}
+              transition={{ delay: 0.9 + i * 0.06 }}
             >
               <div className="text-xl font-bold tabular-nums text-text-primary">
                 <AnimatedValue
