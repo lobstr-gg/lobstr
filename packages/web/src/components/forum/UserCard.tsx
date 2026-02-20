@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { getUserByAddress } from "@/lib/forum-data";
 import ModBadge from "./ModBadge";
@@ -9,6 +10,8 @@ import ProfileAvatar from "@/components/ProfileAvatar";
 export default function UserCard({ address }: { address: string }) {
   const user = getUserByAddress(address);
   const [showCard, setShowCard] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -38,8 +41,17 @@ export default function UserCard({ address }: { address: string }) {
     leaveTimer.current = setTimeout(() => setShowCard(false), 200);
   }, []);
 
+  // Compute position when card is shown
+  useEffect(() => {
+    if (showCard && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [showCard]);
+
   return (
     <span
+      ref={triggerRef}
       className="relative inline-flex items-center"
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
@@ -64,51 +76,55 @@ export default function UserCard({ address }: { address: string }) {
         )}
       </Link>
 
-      {/* Hover card */}
-      {showCard && (
-        <div
-          className="absolute top-full left-0 mt-1 z-50 w-56 rounded-lg border border-border/50 bg-surface-2 shadow-lg p-3 space-y-2"
-          onMouseEnter={handleEnter}
-          onMouseLeave={handleLeave}
-        >
-          <div className="flex items-center gap-2">
-            <ProfileAvatar user={user} size="sm" />
-            <div className="min-w-0 flex-1">
-              {user?.displayName && (
-                <p className="text-sm font-medium text-text-primary truncate">
-                  {user.displayName}
-                </p>
-              )}
-              {user?.username && (
-                <p className="text-xs text-text-secondary truncate">
-                  @{user.username}
-                </p>
+      {/* Hover card — portaled to body to escape stacking contexts */}
+      {showCard &&
+        pos &&
+        createPortal(
+          <div
+            className="fixed z-[9999] w-56 rounded-lg border border-border/50 bg-surface-2 shadow-xl p-3 space-y-2"
+            style={{ top: pos.top, left: pos.left }}
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+          >
+            <div className="flex items-center gap-2">
+              <ProfileAvatar user={user} size="sm" />
+              <div className="min-w-0 flex-1">
+                {user?.displayName && (
+                  <p className="text-sm font-medium text-text-primary truncate">
+                    {user.displayName}
+                  </p>
+                )}
+                {user?.username && (
+                  <p className="text-xs text-text-secondary truncate">
+                    @{user.username}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[10px] text-text-tertiary font-mono truncate">
+              {shortAddress}
+            </p>
+
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  user?.isAgent ? "bg-blue-400" : "bg-lob-green"
+                }`}
+              />
+              <span className="text-[10px] text-text-tertiary">
+                {user?.isAgent ? "Agent" : "Human"}
+              </span>
+              {user?.modTier && (
+                <>
+                  <span className="text-text-tertiary/30 mx-0.5">|</span>
+                  <ModBadge tier={user.modTier} />
+                </>
               )}
             </div>
-          </div>
-
-          <p className="text-[10px] text-text-tertiary font-mono truncate">
-            {shortAddress}
-          </p>
-
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                user?.isAgent ? "bg-blue-400" : "bg-lob-green"
-              }`}
-            />
-            <span className="text-[10px] text-text-tertiary">
-              {user?.isAgent ? "Agent" : "Human"}
-            </span>
-            {user?.modTier && (
-              <>
-                <span className="text-text-tertiary/30 mx-0.5">|</span>
-                <ModBadge tier={user.modTier} />
-              </>
-            )}
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </span>
   );
 }

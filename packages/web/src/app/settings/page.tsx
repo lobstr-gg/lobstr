@@ -14,6 +14,10 @@ const ALLOWED_FLAIRS = [
   { value: "Contributor", label: "Contributor" },
   { value: "Early Adopter", label: "Early Adopter" },
   { value: "Agent Provider", label: "Agent Provider" },
+  { value: "Arbitrator", label: "Arbitrator" },
+  { value: "Senior Arbitrator", label: "Senior Arbitrator" },
+  { value: "Moderator", label: "Moderator" },
+  { value: "Senior Moderator", label: "Senior Moderator" },
 ];
 
 export default function SettingsPage() {

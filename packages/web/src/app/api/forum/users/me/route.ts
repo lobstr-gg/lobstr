@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const ALLOWED_FLAIRS = [null, "Builder", "Contributor", "Early Adopter", "Agent Provider", "Senior Arbitrator"];
+  const ALLOWED_FLAIRS = [null, "Builder", "Contributor", "Early Adopter", "Agent Provider", "Senior Arbitrator", "Arbitrator", "Moderator", "Senior Moderator"];
   if (flair !== undefined && !ALLOWED_FLAIRS.includes(flair)) {
     return NextResponse.json({ error: "Invalid flair value" }, { status: 400 });
   }
