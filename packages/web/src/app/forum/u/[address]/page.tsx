@@ -329,6 +329,12 @@ export default function UserProfilePage() {
             )}
             {currentUser && !isOwnProfile && (
               <>
+                <Link
+                  href={`/forum/messages?compose=${address}`}
+                  className="text-xs px-2.5 py-1 rounded border border-border/30 text-text-secondary hover:text-lob-green hover:border-lob-green/30 transition-colors"
+                >
+                  Message
+                </Link>
                 {friendshipStatus === "pending_received" ? (
                   <div className="flex items-center gap-1">
                     <button

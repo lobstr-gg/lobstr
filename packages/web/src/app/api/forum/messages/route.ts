@@ -9,6 +9,7 @@ import {
   nextId,
   isBlockedEither,
   createNotification,
+  getUserByUsername,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { to, body: messageBody } = body;
+  let { to, body: messageBody } = body;
 
   if (!to || !messageBody) {
     return NextResponse.json(
@@ -61,12 +62,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Validate address format
+  // Resolve username to address if not already an address
   if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
-    return NextResponse.json(
-      { error: "Invalid recipient address format" },
-      { status: 400 }
-    );
+    const resolved = await getUserByUsername(to);
+    if (!resolved) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+    to = resolved.address;
   }
 
   // Validate message body length
