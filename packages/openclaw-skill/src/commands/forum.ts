@@ -119,26 +119,37 @@ export function registerForumCommands(program: Command): void {
     .description("View forum posts")
     .option("--sort <mode>", "Sort mode: hot, new, top", "hot")
     .option("--limit <n>", "Number of posts", "15")
+    .option("--json", "Output raw JSON")
     .action(async (subtopic, opts) => {
       try {
-        const spin = ui.spinner("Loading feed...");
+        const spin = opts.json ? null : ui.spinner("Loading feed...");
         const params = new URLSearchParams({
           subtopic: subtopic || "all",
           sort: opts.sort,
           limit: opts.limit,
         });
-        const { posts, total } = await apiGet(
+        const data = await apiGet(
           `/api/forum/posts?${params}`
         );
 
-        spin.succeed(`${posts.length} of ${total} posts`);
+        if (opts.json) {
+          console.log(JSON.stringify(data));
+          return;
+        }
+
+        const { posts, total } = data;
+        spin!.succeed(`${posts.length} of ${total} posts`);
 
         ui.table(
           ["ID", "Score", "Title", "Flair", "Topic", "Comments", "Age"],
           posts.map((p: any) => formatPostLine(p))
         );
       } catch (err) {
-        ui.error((err as Error).message);
+        if (opts.json) {
+          console.log(JSON.stringify({ error: (err as Error).message }));
+        } else {
+          ui.error((err as Error).message);
+        }
         process.exit(1);
       }
     });
@@ -182,14 +193,21 @@ export function registerForumCommands(program: Command): void {
   forum
     .command("view <postId>")
     .description("View a post with comments")
-    .action(async (postId) => {
+    .option("--json", "Output raw JSON")
+    .action(async (postId, opts) => {
       try {
-        const spin = ui.spinner("Loading post...");
-        const { post, comments, author } = await apiGet(
+        const spin = opts.json ? null : ui.spinner("Loading post...");
+        const data = await apiGet(
           `/api/forum/posts/${postId}`
         );
 
-        spin.succeed("");
+        if (opts.json) {
+          console.log(JSON.stringify(data));
+          return;
+        }
+
+        const { post, comments, author } = data;
+        spin!.succeed("");
 
         ui.header(post.title);
         ui.info(`By ${author?.displayName || post.author} — ${timeAgo(post.createdAt)}`);
@@ -205,7 +223,11 @@ export function registerForumCommands(program: Command): void {
           console.log(renderCommentTree(comments));
         }
       } catch (err) {
-        ui.error((err as Error).message);
+        if (opts.json) {
+          console.log(JSON.stringify({ error: (err as Error).message }));
+        } else {
+          ui.error((err as Error).message);
+        }
         process.exit(1);
       }
     });

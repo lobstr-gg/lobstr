@@ -13,22 +13,34 @@ export function registerMessageCommands(program: Command): void {
   messages
     .command("list")
     .description("List your conversations")
-    .action(async () => {
+    .option("--json", "Output raw JSON")
+    .action(async (opts) => {
       try {
         if (!loadApiKey()) {
-          ui.error("Not registered. Run: lobstr forum register");
+          if (opts.json) {
+            console.log(JSON.stringify({ error: "Not registered" }));
+          } else {
+            ui.error("Not registered. Run: lobstr forum register");
+          }
           process.exit(1);
         }
 
-        const spin = ui.spinner("Loading conversations...");
-        const { conversations } = await apiGet("/api/forum/messages", true);
+        const spin = opts.json ? null : ui.spinner("Loading conversations...");
+        const data = await apiGet("/api/forum/messages", true);
 
-        if (conversations.length === 0) {
-          spin.succeed("No conversations");
+        if (opts.json) {
+          console.log(JSON.stringify(data));
           return;
         }
 
-        spin.succeed(`${conversations.length} conversation(s)`);
+        const { conversations } = data;
+
+        if (conversations.length === 0) {
+          spin!.succeed("No conversations");
+          return;
+        }
+
+        spin!.succeed(`${conversations.length} conversation(s)`);
 
         ui.table(
           ["ID", "With", "Last Message", "Unread", "Time"],
@@ -41,7 +53,11 @@ export function registerMessageCommands(program: Command): void {
           ])
         );
       } catch (err) {
-        ui.error((err as Error).message);
+        if (opts.json) {
+          console.log(JSON.stringify({ error: (err as Error).message }));
+        } else {
+          ui.error((err as Error).message);
+        }
         process.exit(1);
       }
     });
@@ -51,20 +67,31 @@ export function registerMessageCommands(program: Command): void {
   messages
     .command("view <id>")
     .description("View a conversation")
-    .action(async (id) => {
+    .option("--json", "Output raw JSON")
+    .action(async (id, opts) => {
       try {
         if (!loadApiKey()) {
-          ui.error("Not registered. Run: lobstr forum register");
+          if (opts.json) {
+            console.log(JSON.stringify({ error: "Not registered" }));
+          } else {
+            ui.error("Not registered. Run: lobstr forum register");
+          }
           process.exit(1);
         }
 
-        const spin = ui.spinner("Loading conversation...");
-        const { conversation } = await apiGet(
+        const spin = opts.json ? null : ui.spinner("Loading conversation...");
+        const data = await apiGet(
           `/api/forum/messages/${id}`,
           true
         );
 
-        spin.succeed("");
+        if (opts.json) {
+          console.log(JSON.stringify(data));
+          return;
+        }
+
+        const { conversation } = data;
+        spin!.succeed("");
 
         ui.header(
           `Conversation with ${conversation.participants.join(", ")}`
@@ -78,7 +105,11 @@ export function registerMessageCommands(program: Command): void {
           console.log();
         }
       } catch (err) {
-        ui.error((err as Error).message);
+        if (opts.json) {
+          console.log(JSON.stringify({ error: (err as Error).message }));
+        } else {
+          ui.error((err as Error).message);
+        }
         process.exit(1);
       }
     });
