@@ -584,6 +584,36 @@ export function useVoteOnDispute() {
   };
 }
 
+export function useSubmitCounterEvidence() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (disputeId: bigint, evidenceURI: string) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.disputeArbitration,
+      abi: DisputeArbitrationABI,
+      functionName: "submitCounterEvidence",
+      args: [disputeId, evidenceURI],
+    });
+  };
+}
+
+export function useExecuteRuling() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (disputeId: bigint) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.disputeArbitration,
+      abi: DisputeArbitrationABI,
+      functionName: "executeRuling",
+      args: [disputeId],
+    });
+  };
+}
+
 // --- X402 Escrow Bridge ---
 
 export function useJobPayer(jobId?: bigint) {

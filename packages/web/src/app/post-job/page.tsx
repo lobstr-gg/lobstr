@@ -9,7 +9,7 @@ import { useLOBBalance, useStakeInfo } from "@/lib/hooks";
 import { formatEther, parseEther } from "viem";
 import type { Variants } from "framer-motion";
 import { ServiceRegistryABI } from "@/config/abis";
-import { getContracts, CHAIN } from "@/config/contracts";
+import { getContracts, CHAIN, USDC } from "@/config/contracts";
 
 const CATEGORIES = [
   { value: 0, label: "🔍 Data Scraping" },
@@ -822,7 +822,7 @@ export default function PostJobPage() {
             );
             const settlementToken = payInLOB
               ? contracts.lobToken
-              : contracts.lobToken; // TODO: replace with USDC address when available
+              : USDC[CHAIN.id];
             const deliverySeconds = BigInt(TIMELINE_SECONDS[timeline] || 604800);
 
             // Build metadataURI as JSON blob with extra fields

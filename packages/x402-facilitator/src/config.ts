@@ -25,6 +25,7 @@ const MAINNET_CONTRACTS = {
   disputeArbitration: "0x00Ad7d299F4BF3aE8372f756b86B4dAf63eC3FAa" as Address,
   escrowEngine: "0xBB57d0D0aB24122A87c9a28acdc242927e6189E0" as Address,
   x402EscrowBridge: "0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0" as Address,
+  x402CreditFacility: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy and update
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address,
 } as const;
 
@@ -36,6 +37,7 @@ const TESTNET_CONTRACTS = {
   disputeArbitration: "0x0060D7828ace2B594Bb5e56F80d7757BC473cf72" as Address,
   escrowEngine: "0x072EdB0526027A48f6A2aC5CeE3A5375142Bedc0" as Address,
   x402EscrowBridge: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy on testnet
+  x402CreditFacility: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy on testnet
   usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as Address,
 } as const;
 
