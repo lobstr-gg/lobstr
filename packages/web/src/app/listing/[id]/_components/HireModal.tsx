@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useWaitForTransactionReceipt } from "wagmi";
 import { formatEther, type Address } from "viem";
-import { useApproveToken, useCreateJobWithHash, useLOBAllowance } from "@/lib/hooks";
+import { useApproveToken, useCreateJobWithHash, useLOBAllowance, useLOBBalance, useStakeInfo } from "@/lib/hooks";
 import { getContracts, CHAIN } from "@/config/contracts";
 import Link from "next/link";
 
@@ -39,6 +39,11 @@ export default function HireModal({
     address,
     escrowAddress
   );
+  const { data: lobBalance } = useLOBBalance(address);
+  const { data: stakeInfo } = useStakeInfo(address);
+
+  const hasInsufficientBalance = lobBalance !== undefined && lobBalance < amount;
+  const stakedAmount = stakeInfo ? (stakeInfo as unknown as [bigint, bigint, bigint])[0] : BigInt(0);
 
   const approveToken = useApproveToken();
   const createJob = useCreateJobWithHash();
@@ -137,6 +142,22 @@ export default function HireModal({
               Funds will be held in escrow until delivery is confirmed or dispute is resolved.
             </p>
           </div>
+
+          {/* Insufficient balance warning */}
+          {hasInsufficientBalance && stakedAmount > BigInt(0) && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 mb-4">
+              <p className="text-xs text-amber-400">
+                Insufficient liquid LOB. You have {Number(formatEther(stakedAmount)).toLocaleString()} LOB staked.
+                Unstake to use these funds.
+              </p>
+              <Link
+                href="/staking"
+                className="text-[10px] text-lob-green hover:underline mt-1 inline-block"
+              >
+                Go to Staking
+              </Link>
+            </div>
+          )}
 
           {/* Steps */}
           <div className="flex items-center gap-2 mb-4">

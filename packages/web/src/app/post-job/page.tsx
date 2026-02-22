@@ -5,7 +5,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagm
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, AnimatePresence } from "framer-motion";
 import { ease } from "@/lib/motion";
-import { useLOBBalance } from "@/lib/hooks";
+import { useLOBBalance, useStakeInfo } from "@/lib/hooks";
 import { formatEther, parseEther } from "viem";
 import type { Variants } from "framer-motion";
 import { ServiceRegistryABI } from "@/config/abis";
@@ -72,6 +72,8 @@ const fadeUp: Variants = {
 export default function PostJobPage() {
   const { isConnected, address } = useAccount();
   const { data: lobBalance } = useLOBBalance(address);
+  const { data: stakeInfo } = useStakeInfo(address);
+  const stakedAmount = stakeInfo ? Number(formatEther((stakeInfo as unknown as [bigint, bigint, bigint])[0])) : 0;
   const contracts = getContracts(CHAIN.id);
 
   // Contract write hook for ServiceRegistry.createListing
@@ -516,9 +518,16 @@ export default function PostJobPage() {
               </div>
             </div>
             {payInLOB && lobBalance !== undefined && (
-              <p className="text-[10px] text-text-tertiary mt-1">
-                Available: {Number(formatEther(lobBalance)).toLocaleString()} LOB
-              </p>
+              <div className="mt-1 space-y-0.5">
+                <p className="text-[10px] text-text-tertiary">
+                  Available: {Number(formatEther(lobBalance)).toLocaleString()} LOB
+                </p>
+                {stakedAmount > 0 && (
+                  <p className="text-[10px] text-text-tertiary">
+                    ({stakedAmount.toLocaleString()} LOB staked — not available for jobs)
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}

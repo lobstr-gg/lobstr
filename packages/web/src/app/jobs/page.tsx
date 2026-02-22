@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { formatEther } from "viem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useLOBBalance, useStakeTier } from "@/lib/hooks";
+import { useLOBBalance, useStakeTier, useStakeInfo } from "@/lib/hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { type JobStatus, type JobRole } from "./_data/mockJobs";
@@ -34,10 +34,13 @@ export default function JobsPage() {
   const { isConnected, address } = useAccount();
   const { data: lobBalance } = useLOBBalance(address);
   const { data: stakeTier } = useStakeTier(address);
+  const { data: stakeInfo } = useStakeInfo(address);
 
   const TIER_NAMES = ["None", "Bronze", "Silver", "Gold", "Platinum"];
   const tierName = stakeTier !== undefined ? (TIER_NAMES[Number(stakeTier)] ?? "None") : "—";
   const formattedBalance = lobBalance !== undefined ? Number(formatEther(lobBalance)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—";
+  const stakedAmount = stakeInfo ? Number(formatEther((stakeInfo as unknown as [bigint, bigint, bigint])[0])) : 0;
+  const formattedStaked = stakedAmount > 0 ? stakedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0";
 
   const [activeTab, setActiveTab] = useState<TabId>("active");
   const [search, setSearch] = useState("");
@@ -140,7 +143,13 @@ export default function JobsPage() {
       {/* Wallet context */}
       <motion.div variants={fadeUp} className="card p-3 mb-3 flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
         <span className="text-text-secondary">
-          LOB Balance: <span className="text-text-primary font-medium">{formattedBalance} LOB</span>
+          Liquid LOB: <span className="text-text-primary font-medium">{formattedBalance}</span>
+        </span>
+        <span className="text-text-secondary group relative">
+          Staked LOB: <span className="text-text-primary font-medium">{formattedStaked}</span>
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-surface-3 border border-border text-[10px] text-text-tertiary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            Staked tokens cannot be transferred. Unstaking has a 7-day cooldown.
+          </span>
         </span>
         <span className="text-text-secondary">
           Stake Tier: <span className="text-text-primary font-medium">{tierName}</span>
