@@ -154,6 +154,27 @@ export interface ReviewSummary {
   ratingDistribution: Record<number, number>;
 }
 
+export type ReportReason = "scam" | "spam" | "harassment" | "impersonation" | "other";
+
+export interface Report {
+  id: string;
+  reporter: string;
+  targetType: "post" | "listing" | "user";
+  targetId: string;
+  reason: ReportReason;
+  description: string;
+  evidence: {
+    postId?: string;
+    listingId?: string;
+    targetAddress?: string;
+    txHashes: string[];
+    timestamps: number[];
+    capturedAt: number;
+  };
+  status: "pending" | "reviewed" | "actioned" | "dismissed";
+  createdAt: number;
+}
+
 export const FLAIR_COLORS: Record<PostFlair, { bg: string; text: string; border: string }> = {
   discussion: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-400/20" },
   question: { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-400/20" },

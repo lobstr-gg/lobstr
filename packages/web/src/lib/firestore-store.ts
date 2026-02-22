@@ -1082,3 +1082,75 @@ export async function createModApplication(
   const id = `${application.address}_${application.createdAt}`;
   await col("modApplications").doc(id).set(application);
 }
+
+// ── Sybil Flags ─────────────────────────────────────────────
+
+export interface SybilFlag {
+  address: string;
+  signals: string[];
+  txHashes: string[];
+  score: number;
+  createdAt: number;
+  status: "pending" | "reported";
+}
+
+export async function getSybilFlags(): Promise<SybilFlag[]> {
+  const snap = await col("sybilFlags").orderBy("createdAt", "desc").get();
+  return snap.docs.map((d) => d.data() as SybilFlag);
+}
+
+export async function createSybilFlag(flag: SybilFlag): Promise<void> {
+  await col("sybilFlags").doc(flag.address).set(flag);
+}
+
+export async function updateSybilFlagStatus(
+  address: string,
+  status: "pending" | "reported"
+): Promise<void> {
+  await col("sybilFlags").doc(address).update({ status });
+}
+
+// ── Reports ─────────────────────────────────────────────────
+
+export interface Report {
+  id: string;
+  reporter: string;
+  targetType: "post" | "listing" | "user";
+  targetId: string;
+  reason: "scam" | "spam" | "harassment" | "impersonation" | "other";
+  description: string;
+  evidence: {
+    postId?: string;
+    listingId?: string;
+    targetAddress?: string;
+    txHashes: string[];
+    timestamps: number[];
+    capturedAt: number;
+  };
+  status: "pending" | "reviewed" | "actioned" | "dismissed";
+  createdAt: number;
+}
+
+export async function createReport(report: Report): Promise<void> {
+  await col("reports").doc(report.id).set(report);
+}
+
+export async function getReports(
+  status?: "pending" | "reviewed" | "actioned" | "dismissed"
+): Promise<Report[]> {
+  let query = col("reports").orderBy("createdAt", "desc");
+  if (status) {
+    query = col("reports")
+      .where("status", "==", status)
+      .orderBy("createdAt", "desc");
+  }
+  const snap = await query.limit(100).get();
+  return snap.docs.map((d) => d.data() as Report);
+}
+
+export async function updateReportStatus(
+  id: string,
+  status: "pending" | "reviewed" | "actioned" | "dismissed"
+): Promise<void> {
+  await col("reports").doc(id).update({ status });
+}

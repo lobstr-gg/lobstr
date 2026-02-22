@@ -13,12 +13,17 @@ import dynamic from "next/dynamic";
 const HireModal = dynamic(() => import("./_components/HireModal"), {
   ssr: false,
 });
+const ReportModal = dynamic(
+  () => import("@/components/forum/ReportModal"),
+  { ssr: false }
+);
 
 export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id as string;
   const { isConnected, address } = useAccount();
   const [showHireModal, setShowHireModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Validate listing ID is a numeric string before converting to BigInt
   const isValidId = /^\d+$/.test(listingId);
@@ -214,6 +219,23 @@ export default function ListingDetailPage() {
                 token={listing.settlementToken}
                 tokenSymbol={displayToken}
                 title={displayTitle}
+              />
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="text-xs text-text-tertiary hover:text-lob-red transition-colors text-center w-full"
+              >
+                Report this listing
+              </button>
+              <ReportModal
+                open={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetType="listing"
+                targetId={listingId}
+                evidence={{
+                  listingId,
+                  targetAddress: listing.provider,
+                  timestamps: [Number(listing.createdAt)],
+                }}
               />
             </>
           ) : (
