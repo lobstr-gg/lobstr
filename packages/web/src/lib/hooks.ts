@@ -266,6 +266,40 @@ export function useApproveAndStake() {
   return { approve, stake, isPending, isError, error, reset };
 }
 
+export function useRequestUnstake() {
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const contracts = useContracts();
+
+  const requestUnstake = async (amount: bigint) => {
+    if (!contracts) return;
+    return writeContractAsync({
+      address: contracts.stakingManager,
+      abi: StakingManagerABI,
+      functionName: "requestUnstake",
+      args: [amount],
+    });
+  };
+
+  return { requestUnstake, isPending, isError, error, reset };
+}
+
+export function useUnstake() {
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const contracts = useContracts();
+
+  const unstake = async () => {
+    if (!contracts) return;
+    return writeContractAsync({
+      address: contracts.stakingManager,
+      abi: StakingManagerABI,
+      functionName: "unstake",
+      args: [],
+    });
+  };
+
+  return { unstake, isPending, isError, error, reset };
+}
+
 export function useCreateJob() {
   const { writeContract } = useWriteContract();
   const contracts = useContracts();
@@ -567,6 +601,23 @@ export function useStakeAsArbitrator() {
       args: [amount],
     });
   };
+}
+
+export function useUnstakeAsArbitrator() {
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const contracts = useContracts();
+
+  const unstakeAsArbitrator = async (amount: bigint) => {
+    if (!contracts) return;
+    return writeContractAsync({
+      address: contracts.disputeArbitration,
+      abi: DisputeArbitrationABI,
+      functionName: "unstakeAsArbitrator",
+      args: [amount],
+    });
+  };
+
+  return { unstakeAsArbitrator, isPending, isError, error, reset };
 }
 
 export function useVoteOnDispute() {

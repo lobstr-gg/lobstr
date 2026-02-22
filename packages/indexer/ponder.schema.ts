@@ -121,3 +121,16 @@ export const fundsReleasedEvent = onchainTable("funds_released_event", (t) => ({
   timestamp: t.bigint().notNull(),
   blockNumber: t.bigint().notNull(),
 }));
+
+// === X402 Bridge Events ===
+
+export const x402BridgeEvent = onchainTable("x402_bridge_event", (t) => ({
+  id: t.text().primaryKey(), // txHash-logIndex
+  eventType: t.text().notNull(), // "delivery_confirmed" | "dispute_initiated" | "refund_claimed" | "refund_registered" | "reserve_released" | "stranded_recovered"
+  jobId: t.bigint(),
+  payer: t.hex(),
+  token: t.hex(),
+  amount: t.bigint(),
+  timestamp: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));

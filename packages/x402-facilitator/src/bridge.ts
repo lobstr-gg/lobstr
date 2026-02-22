@@ -106,6 +106,14 @@ export async function settleViaBridge(
     deadline: BigInt(pi.deadline),
   };
 
+  // Check deadline hasn't expired
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (intent.deadline > 0n && intent.deadline < now) {
+    throw new Error(
+      `Payment intent expired: deadline ${intent.deadline} < now ${now}`
+    );
+  }
+
   // Check nonce hasn't been used
   const used = await readClient.readContract({
     address: bridgeAddress,

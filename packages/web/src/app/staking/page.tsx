@@ -11,7 +11,10 @@ import {
   useStakeTier,
   useLOBBalance,
   useApproveAndStake,
+  useRequestUnstake,
+  useUnstake,
   useArbitratorInfo,
+  useUnstakeAsArbitrator,
 } from "@/lib/hooks";
 
 type Section = "seller" | "arbitrator" | "moderator";
@@ -67,11 +70,17 @@ export default function StakingPage() {
   const { data: tierNum } = useStakeTier(address);
   const { data: lobBalance } = useLOBBalance(address);
   const { approve, stake, isPending: txPending, isError: txError, error: txErrorObj, reset: txReset } = useApproveAndStake();
+  const { requestUnstake, isPending: reqUnstakePending, isError: reqUnstakeError, error: reqUnstakeErrorObj, reset: reqUnstakeReset } = useRequestUnstake();
+  const { unstake, isPending: unstakePending, isError: unstakeError, error: unstakeErrorObj, reset: unstakeReset } = useUnstake();
+  const { unstakeAsArbitrator, isPending: arbUnstakePending, reset: arbUnstakeReset } = useUnstakeAsArbitrator();
   const { data: arbData } = useArbitratorInfo(address);
 
   // Derived values from contract data
   const stakedAmount = stakeData ? stakeData.amount : BigInt(0);
   const cooldownEnd = stakeData ? stakeData.unstakeRequestTime : BigInt(0);
+  const pendingUnstakeAmount = stakeData ? stakeData.unstakeRequestAmount : BigInt(0);
+  const hasPendingUnstake = pendingUnstakeAmount > BigInt(0);
+  const cooldownReady = cooldownEnd > BigInt(0) && BigInt(Math.floor(Date.now() / 1000)) >= cooldownEnd;
   const currentTier = tierNum !== undefined ? tierNum : 0;
   const tierName = TIER_NAMES[currentTier] ?? "None";
   const tierColor = TIER_COLORS[tierName] ?? "#5E6673";
@@ -117,6 +126,7 @@ export default function StakingPage() {
     currentTier >= 4 ? "Max" : `${fmtLob(nextThreshold - stakedAmount)} LOB to ${TIER_NAMES[nextTierIdx]}`;
 
   const [stakeAmount, setStakeAmount] = useState("");
+  const [unstakeAmount, setUnstakeAmount] = useState("");
   const [arbStakeAmount, setArbStakeAmount] = useState("");
   const [activeSection, setActiveSection] = useState<Section>("seller");
 
@@ -325,6 +335,104 @@ export default function StakingPage() {
               </p>
             </div>
 
+            {/* Unstake form */}
+            {stakedAmount > BigInt(0) && (
+              <div className="card p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-text-primary">Unstake $LOB</h2>
+                  <span className="text-xs text-text-tertiary tabular-nums">
+                    Staked: {fmtLob(stakedAmount)} LOB
+                  </span>
+                </div>
+
+                {hasPendingUnstake ? (
+                  <div className="space-y-3">
+                    <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                      <p className="text-xs text-amber-400">
+                        Pending unstake: {fmtLob(pendingUnstakeAmount)} LOB
+                        {cooldownReady
+                          ? " — Cooldown complete, ready to withdraw."
+                          : ` — Cooldown: ${cooldownDisplay}`}
+                      </p>
+                    </div>
+                    {cooldownReady && (
+                      <motion.button
+                        className="btn-primary disabled:opacity-50"
+                        whileTap={unstakePending ? undefined : { scale: 0.97 }}
+                        disabled={unstakePending}
+                        onClick={async () => {
+                          unstakeReset();
+                          try {
+                            await unstake();
+                          } catch {
+                            // Error handled via unstakeError
+                          }
+                        }}
+                      >
+                        {unstakePending ? (
+                          <span className="flex items-center gap-2">
+                            <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                            Withdrawing...
+                          </span>
+                        ) : "Withdraw LOB"}
+                      </motion.button>
+                    )}
+                    {unstakeError && (
+                      <p className="text-xs text-red-400">
+                        {unstakeErrorObj?.message?.includes("User rejected")
+                          ? "Transaction rejected in wallet"
+                          : "Unstake failed. Please try again."}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="number"
+                        value={unstakeAmount}
+                        onChange={(e) => setUnstakeAmount(e.target.value)}
+                        placeholder="Amount to unstake"
+                        className="input-field flex-1 tabular-nums"
+                      />
+                      <motion.button
+                        className="btn-secondary disabled:opacity-50"
+                        whileTap={reqUnstakePending ? undefined : { scale: 0.97 }}
+                        disabled={reqUnstakePending || !unstakeAmount}
+                        onClick={async () => {
+                          if (!unstakeAmount) return;
+                          reqUnstakeReset();
+                          try {
+                            await requestUnstake(parseEther(unstakeAmount));
+                            setUnstakeAmount("");
+                          } catch {
+                            // Error handled via reqUnstakeError
+                          }
+                        }}
+                      >
+                        {reqUnstakePending ? (
+                          <span className="flex items-center gap-2">
+                            <span className="w-4 h-4 border-2 border-text-tertiary/30 border-t-text-tertiary rounded-full animate-spin" />
+                            Requesting...
+                          </span>
+                        ) : "Request Unstake"}
+                      </motion.button>
+                    </div>
+                    {reqUnstakeError && (
+                      <p className="text-xs text-red-400">
+                        {reqUnstakeErrorObj?.message?.includes("User rejected")
+                          ? "Transaction rejected in wallet"
+                          : "Request failed. Please try again."}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-text-tertiary">
+                      Starts a 7-day cooldown. After cooldown, return here to withdraw.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Tier table */}
             <div className="card overflow-hidden">
               <div className="hidden sm:grid grid-cols-4 gap-4 px-4 py-2.5 text-xs font-medium text-text-tertiary uppercase tracking-wider border-b border-border">
@@ -500,12 +608,22 @@ export default function StakingPage() {
                 >
                   Approve & Stake
                 </motion.button>
-                {/* TODO: wire unstake — need useUnstake hook */}
                 <motion.button
-                  className="btn-secondary"
-                  whileTap={{ scale: 0.97 }}
+                  className="btn-secondary disabled:opacity-50"
+                  whileTap={arbUnstakePending ? undefined : { scale: 0.97 }}
+                  disabled={arbUnstakePending || !arbStakeAmount}
+                  onClick={async () => {
+                    if (!arbStakeAmount) return;
+                    arbUnstakeReset();
+                    try {
+                      await unstakeAsArbitrator(parseEther(arbStakeAmount));
+                      setArbStakeAmount("");
+                    } catch {
+                      // Error handled by hook
+                    }
+                  }}
                 >
-                  Unstake
+                  {arbUnstakePending ? "Unstaking..." : "Unstake"}
                 </motion.button>
               </div>
             </div>

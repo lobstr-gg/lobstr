@@ -28,6 +28,7 @@ export default createConfig({
     baseMainnet: {
       chainId: 8453,
       transport: http(process.env.PONDER_RPC_URL_8453),
+      pollingInterval: 2_000, // Base has 2s block time
     },
   },
   contracts: {

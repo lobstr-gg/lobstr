@@ -389,3 +389,90 @@ ponder.on("X402EscrowBridge:EscrowedJobCreated", async ({ event, context }) => {
     .values({ address: payer, createdAt: event.block.timestamp })
     .onConflictDoNothing();
 });
+
+ponder.on("X402EscrowBridge:DeliveryConfirmedByPayer", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, payer } = event.args;
+
+  await db.insert(schema.x402BridgeEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "delivery_confirmed",
+    jobId,
+    payer,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("X402EscrowBridge:DisputeInitiatedByPayer", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, payer } = event.args;
+
+  await db.insert(schema.x402BridgeEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "dispute_initiated",
+    jobId,
+    payer,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("X402EscrowBridge:EscrowRefundClaimed", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, payer, amount } = event.args;
+
+  await db.insert(schema.x402BridgeEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "refund_claimed",
+    jobId,
+    payer,
+    amount,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("X402EscrowBridge:RefundRegistered", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, amount } = event.args;
+
+  await db.insert(schema.x402BridgeEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "refund_registered",
+    jobId,
+    amount,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("X402EscrowBridge:EscrowReserveReleased", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, token, amount } = event.args;
+
+  await db.insert(schema.x402BridgeEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "reserve_released",
+    jobId,
+    token,
+    amount,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("X402EscrowBridge:StrandedDepositRecovered", async ({ event, context }) => {
+  const { db } = context;
+  const { payer, token, amount } = event.args;
+
+  await db.insert(schema.x402BridgeEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "stranded_recovered",
+    payer,
+    token,
+    amount,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
