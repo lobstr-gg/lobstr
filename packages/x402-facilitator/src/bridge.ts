@@ -2,10 +2,11 @@ import {
   type Address,
   type WalletClient,
   type PublicClient,
+  type Chain,
   parseAbi,
   decodeEventLog,
 } from "viem";
-import { CONTRACTS } from "./config.js";
+import { CONTRACTS, CHAIN } from "./config.js";
 
 // ─── Bridge ABI (write functions used by facilitator) ────────────────────────
 
@@ -124,6 +125,8 @@ export async function settleViaBridge(
     const sig3009 = bridgeExt.erc3009Signature;
 
     txHash = await walletClient.writeContract({
+      chain: CHAIN,
+      account: walletClient.account!,
       address: bridgeAddress,
       abi: BRIDGE_ABI,
       functionName: "depositWithAuthorization",
@@ -148,6 +151,8 @@ export async function settleViaBridge(
   } else {
     // Mode A: Pull deposit (payer pre-approved bridge)
     txHash = await walletClient.writeContract({
+      chain: CHAIN,
+      account: walletClient.account!,
       address: bridgeAddress,
       abi: BRIDGE_ABI,
       functionName: "depositAndCreateJob",

@@ -4,6 +4,14 @@ import { baseSepolia, base } from "viem/chains";
 export const CHAIN = base;
 
 // Base Sepolia — deployed 2026-02-17, block 37781528
+export const USDC: Record<number, Address> = {
+  [baseSepolia.id]: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as Address,
+  [base.id]: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address,
+};
+
+export const FACILITATOR_URL =
+  process.env.NEXT_PUBLIC_FACILITATOR_URL ?? "https://x402.lobstr.gg";
+
 export const CONTRACTS = {
   [baseSepolia.id]: {
     lobToken: "0x6024B53f6f8afD433dc434D95be42A45Ed9b4a59" as Address,

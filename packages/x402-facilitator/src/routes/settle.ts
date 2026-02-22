@@ -58,7 +58,7 @@ export function settleHandler(facilitator: x402Facilitator) {
           transport: http(RPC_URL),
         });
 
-        const { jobId, txHash } = await settleViaBridge(bridgeExt, walletClient, readClient);
+        const { jobId, txHash } = await settleViaBridge(bridgeExt, walletClient, readClient as any);
 
         console.log(`[settle] Bridge settlement complete: jobId=${jobId}, tx=${txHash}`);
 

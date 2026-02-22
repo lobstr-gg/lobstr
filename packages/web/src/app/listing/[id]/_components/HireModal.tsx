@@ -3,9 +3,18 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useWaitForTransactionReceipt } from "wagmi";
-import { formatEther, type Address } from "viem";
-import { useApproveToken, useCreateJobWithHash, useLOBAllowance, useLOBBalance, useStakeInfo } from "@/lib/hooks";
-import { getContracts, CHAIN } from "@/config/contracts";
+import { formatEther, formatUnits, type Address } from "viem";
+import {
+  useApproveToken,
+  useCreateJobWithHash,
+  useLOBAllowance,
+  useLOBBalance,
+  useStakeInfo,
+  useUSDCBalance,
+  useUSDCAllowance,
+  useX402Settle,
+} from "@/lib/hooks";
+import { getContracts, CHAIN, USDC } from "@/config/contracts";
 import Link from "next/link";
 
 type Step = "approve" | "create" | "success";
@@ -34,7 +43,17 @@ export default function HireModal({
   const { address } = useAccount();
   const contracts = getContracts(CHAIN.id);
   const escrowAddress = contracts?.escrowEngine;
+  const bridgeAddress = contracts?.x402EscrowBridge;
+  const usdcAddress = USDC[CHAIN.id];
 
+  // x402 mode state
+  const [useX402, setUseX402] = useState(false);
+
+  // USDC amount: convert from 18-decimal LOB amount to 6-decimal USDC equivalent
+  // For listings already priced in USDC this is the same amount
+  const usdcAmount = useX402 ? amount : BigInt(0);
+
+  // Regular escrow hooks
   const { data: allowance, refetch: refetchAllowance } = useLOBAllowance(
     address,
     escrowAddress
@@ -42,7 +61,17 @@ export default function HireModal({
   const { data: lobBalance } = useLOBBalance(address);
   const { data: stakeInfo } = useStakeInfo(address);
 
-  const hasInsufficientBalance = lobBalance !== undefined && lobBalance < amount;
+  // x402 hooks
+  const { data: usdcBalance } = useUSDCBalance(address);
+  const { data: usdcAllowance, refetch: refetchUSDCAllowance } = useUSDCAllowance(
+    address,
+    bridgeAddress
+  );
+  const x402Settle = useX402Settle();
+
+  const hasInsufficientBalance = useX402
+    ? usdcBalance !== undefined && usdcBalance < usdcAmount
+    : lobBalance !== undefined && lobBalance < amount;
   const stakedAmount = stakeInfo ? (stakeInfo as unknown as [bigint, bigint, bigint])[0] : BigInt(0);
 
   const approveToken = useApproveToken();
@@ -53,6 +82,7 @@ export default function HireModal({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<Address | undefined>();
   const [jobTxHash, setJobTxHash] = useState<Address | undefined>();
+  const [bridgeJobId, setBridgeJobId] = useState<string | undefined>();
 
   const { isLoading: waitingApproval } = useWaitForTransactionReceipt({
     hash: txHash,
@@ -61,24 +91,43 @@ export default function HireModal({
     },
   });
 
-  const needsApproval = !allowance || allowance < amount;
+  const needsApproval = useX402
+    ? !usdcAllowance || usdcAllowance < usdcAmount
+    : !allowance || allowance < amount;
 
   const handleApprove = async () => {
-    if (!escrowAddress) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const hash = await approveToken(token, escrowAddress, amount);
-      setTxHash(hash);
-      // Wait a bit for the tx to confirm then refetch allowance
-      setTimeout(async () => {
-        await refetchAllowance();
-        setStep("create");
+    if (useX402) {
+      if (!bridgeAddress || !usdcAddress) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const hash = await approveToken(usdcAddress, bridgeAddress, usdcAmount);
+        setTxHash(hash);
+        setTimeout(async () => {
+          await refetchUSDCAllowance();
+          setStep("create");
+          setLoading(false);
+        }, 3000);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Approval failed");
         setLoading(false);
-      }, 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Approval failed");
-      setLoading(false);
+      }
+    } else {
+      if (!escrowAddress) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const hash = await approveToken(token, escrowAddress, amount);
+        setTxHash(hash);
+        setTimeout(async () => {
+          await refetchAllowance();
+          setStep("create");
+          setLoading(false);
+        }, 3000);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Approval failed");
+        setLoading(false);
+      }
     }
   };
 
@@ -86,9 +135,26 @@ export default function HireModal({
     setLoading(true);
     setError(null);
     try {
-      const hash = await createJob(listingId, seller, amount, token);
-      setJobTxHash(hash);
-      setStep("success");
+      if (useX402) {
+        if (!address || !usdcAddress) throw new Error("Wallet not connected");
+        const result = await x402Settle({
+          payer: address,
+          token: usdcAddress,
+          amount: usdcAmount,
+          listingId,
+          seller,
+        });
+        if (!result.success) {
+          throw new Error(result.errorReason ?? "x402 settlement failed");
+        }
+        if (result.txHash) setJobTxHash(result.txHash as Address);
+        if (result.jobId) setBridgeJobId(result.jobId);
+        setStep("success");
+      } else {
+        const hash = await createJob(listingId, seller, amount, token);
+        setJobTxHash(hash);
+        setStep("success");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Job creation failed");
     } finally {
@@ -105,7 +171,21 @@ export default function HireModal({
     }
   };
 
+  const handleToggleX402 = (enabled: boolean) => {
+    setUseX402(enabled);
+    // Reset state when switching modes
+    setStep("approve");
+    setError(null);
+    setTxHash(undefined);
+    setJobTxHash(undefined);
+    setBridgeJobId(undefined);
+  };
+
   if (!open) return null;
+
+  const displayAmount = useX402
+    ? `${Number(formatUnits(usdcAmount, 6)).toLocaleString()} USDC`
+    : `${Number(formatEther(amount)).toLocaleString()} ${tokenSymbol}`;
 
   return (
     <AnimatePresence>
@@ -130,21 +210,93 @@ export default function HireModal({
             {title}
           </p>
 
+          {/* Payment method toggle */}
+          <div className="mb-4">
+            <label className="block text-[10px] font-medium text-text-tertiary uppercase tracking-wider mb-1.5">
+              Payment Method
+            </label>
+            <div className="flex rounded-md border border-border overflow-hidden">
+              <motion.button
+                onClick={() => handleToggleX402(false)}
+                className={`relative flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                  !useX402
+                    ? "text-lob-green"
+                    : "bg-surface-2 text-text-tertiary hover:text-text-secondary"
+                }`}
+                whileTap={{ scale: 0.97 }}
+              >
+                {!useX402 && (
+                  <motion.div
+                    layoutId="payment-method"
+                    className="absolute inset-0 bg-lob-green-muted"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">Direct Escrow</span>
+              </motion.button>
+              <motion.button
+                onClick={() => handleToggleX402(true)}
+                className={`relative flex-1 px-3 py-2 text-xs font-medium transition-colors border-l border-border ${
+                  useX402
+                    ? "text-lob-green"
+                    : "bg-surface-2 text-text-tertiary hover:text-text-secondary"
+                }`}
+                whileTap={{ scale: 0.97 }}
+              >
+                {useX402 && (
+                  <motion.div
+                    layoutId="payment-method"
+                    className="absolute inset-0 bg-lob-green-muted"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">x402 Bridge</span>
+              </motion.button>
+            </div>
+          </div>
+
+          {/* x402 explainer */}
+          <AnimatePresence>
+            {useX402 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 mb-4">
+                  <p className="text-[10px] text-blue-400">
+                    x402 routes your USDC payment through the bridge contract.
+                    You sign a payment intent, and the facilitator settles it into
+                    escrow on your behalf. Same dispute protection, same escrow guarantees.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Amount display */}
           <div className="card p-4 mb-4 bg-surface-2/50">
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-tertiary">Escrow Amount</span>
               <span className="text-lg font-bold text-lob-green tabular-nums">
-                {Number(formatEther(amount)).toLocaleString()} {tokenSymbol}
+                {displayAmount}
               </span>
             </div>
             <p className="text-[10px] text-text-tertiary mt-1">
-              Funds will be held in escrow until delivery is confirmed or dispute is resolved.
+              {useX402
+                ? "Funds are deposited via x402 bridge into escrow until delivery is confirmed or dispute is resolved."
+                : "Funds will be held in escrow until delivery is confirmed or dispute is resolved."}
             </p>
+            {useX402 && usdcBalance !== undefined && (
+              <p className="text-[10px] text-text-tertiary mt-1">
+                USDC Balance: {Number(formatUnits(usdcBalance, 6)).toLocaleString()} USDC
+              </p>
+            )}
           </div>
 
           {/* Insufficient balance warning */}
-          {hasInsufficientBalance && stakedAmount > BigInt(0) && (
+          {hasInsufficientBalance && !useX402 && stakedAmount > BigInt(0) && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 mb-4">
               <p className="text-xs text-amber-400">
                 Insufficient liquid LOB. You have {Number(formatEther(stakedAmount)).toLocaleString()} LOB staked.
@@ -158,10 +310,17 @@ export default function HireModal({
               </Link>
             </div>
           )}
+          {hasInsufficientBalance && useX402 && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 mb-4">
+              <p className="text-xs text-amber-400">
+                Insufficient USDC balance for this x402 payment.
+              </p>
+            </div>
+          )}
 
           {/* Steps */}
           <div className="flex items-center gap-2 mb-4">
-            {["Approve", "Create Job"].map((label, i) => {
+            {[useX402 ? "Approve USDC" : "Approve", useX402 ? "Sign & Settle" : "Create Job"].map((label, i) => {
               const isActive =
                 (i === 0 && step === "approve") ||
                 (i === 1 && (step === "create" || step === "success"));
@@ -213,7 +372,9 @@ export default function HireModal({
                 Job Created Successfully
               </p>
               <p className="text-xs text-text-tertiary mb-3">
-                Funds are now held in escrow.
+                {useX402
+                  ? `x402 settlement complete. Job #${bridgeJobId ?? "..."} created via bridge.`
+                  : "Funds are now held in escrow."}
               </p>
               {jobTxHash && (
                 <a
@@ -260,6 +421,8 @@ export default function HireModal({
                 >
                   {loading || waitingApproval
                     ? "Approving..."
+                    : useX402
+                    ? "Approve USDC"
                     : `Approve ${tokenSymbol}`}
                 </motion.button>
               )}
@@ -270,7 +433,9 @@ export default function HireModal({
                   onClick={step === "approve" ? handleStart : handleCreateJob}
                   disabled={loading}
                 >
-                  {loading ? "Creating Job..." : "Create Job & Lock Funds"}
+                  {loading
+                    ? useX402 ? "Settling..." : "Creating Job..."
+                    : useX402 ? "Sign & Settle via x402" : "Create Job & Lock Funds"}
                 </motion.button>
               )}
             </div>

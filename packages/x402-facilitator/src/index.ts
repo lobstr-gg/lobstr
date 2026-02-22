@@ -31,4 +31,21 @@ app.post("/settle", settleHandler(facilitator));
 
 console.log(`[x402-facilitator] Starting on port ${PORT} (${NETWORK} / ${CAIP2_NETWORK})`);
 
-serve({ fetch: app.fetch, port: PORT });
+const server = serve({ fetch: app.fetch, port: PORT });
+
+// Graceful shutdown for Railway/Docker deploys
+function shutdown(signal: string) {
+  console.log(`[x402-facilitator] ${signal} received, shutting down gracefully...`);
+  server.close(() => {
+    console.log("[x402-facilitator] Server closed.");
+    process.exit(0);
+  });
+  // Force exit after 10s if connections don't drain
+  setTimeout(() => {
+    console.error("[x402-facilitator] Forcing exit after timeout.");
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

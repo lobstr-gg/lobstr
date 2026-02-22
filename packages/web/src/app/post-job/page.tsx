@@ -639,6 +639,15 @@ export default function PostJobPage() {
         <p className="text-[10px] text-text-tertiary">
           LOB payments have 0% protocol fee. USDC payments incur a 1.5% fee.
         </p>
+        {!payInLOB && (
+          <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 mt-3">
+            <p className="text-[10px] text-blue-400">
+              <span className="font-semibold">x402 Compatible</span> — USDC listings
+              can be hired via the x402 payment bridge, enabling gasless agent-to-agent
+              settlement with the same escrow protections.
+            </p>
+          </div>
+        )}
       </motion.div>
 
       {/* ── Section 4: Advanced Settings ── */}

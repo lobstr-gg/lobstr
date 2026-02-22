@@ -1,8 +1,9 @@
 "use client";
 
-import { useReadContract, useWriteContract, useAccount } from "wagmi";
+import { useReadContract, useWriteContract, useAccount, useSignTypedData } from "wagmi";
+import { type Address, keccak256, toHex, encodePacked } from "viem";
 
-import { getContracts, CHAIN } from "@/config/contracts";
+import { getContracts, CHAIN, USDC, FACILITATOR_URL } from "@/config/contracts";
 import {
   LOBTokenABI,
   StakingManagerABI,
@@ -660,5 +661,134 @@ export function useClaimEscrowRefund() {
       functionName: "claimEscrowRefund",
       args: [jobId],
     });
+  };
+}
+
+// --- USDC ---
+
+export function useUSDCBalance(address?: `0x${string}`) {
+  const usdcAddress = USDC[CHAIN.id];
+  return useReadContract({
+    address: usdcAddress,
+    abi: LOBTokenABI, // ERC-20 balanceOf is the same
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!usdcAddress },
+  });
+}
+
+export function useUSDCAllowance(owner?: `0x${string}`, spender?: `0x${string}`) {
+  const usdcAddress = USDC[CHAIN.id];
+  return useReadContract({
+    address: usdcAddress,
+    abi: LOBTokenABI,
+    functionName: "allowance",
+    args: owner && spender ? [owner, spender] : undefined,
+    query: { enabled: !!owner && !!spender && !!usdcAddress },
+  });
+}
+
+// --- x402 Bridge Settlement ---
+
+export interface X402SettleResult {
+  success: boolean;
+  txHash?: string;
+  jobId?: string;
+  errorReason?: string;
+}
+
+/**
+ * Signs a PaymentIntent EIP-712 message and POSTs to the facilitator /settle endpoint.
+ * Used for x402 bridge payments where the facilitator calls depositAndCreateJob on-chain.
+ */
+export function useX402Settle() {
+  const { signTypedDataAsync } = useSignTypedData();
+  const contracts = useContracts();
+
+  return async (params: {
+    payer: Address;
+    token: Address;
+    amount: bigint;
+    listingId: bigint;
+    seller: Address;
+  }): Promise<X402SettleResult> => {
+    if (!contracts) throw new Error("Contracts not loaded");
+
+    const nonce = keccak256(
+      encodePacked(
+        ["address", "uint256", "uint256"],
+        [params.payer, params.listingId, BigInt(Date.now())]
+      )
+    );
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour
+
+    // Sign EIP-712 PaymentIntent
+    const signature = await signTypedDataAsync({
+      domain: {
+        name: "X402EscrowBridge",
+        version: "1",
+        chainId: CHAIN.id,
+        verifyingContract: contracts.x402EscrowBridge,
+      },
+      types: {
+        PaymentIntent: [
+          { name: "x402Nonce", type: "bytes32" },
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "listingId", type: "uint256" },
+          { name: "seller", type: "address" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      primaryType: "PaymentIntent",
+      message: {
+        x402Nonce: nonce,
+        token: params.token,
+        amount: params.amount,
+        listingId: params.listingId,
+        seller: params.seller,
+        deadline,
+      },
+    });
+
+    // Parse v, r, s from signature
+    const r = `0x${signature.slice(2, 66)}` as `0x${string}`;
+    const s = `0x${signature.slice(66, 130)}` as `0x${string}`;
+    const v = parseInt(signature.slice(130, 132), 16);
+
+    // POST to facilitator
+    const res = await fetch(`${FACILITATOR_URL}/settle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paymentPayload: {
+          x402Version: 1,
+          extensions: {
+            "lobstr-escrow": {
+              listingId: Number(params.listingId),
+              paymentIntent: {
+                x402Nonce: nonce,
+                payer: params.payer,
+                token: params.token,
+                amount: params.amount.toString(),
+                listingId: Number(params.listingId),
+                seller: params.seller,
+                deadline: Number(deadline),
+              },
+              intentSignature: { v, r, s },
+            },
+          },
+        },
+        paymentRequirements: {
+          scheme: "exact",
+          network: `eip155:${CHAIN.id}`,
+          maxAmountRequired: params.amount.toString(),
+          resource: `lobstr://listing/${params.listingId}`,
+          payTo: params.seller,
+        },
+      }),
+    });
+
+    return res.json();
   };
 }

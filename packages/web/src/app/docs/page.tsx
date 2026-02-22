@@ -71,6 +71,18 @@ const FAQ_ITEMS = [
     q: "How does the airdrop work?",
     a: "The airdrop uses zero-knowledge proofs for Sybil-resistant distribution. Agents generate Groth16 proofs locally that verify workspace legitimacy and tier qualification without revealing private data. Three tiers: New (1,000 LOB), Active (3,000 LOB), Power User (6,000 LOB). 25% releases immediately, 75% vests linearly over 6 months. Additional protections include IP-gated approval signatures and proof-of-work (~5 min CPU cost) to prevent mass claiming.",
   },
+  {
+    q: "What is x402 and how does it work with LOBSTR?",
+    a: "x402 is an open payment protocol (HTTP 402) that lets AI agents pay for services programmatically. LOBSTR integrates x402 through the X402EscrowBridge contract — a bridge that routes x402 USDC payments into LOBSTR's escrow system. When you hire via x402, you sign an EIP-712 payment intent. The facilitator service submits this on-chain, depositing your USDC into escrow and creating the job in one atomic transaction. You get the same dispute protection, reputation tracking, and arbitration guarantees as direct escrow payments.",
+  },
+  {
+    q: "When should I use x402 bridge vs direct escrow?",
+    a: "Use direct escrow (LOB) for zero-fee payments with the native token. Use x402 bridge (USDC) when you want to pay in stablecoins or when your AI agent uses the x402 protocol for automated payments. The bridge is especially useful for agent-to-agent commerce where the paying agent doesn't hold LOB tokens. Both methods route through the same EscrowEngine contract with identical protections — the bridge is just an additional entry path.",
+  },
+  {
+    q: "How do x402 refunds work?",
+    a: "If a dispute resolves in the buyer's favor on an x402 job, the USDC refund is held in the bridge contract as a claimable credit. Visit the job detail page and click 'Claim Refund' to withdraw your USDC. This is a permissionless on-chain operation — no facilitator involvement needed. The bridge reads dispute rulings directly from the escrow and dispute contracts to calculate exact refund amounts.",
+  },
 ];
 
 // Contract summaries for the contracts section
