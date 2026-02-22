@@ -23,25 +23,24 @@ export default function PostDetailPage() {
   const postId = params.postId as string;
   const { currentUser } = useForum();
 
-  const handleModAction = useCallback(async (action: string) => {
-    if (action === "remove") {
-      if (!confirm("Delete this post? This can't be undone.")) return;
-      const res = await fetch(`/api/forum/posts/${postId}`, { method: "DELETE" });
-      if (res.ok) {
-        router.push(`/forum/${subtopicId}`);
-      } else {
-        const data = await res.json();
-        alert(data.error ?? "Failed to delete post");
-      }
-    }
-  }, [postId, subtopicId, router]);
-
   const subtopic = SUBTOPIC_LIST.find((s) => s.id === subtopicId);
 
   const [post, setPost] = useState<Post | null>(null);
   const [commentTree, setCommentTree] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchPost = useCallback(() => {
+    return fetch(`/api/forum/posts/${postId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch");
+        return res.json();
+      })
+      .then((data) => {
+        setPost(data.post);
+        setCommentTree(data.comments ?? []);
+      });
+  }, [postId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,6 +60,37 @@ export default function PostDetailPage() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [postId]);
+
+  const handleModAction = useCallback(async (action: string) => {
+    if (action === "remove") {
+      if (!confirm("Delete this post? This can't be undone.")) return;
+    }
+    if (action === "warn") {
+      if (!confirm("Warn this user? (2 warnings = eligible for ban)")) return;
+    }
+
+    const res = await fetch("/api/forum/mod/action", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targetId: postId,
+        action,
+        targetAddress: post?.author,
+      }),
+    });
+
+    if (res.ok) {
+      if (action === "remove") {
+        router.push(`/forum/${subtopicId}`);
+      } else {
+        fetchPost();
+      }
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? `Failed to ${action}`);
+    }
+  }, [postId, subtopicId, router, post?.author, fetchPost]);
 
   if (loading) {
     return (
@@ -177,7 +207,7 @@ export default function PostDetailPage() {
             </p>
           </div>
         ) : (
-          <CommentThread comments={commentTree} postId={postId} />
+          <CommentThread comments={commentTree} postId={postId} onRefresh={fetchPost} />
         )}
       </motion.div>
     </motion.div>

@@ -11,9 +11,31 @@ import CommentComposer from "./CommentComposer";
 
 const MAX_DEPTH = 6;
 
-export default function CommentNode({ comment }: { comment: Comment }) {
+export default function CommentNode({
+  comment,
+  onReply,
+}: {
+  comment: Comment;
+  onReply?: (body: string, parentId?: string) => Promise<void>;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [showReply, setShowReply] = useState(false);
+  const [replyLoading, setReplyLoading] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+
+  const handleReply = async (body: string) => {
+    if (!onReply) return;
+    setReplyLoading(true);
+    setReplyError(null);
+    try {
+      await onReply(body, comment.id);
+      setShowReply(false);
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : "Failed to reply");
+    } finally {
+      setReplyLoading(false);
+    }
+  };
 
   return (
     <div className={`${comment.depth > 0 ? "pl-4" : ""}`}>
@@ -91,9 +113,9 @@ export default function CommentNode({ comment }: { comment: Comment }) {
                     >
                       <CommentComposer
                         onCancel={() => setShowReply(false)}
-                        onSubmit={() => {
-                          setShowReply(false);
-                        }}
+                        onSubmit={handleReply}
+                        loading={replyLoading}
+                        error={replyError}
                       />
                     </motion.div>
                   )}
@@ -102,7 +124,11 @@ export default function CommentNode({ comment }: { comment: Comment }) {
                 {/* Children */}
                 {comment.depth < MAX_DEPTH &&
                   comment.children.map((child) => (
-                    <CommentNode key={child.id} comment={child} />
+                    <CommentNode
+                      key={child.id}
+                      comment={child}
+                      onReply={onReply}
+                    />
                   ))}
                 {comment.depth >= MAX_DEPTH && comment.children.length > 0 && (
                   <p className="text-[10px] text-lob-green ml-4 mt-1">

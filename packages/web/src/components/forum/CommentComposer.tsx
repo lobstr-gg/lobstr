@@ -7,9 +7,13 @@ import { useForum } from "@/lib/forum-context";
 export default function CommentComposer({
   onCancel,
   onSubmit,
+  loading,
+  error,
 }: {
   onCancel?: () => void;
   onSubmit?: (body: string) => void;
+  loading?: boolean;
+  error?: string | null;
 }) {
   const { isConnected } = useForum();
   const [body, setBody] = useState("");
@@ -32,27 +36,32 @@ export default function CommentComposer({
         placeholder="Write a comment..."
         rows={3}
         className="input-field w-full text-sm resize-none"
+        disabled={loading}
       />
+      {error && (
+        <p className="text-xs text-red-400">{error}</p>
+      )}
       <div className="flex gap-2 justify-end">
         {onCancel && (
           <button
             onClick={onCancel}
             className="text-xs text-text-tertiary hover:text-text-secondary px-3 py-1"
+            disabled={loading}
           >
             Cancel
           </button>
         )}
         <motion.button
           onClick={() => {
-            const text = body;
-            onSubmit?.(text);
+            if (!body.trim() || loading) return;
+            onSubmit?.(body);
             setBody("");
           }}
           className="btn-primary text-xs px-4 py-1"
           whileTap={{ scale: 0.97 }}
-          disabled={!body.trim()}
+          disabled={!body.trim() || loading}
         >
-          Comment
+          {loading ? "Posting..." : "Comment"}
         </motion.button>
       </div>
     </div>

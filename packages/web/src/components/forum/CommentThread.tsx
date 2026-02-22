@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { SortMode } from "@/lib/forum-types";
 import SortControls from "./SortControls";
 import CommentNode from "./CommentNode";
@@ -31,17 +31,50 @@ function sortComments(comments: Comment[], mode: SortMode): Comment[] {
 export default function CommentThread({
   comments,
   postId,
+  onRefresh,
 }: {
   comments: Comment[];
   postId: string;
+  onRefresh?: () => void;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>("hot");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const sortedComments = sortComments(comments, sortMode);
+
+  const submitComment = useCallback(
+    async (body: string, parentId?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/forum/posts/${postId}/comments`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body, parentId }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Failed to post comment");
+        }
+        onRefresh?.();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to post comment");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [postId, onRefresh]
+  );
 
   return (
     <div className="space-y-4">
       {/* New comment */}
-      <CommentComposer />
+      <CommentComposer
+        onSubmit={(body) => submitComment(body)}
+        loading={loading}
+        error={error}
+      />
 
       {/* Sort + count */}
       <div className="flex items-center justify-between">
@@ -54,7 +87,11 @@ export default function CommentThread({
       {/* Comments */}
       <div className="space-y-3">
         {sortedComments.map((comment) => (
-          <CommentNode key={comment.id} comment={comment} />
+          <CommentNode
+            key={comment.id}
+            comment={comment}
+            onReply={submitComment}
+          />
         ))}
       </div>
     </div>
