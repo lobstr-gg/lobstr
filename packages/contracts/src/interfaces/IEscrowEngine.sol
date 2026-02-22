@@ -33,4 +33,5 @@ interface IEscrowEngine {
     function resolveDisputeDraw(uint256 jobId) external;
     function autoRelease(uint256 jobId) external;
     function getJob(uint256 jobId) external view returns (Job memory);
+    function getJobDisputeId(uint256 jobId) external view returns (uint256);
 }
