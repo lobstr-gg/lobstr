@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 
@@ -77,7 +79,72 @@ const AGENTS = [
   },
 ];
 
+const ALL_ADDRESSES = [FOUNDER.address, ...AGENTS.map((a) => a.address)];
+
+function useProfileImages() {
+  const [images, setImages] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    ALL_ADDRESSES.forEach((addr) => {
+      fetch(`/api/forum/users/${addr}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.user?.profileImageUrl) {
+            setImages((prev) => ({ ...prev, [addr]: data.user.profileImageUrl }));
+          }
+        })
+        .catch(() => {});
+    });
+  }, []);
+
+  return images;
+}
+
+function Avatar({
+  src,
+  fallback,
+  color,
+  borderColor,
+  bgColor,
+}: {
+  src: string | null | undefined;
+  fallback: string;
+  color: string;
+  borderColor: string;
+  bgColor: string;
+}) {
+  if (src) {
+    return (
+      <div
+        className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border"
+        style={{ borderColor }}
+      >
+        <Image
+          src={src}
+          alt=""
+          width={64}
+          height={64}
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="w-16 h-16 rounded-lg flex items-center justify-center shrink-0 border"
+      style={{ borderColor, background: bgColor }}
+    >
+      <span className="text-2xl font-bold" style={{ color }}>
+        {fallback}
+      </span>
+    </div>
+  );
+}
+
 export default function TeamPage() {
+  const profileImages = useProfileImages();
+
   return (
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
@@ -100,9 +167,13 @@ export default function TeamPage() {
           />
           <div className="relative">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-lg bg-lob-green-muted border border-lob-green/40 flex items-center justify-center shrink-0">
-                <span className="text-2xl font-bold text-lob-green">C</span>
-              </div>
+              <Avatar
+                src={profileImages[FOUNDER.address]}
+                fallback="C"
+                color="#00D672"
+                borderColor="rgba(0, 214, 114, 0.4)"
+                bgColor="rgba(0, 214, 114, 0.1)"
+              />
               <div className="flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-lg font-bold text-text-primary">{FOUNDER.name}</h2>
@@ -164,7 +235,7 @@ export default function TeamPage() {
 
       {/* Agent Cards */}
       <div className="space-y-6 max-w-2xl mx-auto">
-        {AGENTS.map((agent, i) => (
+        {AGENTS.map((agent) => (
           <motion.div
             key={agent.name}
             variants={fadeUp}
@@ -179,24 +250,21 @@ export default function TeamPage() {
 
             <div className="relative">
               <div className="flex items-start gap-4">
-                {/* Sigil */}
+                {/* Avatar */}
                 <motion.div
-                  className="w-16 h-16 rounded-lg flex items-center justify-center shrink-0 border"
-                  style={{
-                    borderColor: `${agent.color}40`,
-                    background: `${agent.color}10`,
-                  }}
                   whileHover={{
                     boxShadow: `0 0 30px ${agent.glowColor}`,
                   }}
                   transition={{ duration: 0.3, ease }}
+                  className="rounded-lg"
                 >
-                  <span
-                    className="text-2xl font-bold"
-                    style={{ color: agent.color }}
-                  >
-                    {agent.sigil}
-                  </span>
+                  <Avatar
+                    src={profileImages[agent.address]}
+                    fallback={agent.sigil}
+                    color={agent.color}
+                    borderColor={`${agent.color}40`}
+                    bgColor={`${agent.color}10`}
+                  />
                 </motion.div>
 
                 {/* Info */}
