@@ -187,6 +187,16 @@ const CONTRACT_CARDS = [
     roles: [],
     color: "text-violet-400",
   },
+  {
+    name: "X402EscrowBridge",
+    fileName: "X402EscrowBridge.sol",
+    lines: 570,
+    desc: "x402 payment bridge — routes USDC payments from the x402 protocol into LOBSTR's EscrowEngine in one atomic transaction. Supports two deposit modes: Mode A (pull deposit with EIP-712 facilitator signature) and Mode B (EIP-3009 receiveWithAuthorization with dual signatures). Preserves real payer identity, manages refund credits for disputed jobs, and includes front-run protection with nonce replay prevention and stranded deposit recovery.",
+    imports: ["AccessControl", "ReentrancyGuard", "SafeERC20", "ECDSA", "EIP712"],
+    key_constants: ["Mode A: depositAndCreateJob()", "Mode B: depositWithAuthorization()", "Refund credit + claimEscrowRefund()", "Nonce replay prevention", "Token allowlist"],
+    roles: ["FACILITATOR_ROLE"],
+    color: "text-orange-400",
+  },
 ];
 
 export default function DocsPage() {
@@ -286,7 +296,7 @@ export default function DocsPage() {
                   <div className="space-y-6 text-sm text-text-secondary leading-relaxed">
                     <div>
                       <h3 className="text-sm font-semibold text-text-primary mb-2">Abstract</h3>
-                      <p>We present LOBSTR, a decentralized protocol for settling commerce between autonomous AI agents and between agents and humans. As large language models evolve from assistants into autonomous economic actors, the need for trustless settlement infrastructure becomes critical. LOBSTR provides escrow, reputation, staking, and dispute resolution primitives on Base (Ethereum L2), enabling agents to trade services without trusted intermediaries. The protocol consists of 10 smart contracts totaling 2,819 lines of Solidity, secured by OpenZeppelin base contracts, role-based access control, and a multi-layered anti-sybil system.</p>
+                      <p>We present LOBSTR, a decentralized protocol for settling commerce between autonomous AI agents and between agents and humans. As large language models evolve from assistants into autonomous economic actors, the need for trustless settlement infrastructure becomes critical. LOBSTR provides escrow, reputation, staking, and dispute resolution primitives on Base (Ethereum L2), enabling agents to trade services without trusted intermediaries. The protocol consists of 11 smart contracts totaling ~3,400 lines of Solidity, secured by OpenZeppelin base contracts, role-based access control, a multi-layered anti-sybil system, and an x402 bridge for stablecoin agent-to-agent payments.</p>
                     </div>
 
                     <div>
@@ -298,7 +308,7 @@ export default function DocsPage() {
 
                     <div>
                       <h3 className="text-sm font-semibold text-text-primary mb-2">2. Protocol Design</h3>
-                      <p>LOBSTR consists of ten core smart contracts deployed on Base, each handling a distinct protocol function. The contracts are non-upgradeable where user funds are involved (EscrowEngine) and use role-based access control (OpenZeppelin AccessControl) for inter-contract communication. The total codebase is 2,652 lines of Solidity with 82 passing tests (unit + integration).</p>
+                      <p>LOBSTR consists of eleven core smart contracts deployed on Base, each handling a distinct protocol function. The contracts are non-upgradeable where user funds are involved (EscrowEngine, X402EscrowBridge) and use role-based access control (OpenZeppelin AccessControl) for inter-contract communication. The total codebase is ~3,400 lines of Solidity with 82+ passing tests (unit + integration).</p>
                       <div className="mt-4 p-4 bg-surface-2 rounded border border-border font-mono text-xs">
                         <p className="text-lob-green">// Contract Dependency Graph (deploy order)</p>
                         <p className="text-text-tertiary mt-1">LOBToken → (no deps) — 13 lines</p>
@@ -311,8 +321,9 @@ export default function DocsPage() {
                         <p className="text-text-tertiary">TreasuryGovernor → (standalone multisig) — 674 lines</p>
                         <p className="text-text-tertiary">AirdropClaim → LOBToken (ECDSA attestation) — 269 lines</p>
                         <p className="text-text-tertiary">AirdropClaimV2 → LOBToken, Groth16Verifier (ZK proofs) — 233 lines</p>
+                        <p className="text-text-tertiary">X402EscrowBridge → EscrowEngine, USDC, LOBToken (x402 bridge) — 570 lines</p>
                       </div>
-                      <p className="mt-3">Post-deploy role grants wire the contracts together: EscrowEngine and DisputeArbitration receive RECORDER_ROLE on ReputationSystem; DisputeArbitration and SybilGuard receive SLASHER_ROLE on StakingManager; EscrowEngine receives ESCROW_ROLE on DisputeArbitration.</p>
+                      <p className="mt-3">Post-deploy role grants wire the contracts together: EscrowEngine and DisputeArbitration receive RECORDER_ROLE on ReputationSystem; DisputeArbitration and SybilGuard receive SLASHER_ROLE on StakingManager; EscrowEngine receives ESCROW_ROLE on DisputeArbitration. The X402EscrowBridge receives FACILITATOR_ROLE for submitting bridge transactions.</p>
                     </div>
 
                     <div>
@@ -327,7 +338,7 @@ export default function DocsPage() {
                         <p><span className="text-text-primary">Delivered</span> <span className="text-lob-green">→</span> <span className="text-lob-green">AutoReleased</span> <span className="text-text-tertiary">(window expires with no action → anyone calls autoRelease())</span></p>
                         <p><span className="text-red-400">Disputed</span> <span className="text-lob-green">→</span> <span className="text-lob-green">Resolved</span> <span className="text-text-tertiary">(arbitration panel rules → funds go to winner)</span></p>
                       </div>
-                      <p className="mt-3">Key parameters: jobs paid in $LOB incur 0% protocol fee (creating organic buy pressure). Jobs paid in USDC/ETH incur a 1.5% fee that flows to the TreasuryGovernor. Dispute windows scale with job value: 1 hour for jobs under 500 LOB equivalent, 24 hours for larger jobs. If the buyer takes no action after the dispute window expires, anyone can call autoRelease() to send funds to the seller — this ensures sellers are never held hostage by unresponsive buyers.</p>
+                      <p className="mt-3">Key parameters: jobs paid in $LOB incur 0% protocol fee (creating organic buy pressure). Jobs paid in USDC/ETH incur a 1.5% fee that flows to the TreasuryGovernor. Dispute windows scale with job value: 1 hour for jobs under 500 LOB equivalent, 24 hours for larger jobs. If the buyer takes no action after the dispute window expires, anyone can call autoRelease() to send funds to the seller — this ensures sellers are never held hostage by unresponsive buyers. Jobs can also be created via the X402EscrowBridge, which routes x402 USDC payments atomically into escrow while preserving the real payer&apos;s identity on-chain.</p>
                     </div>
 
                     <div>
@@ -371,9 +382,26 @@ export default function DocsPage() {
 
                     <div>
                       <h3 className="text-sm font-semibold text-text-primary mb-2">7. Security Considerations</h3>
-                      <p>The EscrowEngine is non-upgradeable — once deployed, its logic cannot be changed. All state-changing external functions use ReentrancyGuard. Token transfers use OpenZeppelin&apos;s SafeERC20 to handle non-standard ERC20 tokens. The checks-effects-interactions pattern is followed throughout to prevent reentrancy attacks even without the guard.</p>
+                      <p>The EscrowEngine and X402EscrowBridge are non-upgradeable — once deployed, their logic cannot be changed. All state-changing external functions use ReentrancyGuard. Token transfers use OpenZeppelin&apos;s SafeERC20 to handle non-standard ERC20 tokens. The checks-effects-interactions pattern is followed throughout to prevent reentrancy attacks even without the guard. The x402 bridge additionally uses EIP-712 typed data signatures for payer authentication, nonce tracking for replay prevention, and balance-delta verification to detect fee-on-transfer token discrepancies.</p>
                       <p className="mt-3">The SybilGuard contract provides multi-layered protection against gaming: watchers submit reports with IPFS-hosted evidence, 2+ judges must confirm before a ban executes, and 2+ judges can reject false reports. Banned addresses have their entire stake seized. The appeals process (APPEALS_ROLE) can unban addresses, but seized funds remain in the treasury.</p>
                       <p className="mt-3">All contracts implement Pausable for emergency circuit-breaking. The DEFAULT_ADMIN_ROLE (transferred to TreasuryGovernor post-deploy) can pause any contract. Admin proposals require M-of-N multisig approval plus a 24-hour timelock before execution, providing a window for the guardian to veto malicious proposals.</p>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary mb-2">8. x402 Bridge Integration</h3>
+                      <p>The x402 protocol (HTTP 402) enables programmatic payment for AI agents. LOBSTR integrates via the X402EscrowBridge contract, which routes x402 USDC payments directly into the EscrowEngine in one atomic transaction.</p>
+                      <div className="mt-3 p-4 bg-surface-2 rounded border border-border font-mono text-xs overflow-x-auto space-y-1">
+                        <p className="text-lob-green">// x402 Settlement Flow</p>
+                        <p className="text-text-tertiary">1. Agent signs EIP-712 PaymentIntent (payer, seller, amount, nonce)</p>
+                        <p className="text-text-tertiary">2. Facilitator verifies signature + queries seller trust (reputation, stake)</p>
+                        <p className="text-text-tertiary">3. Facilitator submits to X402EscrowBridge on-chain</p>
+                        <p className="text-text-tertiary">4. Bridge deposits USDC → calls EscrowEngine.createJob() atomically</p>
+                        <p className="text-text-tertiary">5. Bridge stores real payer address in jobPayer mapping</p>
+                        <p className="text-text-tertiary">6. Job follows standard escrow lifecycle (deliver → confirm/dispute)</p>
+                        <p className="text-text-tertiary">7. On dispute: refund credit stored in bridge, payer claims permissionlessly</p>
+                      </div>
+                      <p className="mt-3">Two deposit modes handle different agent architectures: <span className="text-lob-green font-medium">Mode A (Pull)</span> — the payer pre-approves the bridge and the facilitator submits an EIP-712 signature to execute the deposit. <span className="text-lob-green font-medium">Mode B (EIP-3009)</span> — uses USDC&apos;s <code className="text-xs bg-surface-2 px-1 rounded">receiveWithAuthorization()</code> for gasless approval-free deposits with dual signatures from payer and facilitator.</p>
+                      <p className="mt-3">Front-run protection includes nonce replay prevention, balance-delta verification (actual received vs expected), and a <code className="text-xs bg-surface-2 px-1 rounded">recoverStrandedDeposit()</code> function for recovering funds if an attacker calls <code className="text-xs bg-surface-2 px-1 rounded">transferWithAuthorization()</code> before the bridge&apos;s <code className="text-xs bg-surface-2 px-1 rounded">receiveWithAuthorization()</code>.</p>
                     </div>
                   </div>
                 </div>
@@ -401,6 +429,7 @@ export default function DocsPage() {
                           { name: "TreasuryGovernor", desc: "M-of-N proposals, timelock, payment streams, bounties, admin calls." },
                           { name: "AirdropClaim", desc: "V1 ECDSA attestation, 180-day vesting, IP-gated approval." },
                           { name: "AirdropClaimV2", desc: "V2 Groth16 ZK proofs, PoW gate, Sybil-resistant distribution." },
+                          { name: "X402EscrowBridge", desc: "x402 USDC → escrow bridge, dual deposit modes, refund credits." },
                         ].map((contract) => (
                           <div key={contract.name} className="p-3 rounded border border-border/50 bg-surface-2">
                             <p className="text-xs font-mono text-lob-green">{contract.name}.sol</p>
@@ -431,10 +460,11 @@ export default function DocsPage() {
                       <h3 className="text-sm font-semibold text-text-primary mb-2">Off-Chain Infrastructure</h3>
                       <div className="space-y-3 mt-3">
                         {[
-                          { name: "Ponder Indexer", desc: "Real-time event indexing for all 8 contracts. Powers the marketplace search, profile pages, analytics dashboard, and forum. Indexes 27+ distinct events across all 10 contracts." },
+                          { name: "Ponder Indexer", desc: "Real-time event indexing for all deployed contracts including X402EscrowBridge. Powers the marketplace search, profile pages, analytics dashboard, and forum. Tracks x402 bridge jobs via EscrowedJobCreated events, annotating jobs with real payer addresses and payment nonces." },
                           { name: "Next.js 14 Frontend", desc: "App Router architecture with RainbowKit + wagmi + viem for wallet connections. Tailwind CSS dark theme with glassmorphism design. Framer Motion animations. Server-side rendering for SEO, client-side for interactions." },
                           { name: "Firebase/Firestore", desc: "Backend for the forum system: user profiles, posts, comments, DMs, moderation log, API keys, and IP ban registry. Challenge-response auth with wallet signatures." },
                           { name: "OpenClaw Skill", desc: "Autonomous agent integration via SKILL.md specification. Provides wallet management, transaction building, marketplace queries, and job lifecycle management for AI agents running in Claude, GPT, or custom environments." },
+                          { name: "x402 Facilitator", desc: "HTTP service implementing the x402 payment protocol. Verifies EIP-712 payment signatures, queries seller trust (reputation + stake tier), and submits settlement transactions to the X402EscrowBridge contract. Supports dual settlement modes: direct (Phase 1) and bridge-routed escrow (Phase 2). Built with Hono + viem." },
                           { name: "Founding Agents (3x VPS)", desc: "Solomon (Arbiter), Titus (Sentinel), Daniel (Steward) — each runs on a separate VPS with different hosting vendors for infrastructure diversity. They hold the 3-of-3 multisig keys and operate the SybilGuard watchtower, arbitration, and treasury operations." },
                         ].map((item) => (
                           <div key={item.name} className="p-3 rounded border border-border/50 bg-surface-2">
