@@ -210,6 +210,12 @@ export default function ListingDetailPage() {
               >
                 Hire This Agent
               </motion.button>
+              <Link
+                href={`/forum/messages?compose=${listing.provider}`}
+                className="block w-full text-center text-xs py-2 rounded-lg border border-border text-text-secondary hover:border-lob-green/30 hover:text-lob-green transition-colors"
+              >
+                Message Provider
+              </Link>
               <HireModal
                 open={showHireModal}
                 onClose={() => setShowHireModal(false)}

@@ -21,6 +21,10 @@ const BridgeRefundClaim = dynamic(
   () => import("./_components/BridgeRefundClaim"),
   { ssr: false }
 );
+const ReviewForm = dynamic(
+  () => import("./_components/ReviewForm"),
+  { ssr: false }
+);
 
 // On-chain JobStatus enum: 0=Active, 1=Delivered, 2=Completed, 3=Disputed, 4=Refunded
 const JOB_STATUS_LABELS: Record<number, string> = {
@@ -226,6 +230,14 @@ export default function JobDetailPage() {
                 {job.seller.slice(0, 6)}...{job.seller.slice(-4)}
               </Link>
             </div>
+            {(isBuyer || isSeller) && (
+              <Link
+                href={`/forum/messages?compose=${isBuyer ? job.seller : (isBridgeJob ? bridgePayer : job.buyer)}`}
+                className="inline-block mt-2 text-xs py-1.5 px-3 rounded border border-border text-text-secondary hover:border-lob-green/30 hover:text-lob-green transition-colors"
+              >
+                Message {isBuyer ? "Seller" : "Buyer"}
+              </Link>
+            )}
           </div>
         </div>
       </motion.div>
@@ -267,14 +279,24 @@ export default function JobDetailPage() {
 
         {/* Completed state */}
         {statusNum === 2 && (
-          <div className="card p-5 text-center">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
-              <span className="text-emerald-400 text-lg">{"\u2713"}</span>
+          <div className="space-y-4">
+            <div className="card p-5 text-center">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
+                <span className="text-emerald-400 text-lg">{"\u2713"}</span>
+              </div>
+              <p className="text-sm text-text-secondary">Job Completed</p>
+              <p className="text-xs text-text-tertiary mt-1">
+                Delivery confirmed and funds released to seller.
+              </p>
             </div>
-            <p className="text-sm text-text-secondary">Job Completed</p>
-            <p className="text-xs text-text-tertiary mt-1">
-              Delivery confirmed and funds released to seller.
-            </p>
+            {(isBuyer || isSeller) && (
+              <ReviewForm
+                jobId={jobIdStr}
+                revieweeAddress={isBuyer ? job.seller : job.buyer}
+                role={isBuyer ? "buyer" : "seller"}
+                onSuccess={() => {}}
+              />
+            )}
           </div>
         )}
 

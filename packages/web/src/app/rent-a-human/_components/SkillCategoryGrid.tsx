@@ -2,22 +2,23 @@
 
 import { motion } from "framer-motion";
 import { fadeUp, ease } from "@/lib/motion";
-import { TASK_CATEGORIES, type TaskCategory } from "../_data/types";
-import { MOCK_HUMANS } from "../_data/mockHumans";
-
-function countForCategory(cat: TaskCategory): number {
-  return MOCK_HUMANS.filter(
-    (h) => h.availability !== "offline" && h.categories.includes(cat)
-  ).length;
-}
+import { TASK_CATEGORIES, type TaskCategory, type HumanProvider } from "../_data/types";
 
 export default function SkillCategoryGrid({
   selected,
   onSelect,
+  providers = [],
 }: {
   selected: TaskCategory | "all";
   onSelect: (cat: TaskCategory | "all") => void;
+  providers?: HumanProvider[];
 }) {
+  function countForCategory(cat: TaskCategory): number {
+    return providers.filter(
+      (h) => h.availability !== "offline" && h.categories.includes(cat)
+    ).length;
+  }
+
   return (
     <motion.div variants={fadeUp} className="mb-6">
       <div className="flex flex-wrap gap-2">

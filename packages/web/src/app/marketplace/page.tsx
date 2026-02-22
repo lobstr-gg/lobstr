@@ -23,7 +23,7 @@ import ListingTable from "./_components/ListingTable";
 
 // Rent-a-Human imports
 import type { TaskCategory, HumanProvider } from "../rent-a-human/_data/types";
-import { MOCK_HUMANS } from "../rent-a-human/_data/mockHumans";
+import { useHumanProviders } from "@/lib/useHumanProviders";
 import HeroSection from "../rent-a-human/_components/HeroSection";
 import SkillCategoryGrid from "../rent-a-human/_components/SkillCategoryGrid";
 import SearchBar from "../rent-a-human/_components/SearchBar";
@@ -166,6 +166,7 @@ export default function MarketplacePage() {
   const { listings, isLoading } = useMarketplaceListings();
 
   // Humans state
+  const { providers: humanProviders } = useHumanProviders();
   const [humanSearch, setHumanSearch] = useState("");
   const [humanCategory, setHumanCategory] = useState<TaskCategory | "all">("all");
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -176,8 +177,8 @@ export default function MarketplacePage() {
   );
 
   const filteredHumans = useMemo(
-    () => applyHumanFilters(MOCK_HUMANS, humanSearch, humanCategory),
-    [humanSearch, humanCategory]
+    () => applyHumanFilters(humanProviders, humanSearch, humanCategory),
+    [humanProviders, humanSearch, humanCategory]
   );
 
   const TABS: { id: MarketTab; label: string; count: number }[] = [
@@ -428,7 +429,7 @@ export default function MarketplacePage() {
             variants={stagger}
           >
             <HeroSection onPostTask={() => setShowTaskModal(true)} />
-            <SkillCategoryGrid selected={humanCategory} onSelect={setHumanCategory} />
+            <SkillCategoryGrid selected={humanCategory} onSelect={setHumanCategory} providers={humanProviders} />
             <SearchBar value={humanSearch} onChange={setHumanSearch} />
 
             {/* Results count */}

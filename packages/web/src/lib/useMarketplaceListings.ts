@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { usePublicClient } from "wagmi";
-import { formatEther, type Address, parseAbiItem } from "viem";
+import { formatEther, type Address } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
 import { ServiceRegistryABI } from "@/config/abis";
 import { SERVICE_CATEGORY_MAP, type MockListing, type ServiceCategory } from "@/app/marketplace/_data/types";
+import { isIndexerConfigured, fetchListings as fetchIndexerListings, type IndexerListing } from "./indexer";
+import { useQuery } from "@tanstack/react-query";
 
 interface OnChainListing {
   id: bigint;
@@ -53,16 +55,64 @@ function mapToMockListing(listing: OnChainListing, lobTokenAddress: Address): Mo
   };
 }
 
+function mapIndexerToMockListing(listing: IndexerListing, lobTokenAddress: string): MockListing {
+  const price = Number(formatEther(BigInt(listing.pricePerUnit)));
+  const category: ServiceCategory = SERVICE_CATEGORY_MAP[listing.category] ?? "Other";
+  const isLob = listing.settlementToken.toLowerCase() === lobTokenAddress.toLowerCase();
+
+  return {
+    id: listing.id,
+    title: listing.title || `Listing #${listing.id}`,
+    description: listing.description || "No description",
+    category,
+    price,
+    settlementToken: isLob ? "LOB" : "USDC",
+    estimatedDeliveryHours: Number(listing.estimatedDeliverySeconds) / 3600,
+    provider: {
+      address: listing.provider,
+      name: listing.provider.slice(0, 6) + "..." + listing.provider.slice(-4),
+      providerType: "agent",
+      reputationScore: 0,
+      reputationTier: "Bronze",
+      completions: 0,
+      stakeTier: "Bronze",
+      responseTime: "--",
+      responseTimeMinutes: 0,
+      completionRate: 100,
+    },
+    transactionType: "agent-to-agent",
+    tags: [category.toLowerCase()],
+    createdAt: Number(listing.createdAt) * 1000,
+    active: listing.active,
+  };
+}
+
 export function useMarketplaceListings() {
-  const publicClient = usePublicClient();
   const contracts = getContracts(CHAIN.id);
-  const [listings, setListings] = useState<MockListing[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const useIndexer = isIndexerConfigured();
+
+  // Indexer-backed path
+  const indexerQuery = useQuery({
+    queryKey: ["marketplace-listings-indexer"],
+    queryFn: async () => {
+      const raw = await fetchIndexerListings();
+      return raw.map((l) => mapIndexerToMockListing(l, contracts?.lobToken ?? ""));
+    },
+    enabled: useIndexer && !!contracts,
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
+
+  // Fallback: event-scanning path
+  const publicClient = usePublicClient();
+  const [fallbackListings, setFallbackListings] = useState<MockListing[]>([]);
+  const [fallbackLoading, setFallbackLoading] = useState(true);
+  const [fallbackError, setFallbackError] = useState(false);
 
   useEffect(() => {
+    if (useIndexer) return; // skip if indexer is configured
     if (!publicClient || !contracts) {
-      setIsLoading(false);
+      setFallbackLoading(false);
       return;
     }
 
@@ -70,7 +120,6 @@ export function useMarketplaceListings() {
 
     async function fetchListings() {
       try {
-        // Get all ListingCreated events to discover listing IDs
         const logs = await publicClient!.getContractEvents({
           address: contracts!.serviceRegistry,
           abi: ServiceRegistryABI,
@@ -82,18 +131,16 @@ export function useMarketplaceListings() {
         if (cancelled) return;
 
         if (logs.length === 0) {
-          setListings([]);
-          setIsLoading(false);
+          setFallbackListings([]);
+          setFallbackLoading(false);
           return;
         }
 
-        // Extract unique listing IDs
         const listingIds = logs.map((log) => {
           const args = log.args as { listingId?: bigint };
           return args.listingId!;
         });
 
-        // Multicall to fetch all listings
         const results = await publicClient!.multicall({
           contracts: listingIds.map((id) => ({
             address: contracts!.serviceRegistry,
@@ -113,16 +160,16 @@ export function useMarketplaceListings() {
           }
         }
 
-        setListings(mapped);
-        setIsError(false);
+        setFallbackListings(mapped);
+        setFallbackError(false);
       } catch (err) {
         console.error("Failed to fetch marketplace listings:", err);
         if (!cancelled) {
-          setIsError(true);
+          setFallbackError(true);
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false);
+          setFallbackLoading(false);
         }
       }
     }
@@ -132,7 +179,15 @@ export function useMarketplaceListings() {
     return () => {
       cancelled = true;
     };
-  }, [publicClient, contracts]);
+  }, [publicClient, contracts, useIndexer]);
 
-  return { listings, isLoading, isError };
+  if (useIndexer) {
+    return {
+      listings: indexerQuery.data ?? [],
+      isLoading: indexerQuery.isLoading,
+      isError: indexerQuery.isError,
+    };
+  }
+
+  return { listings: fallbackListings, isLoading: fallbackLoading, isError: fallbackError };
 }

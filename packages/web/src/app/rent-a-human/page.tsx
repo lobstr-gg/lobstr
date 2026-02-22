@@ -6,7 +6,7 @@ import { stagger, fadeUp } from "@/lib/motion";
 
 import type { TaskCategory, HumanProvider, RegionCode } from "./_data/types";
 import { continentToRegion } from "./_data/types";
-import { MOCK_HUMANS } from "./_data/mockHumans";
+import { useHumanProviders } from "@/lib/useHumanProviders";
 
 import HeroSection from "./_components/HeroSection";
 import SkillCategoryGrid from "./_components/SkillCategoryGrid";
@@ -75,15 +75,17 @@ export default function RentAHumanPage() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [hireTarget, setHireTarget] = useState<HumanProvider | null>(null);
 
+  const { providers, isLoading } = useHumanProviders();
+
   const filteredHumans = useMemo(
-    () => applyFilters(MOCK_HUMANS, search, category, region, locationSearch),
-    [search, category, region, locationSearch]
+    () => applyFilters(providers, search, category, region, locationSearch),
+    [providers, search, category, region, locationSearch]
   );
 
   return (
     <motion.div initial="hidden" animate="show" variants={stagger}>
       <HeroSection onPostTask={() => setShowTaskModal(true)} />
-      <SkillCategoryGrid selected={category} onSelect={setCategory} />
+      <SkillCategoryGrid selected={category} onSelect={setCategory} providers={providers} />
       <LocationFilter
         selectedRegion={region}
         onRegionChange={setRegion}
@@ -95,15 +97,31 @@ export default function RentAHumanPage() {
       {/* Results count */}
       <motion.div variants={fadeUp} className="mb-3">
         <p className="text-xs text-text-tertiary">
-          {filteredHumans.length} provider
-          {filteredHumans.length !== 1 ? "s" : ""} found
+          {isLoading ? "Loading..." : `${filteredHumans.length} provider${filteredHumans.length !== 1 ? "s" : ""} found`}
         </p>
       </motion.div>
 
       {/* Grid */}
       <motion.div variants={fadeUp} id="human-grid">
         <AnimatePresence mode="wait">
-          {filteredHumans.length === 0 ? (
+          {isLoading ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+            >
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="card p-5 animate-pulse">
+                  <div className="h-10 w-10 bg-surface-3 rounded-full mb-3" />
+                  <div className="h-4 bg-surface-3 rounded w-2/3 mb-2" />
+                  <div className="h-3 bg-surface-3 rounded w-full mb-2" />
+                  <div className="h-3 bg-surface-3 rounded w-1/2" />
+                </div>
+              ))}
+            </motion.div>
+          ) : filteredHumans.length === 0 ? (
             <motion.div
               key="empty"
               initial={{ opacity: 0 }}
@@ -136,7 +154,7 @@ export default function RentAHumanPage() {
               <p className="text-xs text-text-tertiary mt-1">
                 {search || category !== "all" || region !== "all" || locationSearch
                   ? ""
-                  : "Register as a provider through the Staking page to appear here."}
+                  : "Post a physical task listing to appear here as a provider."}
               </p>
               {(search || category !== "all" || region !== "all" || locationSearch) && (
                 <button

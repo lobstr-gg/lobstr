@@ -1,7 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MOCK_HUMANS } from "@/app/rent-a-human/_data/mockHumans";
 import type { HumanProvider, TaskCategory, RegionCode } from "@/app/rent-a-human/_data/types";
 import { continentToRegion } from "@/app/rent-a-human/_data/types";
+import { fetchListings, isIndexerConfigured, type IndexerListing } from "@/lib/indexer";
+import { formatEther } from "viem";
+
+const PHYSICAL_TASK_CATEGORY = 9;
+
+function mapListingToHumanProvider(listing: IndexerListing): HumanProvider {
+  let meta: Record<string, unknown> = {};
+  try {
+    if (listing.metadataURI) meta = JSON.parse(listing.metadataURI);
+  } catch { /* ignore */ }
+
+  const addr = listing.provider;
+  const shortAddr = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const price = Number(formatEther(BigInt(listing.pricePerUnit)));
+  const tags = (meta.tags as string[]) ?? [];
+  const skills = tags.length > 0
+    ? tags.map((t: string) => t.charAt(0).toUpperCase() + t.slice(1))
+    : ["Physical Tasks"];
+
+  const categoryMap: Record<string, TaskCategory> = {
+    "errands": "Errands & Delivery", "delivery": "Errands & Delivery",
+    "document": "Document & Legal", "legal": "Document & Legal",
+    "research": "Field Research", "field": "Field Research",
+    "photography": "Photography & Video", "photo": "Photography & Video", "video": "Photography & Video",
+    "hardware": "Hardware & Setup", "setup": "Hardware & Setup",
+    "meeting": "Meetings & Events", "event": "Meetings & Events",
+    "testing": "Testing & QA", "qa": "Testing & QA",
+  };
+
+  const categories: TaskCategory[] = [];
+  for (const tag of tags) {
+    const lower = tag.toLowerCase();
+    for (const [key, cat] of Object.entries(categoryMap)) {
+      if (lower.includes(key) && !categories.includes(cat)) categories.push(cat);
+    }
+  }
+  if (categories.length === 0) categories.push("Other Physical");
+
+  return {
+    id: listing.id,
+    name: (meta.providerName as string) ?? shortAddr,
+    address: addr,
+    avatar: shortAddr,
+    bio: listing.description || "Physical task provider",
+    skills,
+    categories,
+    location: (meta.location as string) ?? "Remote",
+    locationInfo: {
+      city: (meta.city as string) ?? "Unknown",
+      region: (meta.region as string) ?? "Unknown",
+      country: (meta.country as string) ?? "Unknown",
+      countryCode: (meta.countryCode as string) ?? "XX",
+      continent: (meta.continent as "North America") ?? "North America",
+    },
+    timezone: (meta.timezone as string) ?? "UTC",
+    hourlyRate: price,
+    flatRates: {},
+    availability: listing.active ? "available" : "offline",
+    responseTime: "--",
+    completions: 0,
+    rating: 0,
+    reputationScore: 0,
+    reputationTier: "Bronze",
+    verified: false,
+    joinedAt: Number(listing.createdAt) * 1000,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -16,7 +82,19 @@ export async function GET(request: NextRequest) {
     ? parseFloat(searchParams.get("maxRate")!)
     : null;
 
-  let results: HumanProvider[] = MOCK_HUMANS;
+  let results: HumanProvider[] = [];
+
+  // Fetch from indexer if configured
+  if (isIndexerConfigured()) {
+    try {
+      const allListings = await fetchListings();
+      results = allListings
+        .filter((l) => l.category === PHYSICAL_TASK_CATEGORY && l.active)
+        .map(mapListingToHumanProvider);
+    } catch {
+      // Indexer unavailable — return empty
+    }
+  }
 
   if (skill) {
     results = results.filter(

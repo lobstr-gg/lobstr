@@ -7,9 +7,7 @@ import {
   getVotesForItem,
   setVote,
   removeVote,
-  getUserByAddress,
-  updateUser,
-  getAllPostsByAuthor,
+  incrementUserKarma,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
@@ -82,22 +80,19 @@ export async function POST(
     }
   }
 
+  const oldScore = post.score;
   post.score = post.upvotes - post.downvotes;
+  const scoreDelta = post.score - oldScore;
+
   await updatePost(params.id, {
     upvotes: post.upvotes,
     downvotes: post.downvotes,
     score: post.score,
   });
 
-  // Update author karma
-  const author = await getUserByAddress(post.author);
-  if (author) {
-    const authorPosts = await getAllPostsByAuthor(author.address);
-    const postKarma = authorPosts.reduce((sum, p) => sum + p.score, 0);
-    await updateUser(author.address, {
-      postKarma,
-      karma: postKarma + author.commentKarma,
-    }, { unsafe: true });
+  // Atomic karma update — O(1) instead of fetching all posts
+  if (scoreDelta !== 0) {
+    await incrementUserKarma(post.author, "postKarma", scoreDelta);
   }
 
   return NextResponse.json({

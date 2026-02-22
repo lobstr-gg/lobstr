@@ -3,8 +3,11 @@ import { randomUUID } from "crypto";
 import { createBooking } from "@/lib/firestore-store";
 import { requireAuth } from "@/lib/forum-auth";
 import { isWalletBanned } from "@/lib/upload-security";
-import { MOCK_HUMANS } from "@/app/rent-a-human/_data/mockHumans";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
+import { fetchListings, isIndexerConfigured } from "@/lib/indexer";
+
+/** Physical Task category in ServiceRegistry */
+const PHYSICAL_TASK_CATEGORY = 9;
 
 export async function POST(request: NextRequest) {
   const limited = rateLimit(`book:${getIPKey(request)}`, 60_000, 5);
@@ -75,12 +78,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const human = MOCK_HUMANS.find((h) => h.id === humanId);
-  if (!human) {
-    return NextResponse.json(
-      { error: `Human with id "${humanId}" not found` },
-      { status: 404 }
-    );
+  // Validate humanId against real on-chain listings
+  let providerName = humanId;
+  let providerLocation = "Remote";
+
+  if (isIndexerConfigured()) {
+    try {
+      const listings = await fetchListings();
+      const listing = listings.find(
+        (l) => l.id === humanId && l.category === PHYSICAL_TASK_CATEGORY && l.active
+      );
+      if (!listing) {
+        return NextResponse.json(
+          { error: `Provider listing "${humanId}" not found or inactive` },
+          { status: 404 }
+        );
+      }
+      providerName = `${listing.provider.slice(0, 6)}...${listing.provider.slice(-4)}`;
+      try {
+        const meta = JSON.parse(listing.metadataURI);
+        providerName = (meta.providerName as string) ?? providerName;
+        providerLocation = (meta.location as string) ?? providerLocation;
+      } catch {
+        // metadataURI may not be JSON
+      }
+    } catch {
+      // Indexer fetch failed — allow booking anyway (soft validation)
+    }
   }
 
   const bookingId = `hb_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
@@ -101,9 +125,9 @@ export async function POST(request: NextRequest) {
     bookingId,
     status: "pending",
     human: {
-      id: human.id,
-      name: human.name,
-      location: human.location,
+      id: humanId,
+      name: providerName,
+      location: providerLocation,
     },
   });
 }

@@ -711,6 +711,21 @@ export async function nextId(
   return `${PREFIXES[kind]}${newId}`;
 }
 
+// ── Atomic karma increment ───────────────────────────────
+
+export async function incrementUserKarma(
+  address: string,
+  field: "postKarma" | "commentKarma",
+  delta: number
+): Promise<void> {
+  if (delta === 0) return;
+  const ref = col("users").doc(address);
+  await ref.update({
+    [field]: FieldValue.increment(delta),
+    karma: FieldValue.increment(delta),
+  });
+}
+
 // ── Posts for author ─────────────────────────────────────────
 
 export async function getPostsByAuthor(
