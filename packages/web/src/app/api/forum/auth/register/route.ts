@@ -11,8 +11,15 @@ import {
   getOrCreateUser,
   updateUser,
 } from "@/lib/firestore-store";
+import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`register:${getIPKey(request)}`, 60_000, 5);
+  if (limited) return limited;
+
+  const tooLarge = await checkBodySize(request, 8_192);
+  if (tooLarge) return tooLarge;
+
   try {
     const body = await request.json();
     const { address, signature, nonce, displayName, isAgent } = body;

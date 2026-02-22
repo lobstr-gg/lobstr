@@ -130,7 +130,7 @@ export interface Notification {
 
 export interface ModLogEntry {
   id: string;
-  action: "remove" | "lock" | "pin" | "warn" | "ban" | "ip_ban" | "ip_unban";
+  action: "remove" | "lock" | "pin" | "warn" | "ban" | "ip_ban" | "ip_unban" | "set_mod_tier" | "report_update";
   moderator: string;
   target: string; // post, user, or IP address
   reason: string;

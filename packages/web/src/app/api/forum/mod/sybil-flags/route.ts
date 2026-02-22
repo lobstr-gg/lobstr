@@ -47,6 +47,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate array contents
+  if (!signals.every((s: unknown) => typeof s === "string" && s.length <= 200) || signals.length > 50) {
+    return NextResponse.json(
+      { error: "signals must be an array of strings (max 50 items, 200 chars each)" },
+      { status: 400 }
+    );
+  }
+
+  if (txHashes !== undefined && (!Array.isArray(txHashes) || !txHashes.every((h: unknown) => typeof h === "string" && /^0x[a-fA-F0-9]{64}$/.test(h as string)) || txHashes.length > 100)) {
+    return NextResponse.json(
+      { error: "txHashes must be an array of valid transaction hashes (max 100)" },
+      { status: 400 }
+    );
+  }
+
   await createSybilFlag({
     address,
     signals,

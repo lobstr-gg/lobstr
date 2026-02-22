@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/forum-auth";
-import { rateLimit, getIPKey } from "@/lib/rate-limit";
+import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 import {
   blockUser,
   unblockUser,
@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const limited = rateLimit(`block:${getIPKey(request)}`, 60_000, 15);
   if (limited) return limited;
+
+  const tooLarge = await checkBodySize(request, 4_096);
+  if (tooLarge) return tooLarge;
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
@@ -57,6 +60,9 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/forum/users/block — unblock a user
 export async function DELETE(request: NextRequest) {
+  const limited = rateLimit(`unblock:${getIPKey(request)}`, 60_000, 15);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

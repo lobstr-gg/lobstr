@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isModerator } from "@/lib/forum-auth";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
-import { getReports, updateReportStatus } from "@/lib/firestore-store";
+import { getReports, updateReportStatus, createModLogEntry, nextId } from "@/lib/firestore-store";
+import type { ModLogEntry } from "@/lib/forum-types";
 
 // GET /api/forum/mod/reports — fetch pending reports (mod-only)
 export async function GET(request: NextRequest) {
@@ -56,5 +57,17 @@ export async function PATCH(request: NextRequest) {
   }
 
   await updateReportStatus(id, status);
+
+  // Audit log
+  const entry: ModLogEntry = {
+    id: await nextId("modLog"),
+    action: "report_update",
+    moderator: auth.address,
+    target: id,
+    reason: `Report status set to ${status}`,
+    createdAt: Date.now(),
+  };
+  await createModLogEntry(entry);
+
   return NextResponse.json({ ok: true });
 }

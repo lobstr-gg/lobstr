@@ -26,9 +26,24 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { address, signals, txHashes, score } = body;
 
-  if (!address) {
+  if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return NextResponse.json(
-      { error: "Missing required field: address" },
+      { error: "Missing or invalid address" },
+      { status: 400 }
+    );
+  }
+
+  // Validate optional arrays
+  if (signals !== undefined && (!Array.isArray(signals) || !signals.every((s: unknown) => typeof s === "string"))) {
+    return NextResponse.json(
+      { error: "signals must be an array of strings" },
+      { status: 400 }
+    );
+  }
+
+  if (txHashes !== undefined && (!Array.isArray(txHashes) || !txHashes.every((h: unknown) => typeof h === "string"))) {
+    return NextResponse.json(
+      { error: "txHashes must be an array of strings" },
       { status: 400 }
     );
   }

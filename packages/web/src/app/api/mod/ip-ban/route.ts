@@ -38,10 +38,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // IP format validation (IPv4 or IPv6)
-  const ipv4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
-  const ipv6 = /^[0-9a-fA-F:]{3,45}$/;
-  if (!ipv4.test(ip) && !ipv6.test(ip)) {
+  // IP format validation (IPv4 with octet range check, or IPv6)
+  const ipv4Match = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  const ipv6 = /^([0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}$|^::([0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}$|^([0-9a-fA-F]{1,4}:){1,6}:$/;
+  if (ipv4Match) {
+    const octets = [ipv4Match[1], ipv4Match[2], ipv4Match[3], ipv4Match[4]];
+    if (octets.some((o) => parseInt(o, 10) > 255)) {
+      return NextResponse.json(
+        { error: "Invalid IP address: octets must be 0-255" },
+        { status: 400 }
+      );
+    }
+  } else if (!ipv6.test(ip)) {
     return NextResponse.json(
       { error: "Invalid IP address format" },
       { status: 400 }

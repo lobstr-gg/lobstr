@@ -54,6 +54,10 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
           FIREBASE_CLI_EXPERIMENTS: webframeworks
 
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f /tmp/firebase-sa.json packages/web/.env.local
+
   deploy-indexer:
     name: Deploy Indexer to Railway
     runs-on: ubuntu-latest

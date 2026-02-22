@@ -36,6 +36,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const limited = rateLimit(`post-delete:${getIPKey(request)}`, 60_000, 15);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

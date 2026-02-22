@@ -3,6 +3,7 @@ import { getStorage } from "firebase-admin/storage";
 import { requireAuth } from "@/lib/forum-auth";
 import { getDb } from "@/lib/firebase-admin";
 import { verifyDisputeAccess } from "@/lib/dispute-access";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 /**
  * GET /api/disputes/[id]/evidence
@@ -18,6 +19,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimit(`evidence:${getIPKey(request)}`, 60_000, 20);
+  if (limited) return limited;
+
   // 1. Require authentication
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
