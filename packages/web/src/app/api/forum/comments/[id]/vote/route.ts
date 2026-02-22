@@ -3,11 +3,11 @@ import { requireAuth } from "@/lib/forum-auth";
 import { isWalletBanned } from "@/lib/upload-security";
 import {
   findCommentGlobally,
-  updateComment,
   getVotesForItem,
   setVote,
   removeVote,
   incrementUserKarma,
+  incrementCommentVotes,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
@@ -54,49 +54,40 @@ export async function POST(
   const votes = await getVotesForItem(params.id);
   const existing = votes[auth.address];
 
+  // Compute atomic deltas instead of read-modify-write
+  let upDelta = 0;
+  let downDelta = 0;
+
   if (existing === voteDir) {
+    // Toggle off
     await removeVote(params.id, auth.address);
-    if (voteDir === 1) {
-      comment.upvotes -= 1;
-    } else {
-      comment.downvotes -= 1;
-    }
+    if (voteDir === 1) upDelta = -1;
+    else downDelta = -1;
   } else if (existing) {
+    // Swap direction
     await setVote(params.id, auth.address, voteDir as 1 | -1);
-    if (voteDir === 1) {
-      comment.upvotes += 1;
-      comment.downvotes -= 1;
-    } else {
-      comment.upvotes -= 1;
-      comment.downvotes += 1;
-    }
+    if (voteDir === 1) { upDelta = 1; downDelta = -1; }
+    else { upDelta = -1; downDelta = 1; }
   } else {
+    // New vote
     await setVote(params.id, auth.address, voteDir as 1 | -1);
-    if (voteDir === 1) {
-      comment.upvotes += 1;
-    } else {
-      comment.downvotes += 1;
-    }
+    if (voteDir === 1) upDelta = 1;
+    else downDelta = 1;
   }
 
-  const oldScore = comment.score;
-  comment.score = comment.upvotes - comment.downvotes;
-  const scoreDelta = comment.score - oldScore;
+  // Atomic increment — prevents race conditions from concurrent votes
+  await incrementCommentVotes(postId, params.id, upDelta, downDelta);
 
-  await updateComment(postId, params.id, {
-    upvotes: comment.upvotes,
-    downvotes: comment.downvotes,
-    score: comment.score,
-  });
-
-  // Atomic karma update — O(1) instead of fetching all comments
+  // Atomic karma update
+  const scoreDelta = upDelta - downDelta;
   if (scoreDelta !== 0) {
     await incrementUserKarma(comment.author, "commentKarma", scoreDelta);
   }
 
+  // Return updated counts (best-effort, may be slightly stale under high concurrency)
   return NextResponse.json({
-    upvotes: comment.upvotes,
-    downvotes: comment.downvotes,
-    score: comment.score,
+    upvotes: comment.upvotes + upDelta,
+    downvotes: comment.downvotes + downDelta,
+    score: comment.score + scoreDelta,
   });
 }

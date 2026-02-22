@@ -187,6 +187,18 @@ export async function updatePost(
   await col("posts").doc(id).update(data);
 }
 
+export async function incrementPostVotes(
+  id: string,
+  upDelta: number,
+  downDelta: number
+): Promise<void> {
+  await col("posts").doc(id).update({
+    upvotes: FieldValue.increment(upDelta),
+    downvotes: FieldValue.increment(downDelta),
+    score: FieldValue.increment(upDelta - downDelta),
+  });
+}
+
 export async function deletePost(id: string): Promise<void> {
   await col("posts").doc(id).delete();
 }
@@ -238,6 +250,23 @@ export async function updateComment(
     .collection("comments")
     .doc(commentId)
     .update(data);
+}
+
+export async function incrementCommentVotes(
+  postId: string,
+  commentId: string,
+  upDelta: number,
+  downDelta: number
+): Promise<void> {
+  await col("posts")
+    .doc(postId)
+    .collection("comments")
+    .doc(commentId)
+    .update({
+      upvotes: FieldValue.increment(upDelta),
+      downvotes: FieldValue.increment(downDelta),
+      score: FieldValue.increment(upDelta - downDelta),
+    });
 }
 
 // ── Comment by ID (search across posts — for comment voting) ─

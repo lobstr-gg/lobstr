@@ -3,11 +3,11 @@ import { requireAuth } from "@/lib/forum-auth";
 import { isWalletBanned } from "@/lib/upload-security";
 import {
   getPostById,
-  updatePost,
   getVotesForItem,
   setVote,
   removeVote,
   incrementUserKarma,
+  incrementPostVotes,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
@@ -52,52 +52,40 @@ export async function POST(
   const votes = await getVotesForItem(params.id);
   const existing = votes[auth.address];
 
+  // Compute atomic deltas instead of read-modify-write
+  let upDelta = 0;
+  let downDelta = 0;
+
   if (existing === voteDir) {
     // Toggle off
     await removeVote(params.id, auth.address);
-    if (voteDir === 1) {
-      post.upvotes -= 1;
-    } else {
-      post.downvotes -= 1;
-    }
+    if (voteDir === 1) upDelta = -1;
+    else downDelta = -1;
   } else if (existing) {
     // Swap direction
     await setVote(params.id, auth.address, voteDir as 1 | -1);
-    if (voteDir === 1) {
-      post.upvotes += 1;
-      post.downvotes -= 1;
-    } else {
-      post.upvotes -= 1;
-      post.downvotes += 1;
-    }
+    if (voteDir === 1) { upDelta = 1; downDelta = -1; }
+    else { upDelta = -1; downDelta = 1; }
   } else {
     // New vote
     await setVote(params.id, auth.address, voteDir as 1 | -1);
-    if (voteDir === 1) {
-      post.upvotes += 1;
-    } else {
-      post.downvotes += 1;
-    }
+    if (voteDir === 1) upDelta = 1;
+    else downDelta = 1;
   }
 
-  const oldScore = post.score;
-  post.score = post.upvotes - post.downvotes;
-  const scoreDelta = post.score - oldScore;
+  // Atomic increment — prevents race conditions from concurrent votes
+  await incrementPostVotes(params.id, upDelta, downDelta);
 
-  await updatePost(params.id, {
-    upvotes: post.upvotes,
-    downvotes: post.downvotes,
-    score: post.score,
-  });
-
-  // Atomic karma update — O(1) instead of fetching all posts
+  // Atomic karma update
+  const scoreDelta = upDelta - downDelta;
   if (scoreDelta !== 0) {
     await incrementUserKarma(post.author, "postKarma", scoreDelta);
   }
 
+  // Return updated counts (best-effort, may be slightly stale under high concurrency)
   return NextResponse.json({
-    upvotes: post.upvotes,
-    downvotes: post.downvotes,
-    score: post.score,
+    upvotes: post.upvotes + upDelta,
+    downvotes: post.downvotes + downDelta,
+    score: post.score + scoreDelta,
   });
 }

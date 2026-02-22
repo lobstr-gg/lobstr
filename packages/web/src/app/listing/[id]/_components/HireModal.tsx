@@ -84,12 +84,23 @@ export default function HireModal({
   const [jobTxHash, setJobTxHash] = useState<Address | undefined>();
   const [bridgeJobId, setBridgeJobId] = useState<string | undefined>();
 
-  const { isLoading: waitingApproval } = useWaitForTransactionReceipt({
+  const { isLoading: waitingApproval, isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
     query: {
       enabled: !!txHash,
     },
   });
+
+  // Auto-advance to create step once tx receipt confirms
+  const [approvalProcessed, setApprovalProcessed] = useState(false);
+  if (approvalConfirmed && !approvalProcessed) {
+    setApprovalProcessed(true);
+    // Refetch allowance after confirmed receipt, then advance
+    (useX402 ? refetchUSDCAllowance() : refetchAllowance()).then(() => {
+      setStep("create");
+      setLoading(false);
+    });
+  }
 
   const needsApproval = useX402
     ? !usdcAllowance || usdcAllowance < usdcAmount
@@ -100,14 +111,11 @@ export default function HireModal({
       if (!bridgeAddress || !usdcAddress) return;
       setLoading(true);
       setError(null);
+      setApprovalProcessed(false);
       try {
         const hash = await approveToken(usdcAddress, bridgeAddress, usdcAmount);
         setTxHash(hash);
-        setTimeout(async () => {
-          await refetchUSDCAllowance();
-          setStep("create");
-          setLoading(false);
-        }, 3000);
+        // useWaitForTransactionReceipt will handle the rest
       } catch (err) {
         setError(err instanceof Error ? err.message : "Approval failed");
         setLoading(false);
@@ -116,14 +124,11 @@ export default function HireModal({
       if (!escrowAddress) return;
       setLoading(true);
       setError(null);
+      setApprovalProcessed(false);
       try {
         const hash = await approveToken(token, escrowAddress, amount);
         setTxHash(hash);
-        setTimeout(async () => {
-          await refetchAllowance();
-          setStep("create");
-          setLoading(false);
-        }, 3000);
+        // useWaitForTransactionReceipt will handle the rest
       } catch (err) {
         setError(err instanceof Error ? err.message : "Approval failed");
         setLoading(false);
@@ -179,6 +184,7 @@ export default function HireModal({
     setTxHash(undefined);
     setJobTxHash(undefined);
     setBridgeJobId(undefined);
+    setApprovalProcessed(false);
   };
 
   if (!open) return null;

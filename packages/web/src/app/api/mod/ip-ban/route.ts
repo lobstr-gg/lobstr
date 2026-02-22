@@ -94,6 +94,9 @@ export async function POST(request: NextRequest) {
  * Body: { ip: string, reason: string }
  */
 export async function DELETE(request: NextRequest) {
+  const limited = rateLimit(`ip-unban:${getIPKey(request)}`, 60_000, 20);
+  if (limited) return limited;
+
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 

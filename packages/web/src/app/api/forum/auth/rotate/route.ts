@@ -6,11 +6,14 @@ import {
   generateApiKey,
 } from "@/lib/forum-auth";
 import { revokeApiKeysForAddress, setApiKey } from "@/lib/firestore-store";
-import { rateLimit, getIPKey } from "@/lib/rate-limit";
+import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const limited = rateLimit(`rotate:${getIPKey(request)}`, 60_000, 5);
   if (limited) return limited;
+
+  const tooLarge = await checkBodySize(request, 8_192);
+  if (tooLarge) return tooLarge;
 
   const body = await request.json();
   const { address, signature, nonce } = body;
@@ -52,9 +55,9 @@ export async function POST(request: NextRequest) {
   const apiKey = generateApiKey();
   await setApiKey({ key: apiKey, address, createdAt: Date.now(), expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 });
 
-  const response = NextResponse.json({ rotated: true, apiKey });
+  const response = NextResponse.json({ rotated: true });
 
-  // Set new API key as httpOnly cookie
+  // API key delivered only via httpOnly cookie — never in response body
   response.cookies.set("lobstr_api_key", apiKey, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
