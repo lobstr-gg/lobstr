@@ -12,6 +12,7 @@ import {
   DisputeArbitrationABI,
   TreasuryGovernorABI,
   SybilGuardABI,
+  X402EscrowBridgeABI,
 } from "@/config/abis";
 
 function useContracts() {
@@ -578,6 +579,86 @@ export function useVoteOnDispute() {
       abi: DisputeArbitrationABI,
       functionName: "vote",
       args: [disputeId, favorBuyer],
+    });
+  };
+}
+
+// --- X402 Escrow Bridge ---
+
+export function useJobPayer(jobId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.x402EscrowBridge,
+    abi: X402EscrowBridgeABI,
+    functionName: "jobPayer",
+    args: jobId !== undefined ? [jobId] : undefined,
+    query: { enabled: jobId !== undefined && !!contracts },
+  });
+}
+
+export function useJobRefundCredit(jobId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.x402EscrowBridge,
+    abi: X402EscrowBridgeABI,
+    functionName: "jobRefundCredit",
+    args: jobId !== undefined ? [jobId] : undefined,
+    query: { enabled: jobId !== undefined && !!contracts },
+  });
+}
+
+export function useRefundClaimed(jobId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.x402EscrowBridge,
+    abi: X402EscrowBridgeABI,
+    functionName: "refundClaimed",
+    args: jobId !== undefined ? [jobId] : undefined,
+    query: { enabled: jobId !== undefined && !!contracts },
+  });
+}
+
+export function useBridgeConfirmDelivery() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (jobId: bigint) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.x402EscrowBridge,
+      abi: X402EscrowBridgeABI,
+      functionName: "confirmDelivery",
+      args: [jobId],
+    });
+  };
+}
+
+export function useBridgeInitiateDispute() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (jobId: bigint, evidenceURI: string) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.x402EscrowBridge,
+      abi: X402EscrowBridgeABI,
+      functionName: "initiateDispute",
+      args: [jobId, evidenceURI],
+    });
+  };
+}
+
+export function useClaimEscrowRefund() {
+  const { writeContractAsync } = useWriteContract();
+  const contracts = useContracts();
+
+  return async (jobId: bigint) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.x402EscrowBridge,
+      abi: X402EscrowBridgeABI,
+      functionName: "claimEscrowRefund",
+      args: [jobId],
     });
   };
 }

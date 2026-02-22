@@ -13,6 +13,18 @@ import {
 import * as ui from 'openclaw';
 import { JOB_STATUS, formatLob, CATEGORY_NAMES } from '../lib/format';
 
+// X402 Escrow Bridge — deployed on Base mainnet
+const BRIDGE_ADDRESS = '0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0' as const;
+const BRIDGE_ABI = parseAbi([
+  'function jobPayer(uint256) view returns (address)',
+  'function confirmDelivery(uint256 jobId)',
+  'function initiateDispute(uint256 jobId, string evidenceURI)',
+  'function claimEscrowRefund(uint256 jobId)',
+  'function jobRefundCredit(uint256) view returns (uint256)',
+  'function refundClaimed(uint256) view returns (bool)',
+]);
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 export function registerJobCommands(program: Command): void {
   const job = program
     .command('job')
@@ -135,15 +147,35 @@ export function registerJobCommands(program: Command): void {
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
 
-        const tx = await walletClient.writeContract({
-          address: escrowAddr,
-          abi: escrowAbi,
-          functionName: 'confirmDelivery',
+        // Check if this is a bridge job
+        const bridgePayer = await publicClient.readContract({
+          address: BRIDGE_ADDRESS,
+          abi: BRIDGE_ABI,
+          functionName: 'jobPayer',
           args: [BigInt(id)],
         });
+        const isBridgeJob = bridgePayer !== ZERO_ADDRESS;
+
+        let tx: `0x${string}`;
+        if (isBridgeJob) {
+          spin.text = 'Confirming via x402 bridge...';
+          tx = await walletClient.writeContract({
+            address: BRIDGE_ADDRESS,
+            abi: BRIDGE_ABI,
+            functionName: 'confirmDelivery',
+            args: [BigInt(id)],
+          });
+        } else {
+          tx = await walletClient.writeContract({
+            address: escrowAddr,
+            abi: escrowAbi,
+            functionName: 'confirmDelivery',
+            args: [BigInt(id)],
+          });
+        }
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed(`Delivery confirmed for job #${id}`);
+        spin.succeed(`Delivery confirmed for job #${id}${isBridgeJob ? ' (x402)' : ''}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -165,15 +197,98 @@ export function registerJobCommands(program: Command): void {
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
 
+        // Check if this is a bridge job
+        const bridgePayer = await publicClient.readContract({
+          address: BRIDGE_ADDRESS,
+          abi: BRIDGE_ABI,
+          functionName: 'jobPayer',
+          args: [BigInt(id)],
+        });
+        const isBridgeJob = bridgePayer !== ZERO_ADDRESS;
+
+        let tx: `0x${string}`;
+        if (isBridgeJob) {
+          spin.text = 'Initiating dispute via x402 bridge...';
+          tx = await walletClient.writeContract({
+            address: BRIDGE_ADDRESS,
+            abi: BRIDGE_ABI,
+            functionName: 'initiateDispute',
+            args: [BigInt(id), opts.evidence],
+          });
+        } else {
+          tx = await walletClient.writeContract({
+            address: escrowAddr,
+            abi: escrowAbi,
+            functionName: 'initiateDispute',
+            args: [BigInt(id), opts.evidence],
+          });
+        }
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Dispute initiated for job #${id}${isBridgeJob ? ' (x402)' : ''}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  job
+    .command('refund <id>')
+    .description('Claim escrow refund for a resolved x402 dispute')
+    .action(async (id: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const spin = ui.spinner('Checking refund eligibility...');
+
+        // Verify this is a bridge job with a refund credit
+        const [bridgePayer, credit, claimed] = await Promise.all([
+          publicClient.readContract({
+            address: BRIDGE_ADDRESS,
+            abi: BRIDGE_ABI,
+            functionName: 'jobPayer',
+            args: [BigInt(id)],
+          }),
+          publicClient.readContract({
+            address: BRIDGE_ADDRESS,
+            abi: BRIDGE_ABI,
+            functionName: 'jobRefundCredit',
+            args: [BigInt(id)],
+          }),
+          publicClient.readContract({
+            address: BRIDGE_ADDRESS,
+            abi: BRIDGE_ABI,
+            functionName: 'refundClaimed',
+            args: [BigInt(id)],
+          }),
+        ]);
+
+        if (bridgePayer === ZERO_ADDRESS) {
+          spin.fail('Not a bridge job');
+          return;
+        }
+        if (claimed) {
+          spin.fail('Refund already claimed');
+          return;
+        }
+        if (credit === 0n) {
+          spin.fail('No refund credit available');
+          return;
+        }
+
+        spin.text = 'Claiming refund...';
         const tx = await walletClient.writeContract({
-          address: escrowAddr,
-          abi: escrowAbi,
-          functionName: 'initiateDispute',
-          args: [BigInt(id), opts.evidence],
+          address: BRIDGE_ADDRESS,
+          abi: BRIDGE_ABI,
+          functionName: 'claimEscrowRefund',
+          args: [BigInt(id)],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed(`Dispute initiated for job #${id}`);
+        spin.succeed(`Refund claimed for job #${id}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -214,9 +329,30 @@ export function registerJobCommands(program: Command): void {
           deliveryMetadataURI: jobResult.deliveryMetadataURI ?? jobResult[10],
         };
 
-        spin.succeed(`Job #${id}`);
+        // Check if this is a bridge job
+        let isBridgeJob = false;
+        let realPayer = '';
+        try {
+          const bridgePayer = await publicClient.readContract({
+            address: BRIDGE_ADDRESS,
+            abi: BRIDGE_ABI,
+            functionName: 'jobPayer',
+            args: [BigInt(id)],
+          });
+          if (bridgePayer !== ZERO_ADDRESS) {
+            isBridgeJob = true;
+            realPayer = bridgePayer;
+          }
+        } catch { /* bridge not available or job not a bridge job */ }
+
+        spin.succeed(`Job #${id}${isBridgeJob ? ' (x402)' : ''}`);
         console.log(`  Listing:  #${jobData.listingId}`);
-        console.log(`  Buyer:    ${jobData.buyer}`);
+        if (isBridgeJob) {
+          console.log(`  Payer:    ${realPayer} (via x402 bridge)`);
+          console.log(`  Bridge:   ${jobData.buyer}`);
+        } else {
+          console.log(`  Buyer:    ${jobData.buyer}`);
+        }
         console.log(`  Seller:   ${jobData.seller}`);
         console.log(`  Amount:   ${formatLob(jobData.amount)}`);
         console.log(`  Fee:      ${formatLob(jobData.fee)}`);

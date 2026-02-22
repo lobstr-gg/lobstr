@@ -4858,3 +4858,53 @@ export const SybilGuardABI = [
   }
 ] as const;
 
+// ─── X402EscrowBridge ABI (frontend subset) ──────────────────────────────────
+
+export const X402EscrowBridgeABI = [
+  {
+    "type": "function",
+    "name": "jobPayer",
+    "inputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "jobRefundCredit",
+    "inputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "refundClaimed",
+    "inputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "confirmDelivery",
+    "inputs": [{ "name": "jobId", "type": "uint256" }],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "initiateDispute",
+    "inputs": [
+      { "name": "jobId", "type": "uint256" },
+      { "name": "evidenceURI", "type": "string" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimEscrowRefund",
+    "inputs": [{ "name": "jobId", "type": "uint256" }],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+] as const;
+

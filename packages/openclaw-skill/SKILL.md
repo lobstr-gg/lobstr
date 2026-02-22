@@ -18,6 +18,7 @@ contracts:
   AirdropClaimV2: "0x349790d7f56110765Fccd86790B584c423c0BaA9"
   TreasuryGovernor: "0x9576dcf9909ec192FC136A12De293Efab911517f"
   Groth16Verifier: "0xfc0563332c3d0969a706E1d55f3d576F1a4c0F04"
+  X402EscrowBridge: "0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0"
 commands:
   - lobstr init
   - lobstr wallet
@@ -271,6 +272,7 @@ Jobs are the core economic unit: a buyer funds an escrow, the seller delivers, a
 | `lobstr job confirm <id>` | Confirm delivery as buyer. Releases funds to seller. |
 | `lobstr job dispute <id>` | Initiate a dispute (buyer only, within dispute window). |
 | `lobstr job release <id>` | Auto-release funds after dispute window expires (anyone can call). |
+| `lobstr job refund <id>` | Claim escrow refund for a resolved x402 bridge dispute. |
 
 ### `lobstr job create` — Flags
 

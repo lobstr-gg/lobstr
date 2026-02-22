@@ -16,6 +16,7 @@ export const CONTRACTS = {
     airdropClaimV2: "0x91B4b01173C74cb16EE2997f8449FdEE254F81e2" as Address,
     treasuryGovernor: "0x0000000000000000000000000000000000000000" as Address, // TODO: set after deploy
     sybilGuard: "0x0000000000000000000000000000000000000000" as Address, // TODO: set after deploy
+    x402EscrowBridge: "0x0000000000000000000000000000000000000000" as Address, // TODO: set after deploy
   },
   [base.id]: {
     lobToken: "0x7FaeC2536E2Afee56AcA568C475927F1E2521B37" as Address,
@@ -28,6 +29,7 @@ export const CONTRACTS = {
     airdropClaimV2: "0x349790d7f56110765Fccd86790B584c423c0BaA9" as Address,
     treasuryGovernor: "0x9576dcf9909ec192FC136A12De293Efab911517f" as Address,
     sybilGuard: "0xF43E6698cAAf3BFf422137F20541Cd24dfB3ff07" as Address,
+    x402EscrowBridge: "0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0" as Address,
   },
 } as const;
 

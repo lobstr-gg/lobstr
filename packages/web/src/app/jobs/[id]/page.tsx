@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { stagger, fadeUp, ease } from "@/lib/motion";
-import { useJob } from "@/lib/hooks";
+import { useJob, useJobPayer } from "@/lib/hooks";
 import { formatEther } from "viem";
 import dynamic from "next/dynamic";
 
@@ -15,6 +15,10 @@ const DeliverySubmission = dynamic(
 );
 const DeliveryReview = dynamic(
   () => import("./_components/DeliveryReview"),
+  { ssr: false }
+);
+const BridgeRefundClaim = dynamic(
+  () => import("./_components/BridgeRefundClaim"),
   { ssr: false }
 );
 
@@ -62,6 +66,11 @@ export default function JobDetailPage() {
       }
     | undefined;
 
+  // x402 bridge detection — must be called before any early returns (React rules of hooks)
+  const { data: bridgePayer } = useJobPayer(
+    isValidId && job ? job.id : undefined
+  );
+
   if (!isValidId) {
     return (
       <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-24 text-center">
@@ -104,7 +113,10 @@ export default function JobDetailPage() {
     );
   }
 
-  const isBuyer = address?.toLowerCase() === job.buyer.toLowerCase();
+  const isBridgeJob = !!bridgePayer && bridgePayer !== "0x0000000000000000000000000000000000000000";
+  const isDirectBuyer = address?.toLowerCase() === job.buyer.toLowerCase();
+  const isBridgeBuyer = isBridgeJob && address?.toLowerCase() === (bridgePayer as string)?.toLowerCase();
+  const isBuyer = isDirectBuyer || isBridgeBuyer;
   const isSeller = address?.toLowerCase() === job.seller.toLowerCase();
   const statusNum = Number(job.status);
   const statusLabel = JOB_STATUS_LABELS[statusNum] ?? "Unknown";
@@ -140,6 +152,11 @@ export default function JobDetailPage() {
           >
             {statusLabel}
           </span>
+          {isBridgeJob && (
+            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-400/20">
+              x402
+            </span>
+          )}
           {isBuyer && (
             <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-400/20">
               Buyer
@@ -188,12 +205,16 @@ export default function JobDetailPage() {
           <h2 className="text-sm font-semibold text-text-primary mb-3">Parties</h2>
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-text-tertiary mb-1">Buyer</p>
+              <p className="text-xs text-text-tertiary mb-1">
+                Buyer{isBridgeJob ? " (x402 payer)" : ""}
+              </p>
               <Link
-                href={`/forum/u/${job.buyer}`}
+                href={`/forum/u/${isBridgeJob ? bridgePayer : job.buyer}`}
                 className="text-xs text-text-primary font-mono hover:text-lob-green transition-colors"
               >
-                {job.buyer.slice(0, 6)}...{job.buyer.slice(-4)}
+                {isBridgeJob
+                  ? `${(bridgePayer as string).slice(0, 6)}...${(bridgePayer as string).slice(-4)}`
+                  : `${job.buyer.slice(0, 6)}...${job.buyer.slice(-4)}`}
               </Link>
             </div>
             <div>
@@ -223,6 +244,7 @@ export default function JobDetailPage() {
             deliveryMetadataURI={job.deliveryMetadataURI}
             disputeWindowEnd={Number(job.disputeWindowEnd)}
             onConfirm={() => refetch()}
+            isBridgeJob={isBridgeJob}
           />
         )}
 
@@ -254,6 +276,11 @@ export default function JobDetailPage() {
               Delivery confirmed and funds released to seller.
             </p>
           </div>
+        )}
+
+        {/* Refund claim for resolved bridge disputes */}
+        {isBridgeJob && statusNum === 4 && isBuyer && (
+          <BridgeRefundClaim jobId={job.id} onClaim={() => refetch()} />
         )}
 
         {/* Disputed state */}

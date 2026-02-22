@@ -7,6 +7,7 @@ import { ReputationSystemABI } from "./abis/ReputationSystem";
 import { ServiceRegistryABI } from "./abis/ServiceRegistry";
 import { DisputeArbitrationABI } from "./abis/DisputeArbitration";
 import { EscrowEngineABI } from "./abis/EscrowEngine";
+import { X402EscrowBridgeABI } from "./abis/X402EscrowBridge";
 
 // Base Mainnet — deployed 2026-02-18, block 42300770
 const CONTRACTS = {
@@ -16,9 +17,11 @@ const CONTRACTS = {
   serviceRegistry: "0xa127B684935f1D24C7236ba1FbB3FF140F4eD3C3" as `0x${string}`,
   disputeArbitration: "0x00Ad7d299F4BF3aE8372f756b86B4dAf63eC3FAa" as `0x${string}`,
   escrowEngine: "0xBB57d0D0aB24122A87c9a28acdc242927e6189E0" as `0x${string}`,
+  x402EscrowBridge: "0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0" as `0x${string}`,
 };
 
 const START_BLOCK = 42300770;
+const BRIDGE_START_BLOCK = 42800000; // X402EscrowBridge deployed after core contracts
 
 export default createConfig({
   networks: {
@@ -63,6 +66,12 @@ export default createConfig({
       abi: EscrowEngineABI,
       address: CONTRACTS.escrowEngine,
       startBlock: START_BLOCK,
+    },
+    X402EscrowBridge: {
+      network: "baseMainnet",
+      abi: X402EscrowBridgeABI,
+      address: CONTRACTS.x402EscrowBridge,
+      startBlock: BRIDGE_START_BLOCK,
     },
   },
 });

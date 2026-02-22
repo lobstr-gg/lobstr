@@ -366,3 +366,26 @@ ponder.on(
       }));
   }
 );
+
+// ============================================
+// X402EscrowBridge Events
+// ============================================
+
+ponder.on("X402EscrowBridge:EscrowedJobCreated", async ({ event, context }) => {
+  const { db } = context;
+  const { x402Nonce, jobId, payer } = event.args;
+
+  // The EscrowEngine:JobCreated handler already inserted the job row.
+  // Annotate it with x402 bridge metadata.
+  await db.update(schema.job, { id: jobId }).set({
+    isX402: true,
+    x402Payer: payer,
+    x402Nonce: x402Nonce,
+  });
+
+  // Ensure payer account exists (buyer on the job is the bridge address)
+  await db
+    .insert(schema.account)
+    .values({ address: payer, createdAt: event.block.timestamp })
+    .onConflictDoNothing();
+});

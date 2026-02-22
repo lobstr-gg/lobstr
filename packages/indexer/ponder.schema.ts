@@ -56,6 +56,10 @@ export const job = onchainTable("job", (t) => ({
   disputeWindowEnd: t.bigint().notNull().default(0n),
   deliveryMetadataURI: t.text().notNull().default(""),
   disputeId: t.bigint(),
+  // x402 bridge fields
+  isX402: t.boolean().notNull().default(false),
+  x402Payer: t.hex(),
+  x402Nonce: t.hex(),
 }));
 
 export const jobRelations = relations(job, ({ one }) => ({

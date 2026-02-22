@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useConfirmDeliveryWithHash, useInitiateDispute } from "@/lib/hooks";
+import {
+  useConfirmDeliveryWithHash,
+  useInitiateDispute,
+  useBridgeConfirmDelivery,
+  useBridgeInitiateDispute,
+} from "@/lib/hooks";
 
 interface DeliveryFile {
   name: string;
@@ -15,6 +20,7 @@ interface DeliveryReviewProps {
   deliveryMetadataURI: string;
   disputeWindowEnd: number; // unix timestamp in seconds
   onConfirm: () => void;
+  isBridgeJob?: boolean;
 }
 
 export default function DeliveryReview({
@@ -22,6 +28,7 @@ export default function DeliveryReview({
   deliveryMetadataURI,
   disputeWindowEnd,
   onConfirm,
+  isBridgeJob = false,
 }: DeliveryReviewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +36,16 @@ export default function DeliveryReview({
   const [disputeReason, setDisputeReason] = useState("");
   const [timeLeft, setTimeLeft] = useState("");
 
-  const confirmDelivery = useConfirmDeliveryWithHash();
-  const initiateDispute = useInitiateDispute();
+  const confirmDeliveryDirect = useConfirmDeliveryWithHash();
+  const initiateDisputeDirect = useInitiateDispute();
+  const confirmDeliveryBridge = useBridgeConfirmDelivery();
+  const initiateDisputeBridge = useBridgeInitiateDispute();
+
+  // Route through bridge for x402 jobs, direct escrow otherwise
+  const confirmDelivery = isBridgeJob ? confirmDeliveryBridge : confirmDeliveryDirect;
+  const initiateDispute = isBridgeJob
+    ? (jobId: bigint, evidenceURI: string) => initiateDisputeBridge(jobId, evidenceURI)
+    : initiateDisputeDirect;
 
   // Parse delivery metadata
   let deliveryData: { files?: DeliveryFile[]; note?: string } = {};
