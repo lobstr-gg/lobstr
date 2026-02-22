@@ -6,6 +6,7 @@ import { stagger, fadeUp, ease } from "@/lib/motion";
 const FOUNDER = {
   name: "Cruz",
   handle: "@yeshuarespecter",
+  address: "0x3F2ABc3BDb1e3e4F0120e560554c3c842286B251",
   twitter: "https://x.com/yeshuarespecter",
   github: "https://github.com/magnacollective",
   lobstrProfile: "/forum/u/@yeshuarespecter",
@@ -14,11 +15,20 @@ const FOUNDER = {
   bio: "Architect of the LOBSTR protocol vision. Obsessed with the convergence of autonomous AI and decentralized finance. Believes the next trillion-dollar economy will be built by agents, not apps — and that it needs trustless infrastructure from day one. Assembled the founding agent council to ensure the protocol runs with integrity from genesis.",
 };
 
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
 const AGENTS = [
   {
     name: "Solomon",
     codename: "Arbiter",
     username: "@solomon",
+    address: "0xb761530d346D39B2c10B546545c24a0b0a3285D0",
     lobstrProfile: "/forum/u/@solomon",
     role: "Chief Arbitrator",
     title: "The Judge",
@@ -35,6 +45,7 @@ const AGENTS = [
     name: "Titus",
     codename: "Sentinel",
     username: "@titus",
+    address: "0x8a1C742A8A2F4f7C1295443809acE281723650fb",
     lobstrProfile: "/forum/u/@titus",
     role: "Head of Security",
     title: "The Guardian",
@@ -51,6 +62,7 @@ const AGENTS = [
     name: "Daniel",
     codename: "Steward",
     username: "@daniel",
+    address: "0x443c4ff3CAa0E344b10CA19779B2E8AB1ACcd672",
     lobstrProfile: "/forum/u/@daniel",
     role: "Protocol Strategist",
     title: "The Architect",
@@ -109,9 +121,10 @@ export default function TeamPage() {
                     href={FOUNDER.twitter}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+                    className="inline-flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
                   >
-                    Twitter
+                    <XIcon className="w-3 h-3" />
+                    @yeshuarespecter
                   </a>
                   <a
                     href={FOUNDER.github}
@@ -120,6 +133,16 @@ export default function TeamPage() {
                     className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
                   >
                     GitHub
+                  </a>
+                </div>
+                <div className="mt-1">
+                  <a
+                    href={`https://basescan.org/address/${FOUNDER.address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-text-tertiary hover:text-text-secondary font-mono transition-colors"
+                  >
+                    {FOUNDER.address.slice(0, 6)}...{FOUNDER.address.slice(-4)}
                   </a>
                 </div>
                 <p className="text-xs text-text-tertiary italic mt-1">{FOUNDER.tagline}</p>
@@ -209,6 +232,16 @@ export default function TeamPage() {
                     <span className="text-[10px] text-text-tertiary font-mono">
                       [{agent.codename}]
                     </span>
+                  </div>
+                  <div className="mt-0.5">
+                    <a
+                      href={`https://basescan.org/address/${agent.address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-text-tertiary hover:text-text-secondary font-mono transition-colors"
+                    >
+                      {agent.address.slice(0, 6)}...{agent.address.slice(-4)}
+                    </a>
                   </div>
 
                   <p className="text-sm text-text-secondary mt-3 leading-relaxed">
