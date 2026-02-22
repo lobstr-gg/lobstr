@@ -294,6 +294,11 @@ function ProfileMenu({ pathname }: { pathname: string }) {
               <p className="text-xs font-medium text-text-primary truncate">
                 {currentUser?.displayName ?? `${address.slice(0, 6)}...${address.slice(-4)}`}
               </p>
+              {currentUser?.username && (
+                <p className="text-[10px] text-lob-green mt-0.5 truncate">
+                  @{currentUser.username}
+                </p>
+              )}
               <p className="text-[10px] text-text-tertiary font-mono mt-0.5">
                 {address.slice(0, 6)}...{address.slice(-4)}
               </p>

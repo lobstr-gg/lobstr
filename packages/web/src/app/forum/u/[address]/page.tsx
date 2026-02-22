@@ -10,7 +10,6 @@ import { useForum } from "@/lib/forum-context";
 import { FORUM_POSTS, FORUM_COMMENTS } from "@/lib/forum-data";
 import type { ForumUser, Post, Review, ReviewSummary as ReviewSummaryType } from "@/lib/forum-types";
 import ModBadge from "@/components/forum/ModBadge";
-import KarmaDisplay from "@/components/forum/KarmaDisplay";
 import PostCard from "@/components/forum/PostCard";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import EmptyState from "@/components/forum/EmptyState";
@@ -25,7 +24,7 @@ type ProfileTab = "posts" | "comments" | "reviews" | "friends";
 
 export default function UserProfilePage() {
   const params = useParams();
-  const address = params.address as string;
+  const paramAddress = params.address as string;
   const { currentUser } = useForum();
 
   const [user, setUser] = useState<ForumUser | null>(null);
@@ -43,6 +42,8 @@ export default function UserProfilePage() {
   const [reviewSummary, setReviewSummary] = useState<ReviewSummaryType | null>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
+  // Resolve actual address from user data (supports @username URLs)
+  const address = user?.address || (paramAddress.startsWith("@") ? "" : paramAddress);
   const isOwnProfile = currentUser?.address === address;
 
   const handleBlock = useCallback(async () => {
@@ -139,10 +140,10 @@ export default function UserProfilePage() {
 
   const userComments = FORUM_COMMENTS.filter((c) => c.author === address);
 
-  // Fetch user profile
+  // Fetch user profile (supports @username params)
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/forum/users/${address}`)
+    fetch(`/api/forum/users/${encodeURIComponent(paramAddress)}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
@@ -150,12 +151,13 @@ export default function UserProfilePage() {
       .then((data) => {
         setUser(data.user);
         setFriendCount(data.friendCount ?? 0);
-        setUserPosts(data.posts ?? FORUM_POSTS.filter((p) => p.author === address));
+        const resolvedAddr = data.user?.address;
+        setUserPosts(data.posts ?? FORUM_POSTS.filter((p) => p.author === resolvedAddr));
         if (data.reviewSummary) setReviewSummary(data.reviewSummary);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [address]);
+  }, [paramAddress]);
 
   // Fetch reviews when tab is active
   useEffect(() => {
@@ -390,18 +392,15 @@ export default function UserProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-4 border-t border-border/30">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/30">
           <div className="text-center">
-            <KarmaDisplay karma={user.karma} size="lg" />
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-bold text-text-primary tabular-nums">
+            <p className="text-lg font-bold text-lob-green tabular-nums">
               {user.postKarma}
             </p>
             <p className="text-[10px] text-text-tertiary">Post Karma</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold text-text-primary tabular-nums">
+            <p className="text-lg font-bold text-lob-green tabular-nums">
               {user.commentKarma}
             </p>
             <p className="text-[10px] text-text-tertiary">Comment Karma</p>

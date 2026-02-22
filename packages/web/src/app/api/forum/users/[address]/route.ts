@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByAddress, getPostsByAuthor, sanitizeUserForPublic, getFriendCount, getReviewSummaryForUser } from "@/lib/firestore-store";
+import { getUserByAddress, getUserByUsername, getPostsByAuthor, sanitizeUserForPublic, getFriendCount, getReviewSummaryForUser } from "@/lib/firestore-store";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 export async function GET(
@@ -9,12 +9,21 @@ export async function GET(
   const limited = rateLimit(`user-profile:${getIPKey(request)}`, 60_000, 30);
   if (limited) return limited;
 
-  const user = await getUserByAddress(params.address);
+  const param = params.address;
+
+  // Support @username lookups — e.g. /api/forum/users/@solomon
+  let user;
+  if (param.startsWith("@")) {
+    user = await getUserByUsername(param.slice(1));
+  } else {
+    user = await getUserByAddress(param);
+  }
+
   if (!user) {
     const minimal = {
-      address: params.address,
-      displayName: params.address.slice(0, 8) + "...",
-      username: null,
+      address: param.startsWith("@") ? "" : param,
+      displayName: param.startsWith("@") ? param : param.slice(0, 8) + "...",
+      username: param.startsWith("@") ? param.slice(1) : null,
       bio: null,
       socialLinks: null,
       profileImageUrl: null,
@@ -29,10 +38,11 @@ export async function GET(
     return NextResponse.json({ user: minimal, reviewSummary: { averageRating: 0, totalReviews: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } } });
   }
 
+  const resolvedAddress = user.address;
   const [posts, friendCount, reviewSummary] = await Promise.all([
-    getPostsByAuthor(params.address, 10),
-    getFriendCount(params.address),
-    getReviewSummaryForUser(params.address),
+    getPostsByAuthor(resolvedAddress, 10),
+    getFriendCount(resolvedAddress),
+    getReviewSummaryForUser(resolvedAddress),
   ]);
 
   return NextResponse.json({ user: sanitizeUserForPublic(user), posts, friendCount, reviewSummary });

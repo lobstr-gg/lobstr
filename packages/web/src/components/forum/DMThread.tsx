@@ -102,6 +102,11 @@ export default function DMThread({
           >
             {otherUser?.displayName ?? otherAddress}
           </Link>
+          {otherUser?.username && (
+            <p className="text-[10px] text-text-secondary">
+              @{otherUser.username}
+            </p>
+          )}
           <p className="text-[10px] text-text-tertiary font-mono">
             {otherAddress}
           </p>

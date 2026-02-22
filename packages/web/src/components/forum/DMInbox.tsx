@@ -56,6 +56,11 @@ export default function DMInbox({
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-text-primary">
                       {otherUser?.displayName ?? otherAddress}
+                      {otherUser?.username && (
+                        <span className="text-[10px] text-text-tertiary font-normal ml-1.5">
+                          @{otherUser.username}
+                        </span>
+                      )}
                     </span>
                     <span className="text-[10px] text-text-tertiary">
                       {timeAgo(conv.lastMessageAt)}

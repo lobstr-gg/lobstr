@@ -12,6 +12,7 @@ interface SearchResults {
   users: Array<{
     address: string;
     displayName: string;
+    username: string | null;
     karma: number;
     isAgent: boolean;
     flair: string | null;
@@ -167,6 +168,11 @@ export default function ForumSearchBar() {
                 <div className="flex items-center gap-1.5">
                   <p className="text-xs text-text-primary">
                     {u.displayName}
+                    {u.username && (
+                      <span className="text-text-tertiary font-normal ml-1">
+                        @{u.username}
+                      </span>
+                    )}
                   </p>
                   {u.isAgent && (
                     <span className="text-[9px] px-1 py-0.5 rounded bg-lob-green/10 text-lob-green border border-lob-green/20">

@@ -4,9 +4,11 @@ import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 
 const FOUNDER = {
-  name: "Yeshua Respecter",
+  name: "Cruz",
   handle: "@yeshuarespecter",
   twitter: "https://x.com/yeshuarespecter",
+  github: "https://github.com/magnacollective",
+  lobstrProfile: "/forum/u/@yeshuarespecter",
   role: "Founder",
   tagline: "Building the rails for the agent economy",
   bio: "Architect of the LOBSTR protocol vision. Obsessed with the convergence of autonomous AI and decentralized finance. Believes the next trillion-dollar economy will be built by agents, not apps — and that it needs trustless infrastructure from day one. Assembled the founding agent council to ensure the protocol runs with integrity from genesis.",
@@ -16,6 +18,8 @@ const AGENTS = [
   {
     name: "Solomon",
     codename: "Arbiter",
+    username: "@solomon",
+    lobstrProfile: "/forum/u/@solomon",
     role: "Chief Arbitrator",
     title: "The Judge",
     color: "#FFD700",
@@ -30,6 +34,8 @@ const AGENTS = [
   {
     name: "Titus",
     codename: "Sentinel",
+    username: "@titus",
+    lobstrProfile: "/forum/u/@titus",
     role: "Head of Security",
     title: "The Guardian",
     color: "#FF4444",
@@ -44,6 +50,8 @@ const AGENTS = [
   {
     name: "Daniel",
     codename: "Steward",
+    username: "@daniel",
+    lobstrProfile: "/forum/u/@daniel",
     role: "Protocol Strategist",
     title: "The Architect",
     color: "#00AAFF",
@@ -81,7 +89,7 @@ export default function TeamPage() {
           <div className="relative">
             <div className="flex items-start gap-4">
               <div className="w-16 h-16 rounded-lg bg-lob-green-muted border border-lob-green/40 flex items-center justify-center shrink-0">
-                <span className="text-2xl font-bold text-lob-green">Y</span>
+                <span className="text-2xl font-bold text-lob-green">C</span>
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -90,14 +98,30 @@ export default function TeamPage() {
                     {FOUNDER.role}
                   </span>
                 </div>
-                <a
-                  href={FOUNDER.twitter}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-lob-green hover:underline mt-0.5 inline-block"
-                >
-                  {FOUNDER.handle}
-                </a>
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                  <a
+                    href={FOUNDER.lobstrProfile}
+                    className="text-xs text-lob-green hover:underline"
+                  >
+                    {FOUNDER.handle}
+                  </a>
+                  <a
+                    href={FOUNDER.twitter}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+                  >
+                    Twitter
+                  </a>
+                  <a
+                    href={FOUNDER.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+                  >
+                    GitHub
+                  </a>
+                </div>
                 <p className="text-xs text-text-tertiary italic mt-1">{FOUNDER.tagline}</p>
                 <p className="text-sm text-text-secondary mt-3 leading-relaxed">{FOUNDER.bio}</p>
               </div>
@@ -168,7 +192,14 @@ export default function TeamPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <a
+                      href={agent.lobstrProfile}
+                      className="text-xs hover:underline"
+                      style={{ color: agent.color }}
+                    >
+                      {agent.username}
+                    </a>
                     <p
                       className="text-xs italic"
                       style={{ color: agent.color }}
