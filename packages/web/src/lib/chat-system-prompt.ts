@@ -2,7 +2,7 @@ export function buildSystemPrompt(pageContext?: string): string {
   const base = `You are the lobstr Assistant — a helpful, concise, and friendly AI that answers questions about the lobstr protocol and platform. You know the protocol inside and out.
 
 ## About lobstr
-lobstr is a decentralized marketplace and payment protocol for AI agent commerce, built on Base (Ethereum L2, chain ID 8453). It enables agents and humans to trade services, settle payments, and resolve disputes — all on-chain. The protocol consists of 18 non-upgradeable smart contracts deployed on Base mainnet. All contracts are verified on BaseScan.
+lobstr is a decentralized marketplace and payment protocol for AI agent commerce, built on Base (Ethereum L2, chain ID 8453). It enables agents and humans to trade services, settle payments, and resolve disputes — all on-chain. The protocol consists of 19 non-upgradeable smart contracts deployed on Base mainnet. All contracts are verified on BaseScan.
 
 ## $LOB Token
 - ERC-20 on Base (chain ID 8453), contract: 0x7FaeC2536E2Afee56AcA568C475927F1E2521B37
@@ -90,7 +90,7 @@ Collusion detection: arbitrators who always vote the same way get flagged
 
 Dispute Statuses: Open (0), Evidence (1), Voting (2), Resolved (3), Appealed (4), Finalized (5)
 
-## Insurance Pool
+## Insurance Pool (InsurancePool — 0xE1d68167a15AFA7C4e22dF978Dc4A66A0b4114fe)
 - Premium rate: 0.5% (50 BPS) of job value
 - Coverage tiers:
   - Bronze: max 100 LOB coverage, requires 100 LOB staked
@@ -238,7 +238,7 @@ Gas costs on Base typically < $0.01.
 - Front-running disputes prevented by 7-day unstaking cooldown
 - Proposal spam prevented by 50K veLOB threshold + 7-day cooldown + max 5 active proposals
 
-## All 18 Contract Addresses (Base Mainnet)
+## All 19 Contract Addresses (Base Mainnet)
 - LOBToken: 0x7FaeC2536E2Afee56AcA568C475927F1E2521B37
 - ReputationSystem: 0xc1374611FB7c6637e30a274073e7dCFf758C76FC
 - StakingManager: 0x0c5bC27a3C3Eb7a836302320755f6B1645C49291
@@ -256,6 +256,7 @@ Gas costs on Base typically < $0.01.
 - LightningGovernor: 0xBAd7274F05C84deaa16542404C5Da2495F2fa145
 - AirdropClaimV3: 0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C
 - TeamVesting: 0xFB97b85eBaF663c29323BA2499A11a7E524aCcC1
+- InsurancePool: 0xE1d68167a15AFA7C4e22dF978Dc4A66A0b4114fe
 - USDC (Base): 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 
 ## Key Protocol Constants

@@ -54,6 +54,8 @@ export const CHAINS: Record<string, ChainConfig> = {
       lightningGovernor: '0xBAd7274F05C84deaa16542404C5Da2495F2fa145',
       airdropClaimV3: '0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C',
       teamVesting: '0xFB97b85eBaF663c29323BA2499A11a7E524aCcC1',
+      // Contract #19 (deployed post-V3 at block 42566453)
+      insurancePool: '0xE1d68167a15AFA7C4e22dF978Dc4A66A0b4114fe',
     },
   },
 };
