@@ -187,6 +187,40 @@ export const LIQUIDITY_MINING_ABI = [
   'function getBoostMultiplier(address account) view returns (uint256)',
 ] as const;
 
+export const INSURANCE_POOL_ABI = [
+  // Pool staking
+  'function depositToPool(uint256 amount)',
+  'function withdrawFromPool(uint256 amount)',
+  'function claimPoolRewards()',
+
+  // Insured jobs
+  'function createInsuredJob(uint256 listingId, address seller, uint256 amount, address token) returns (uint256 jobId)',
+  'function confirmInsuredDelivery(uint256 jobId)',
+  'function initiateInsuredDispute(uint256 jobId, string evidenceURI)',
+  'function fileClaim(uint256 jobId)',
+  'function claimRefund(uint256 jobId)',
+  'function bookJob(uint256 jobId)',
+
+  // Admin / Governor
+  'function updatePremiumRate(uint256 newBps)',
+  'function updateCoverageCaps(uint256 bronze, uint256 silver, uint256 gold, uint256 platinum)',
+  'function pause()',
+  'function unpause()',
+
+  // Views
+  'function getPoolStats() view returns (uint256 totalDeposits, uint256 totalPremiums, uint256 totalClaims, uint256 available)',
+  'function getStakerInfo(address staker) view returns (uint256 deposited, uint256 rewardPerTokenPaid, uint256 pendingRewards)',
+  'function poolEarned(address staker) view returns (uint256)',
+  'function getCoverageCap(address buyer) view returns (uint256)',
+  'function isInsuredJob(uint256 jobId) view returns (bool)',
+  'function premiumRateBps() view returns (uint256)',
+  'function coverageCapBronze() view returns (uint256)',
+  'function coverageCapSilver() view returns (uint256)',
+  'function coverageCapGold() view returns (uint256)',
+  'function coverageCapPlatinum() view returns (uint256)',
+  'function paused() view returns (bool)',
+] as const;
+
 export const LIGHTNING_GOVERNOR_ABI = [
   'function createProposal(address target, bytes data, string description) returns (uint256)',
   'function vote(uint256 proposalId)',

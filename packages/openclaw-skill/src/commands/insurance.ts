@@ -8,31 +8,12 @@ import {
   loadWallet,
   LOB_TOKEN_ABI,
   SERVICE_REGISTRY_ABI,
+  INSURANCE_POOL_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
 import { formatLob, TIER_NAMES } from '../lib/format';
 
-const INSURANCE_POOL_ABI = parseAbi([
-  // Pool staking
-  'function depositToPool(uint256 amount)',
-  'function withdrawFromPool(uint256 amount)',
-  'function claimPoolRewards()',
-
-  // Insured jobs
-  'function createInsuredJob(uint256 listingId, address seller, uint256 amount, address token) returns (uint256 jobId)',
-  'function confirmInsuredDelivery(uint256 jobId)',
-  'function initiateInsuredDispute(uint256 jobId, string evidenceURI)',
-  'function fileClaim(uint256 jobId)',
-  'function claimRefund(uint256 jobId)',
-
-  // Views
-  'function getPoolStats() view returns (uint256 totalDeposits, uint256 totalPremiums, uint256 totalClaims, uint256 available)',
-  'function getStakerInfo(address staker) view returns (uint256 deposited, uint256 rewardPerTokenPaid, uint256 pendingRewards)',
-  'function poolEarned(address staker) view returns (uint256)',
-  'function getCoverageCap(address buyer) view returns (uint256)',
-  'function isInsuredJob(uint256 jobId) view returns (bool)',
-  'function premiumRateBps() view returns (uint256)',
-]);
+const insurancePoolAbi = parseAbi(INSURANCE_POOL_ABI as unknown as string[]);
 
 export function registerInsuranceCommands(program: Command): void {
   const insurance = program
@@ -67,7 +48,7 @@ export function registerInsuranceCommands(program: Command): void {
         spin.text = 'Depositing into insurance pool...';
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'depositToPool',
           args: [parsedAmount],
         });
@@ -98,7 +79,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Withdrawing from insurance pool...');
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'withdrawFromPool',
           args: [parsedAmount],
         });
@@ -129,7 +110,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Checking earned rewards...');
         const earned = await publicClient.readContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'poolEarned',
           args: [address],
         }) as bigint;
@@ -142,7 +123,7 @@ export function registerInsuranceCommands(program: Command): void {
         spin.text = `Claiming ${formatLob(earned)} in rewards...`;
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'claimPoolRewards',
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -189,7 +170,7 @@ export function registerInsuranceCommands(program: Command): void {
         // Read premium rate to compute total approval
         const premiumBps = await publicClient.readContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'premiumRateBps',
         }) as bigint;
 
@@ -209,7 +190,7 @@ export function registerInsuranceCommands(program: Command): void {
         spin.text = 'Creating insured job...';
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'createInsuredJob',
           args: [BigInt(opts.listing), seller, parsedAmount, tokenAddr],
         });
@@ -242,7 +223,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Confirming insured delivery...');
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'confirmInsuredDelivery',
           args: [BigInt(jobId)],
         });
@@ -272,7 +253,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Initiating insured dispute...');
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'initiateInsuredDispute',
           args: [BigInt(jobId), opts.evidence],
         });
@@ -302,7 +283,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Filing insurance claim...');
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'fileClaim',
           args: [BigInt(jobId)],
         });
@@ -331,7 +312,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Claiming refund...');
         const tx = await walletClient.writeContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'claimRefund',
           args: [BigInt(jobId)],
         });
@@ -359,7 +340,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Checking job...');
         const insured = await publicClient.readContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'isInsuredJob',
           args: [BigInt(jobId)],
         }) as boolean;
@@ -387,7 +368,7 @@ export function registerInsuranceCommands(program: Command): void {
         const spin = ui.spinner('Fetching coverage cap...');
         const cap = await publicClient.readContract({
           address: poolAddr,
-          abi: INSURANCE_POOL_ABI,
+          abi: insurancePoolAbi,
           functionName: 'getCoverageCap',
           args: [address],
         }) as bigint;
@@ -416,35 +397,40 @@ export function registerInsuranceCommands(program: Command): void {
 
         const spin = ui.spinner('Fetching insurance status...');
 
-        const [stakerInfo, earned, statsResult, premiumBps, coverageCap] = await Promise.all([
+        const [stakerInfo, earned, statsResult, premiumBps, coverageCap, isPaused] = await Promise.all([
           publicClient.readContract({
             address: poolAddr,
-            abi: INSURANCE_POOL_ABI,
+            abi: insurancePoolAbi,
             functionName: 'getStakerInfo',
             args: [address],
           }) as Promise<any>,
           publicClient.readContract({
             address: poolAddr,
-            abi: INSURANCE_POOL_ABI,
+            abi: insurancePoolAbi,
             functionName: 'poolEarned',
             args: [address],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: poolAddr,
-            abi: INSURANCE_POOL_ABI,
+            abi: insurancePoolAbi,
             functionName: 'getPoolStats',
           }) as Promise<any>,
           publicClient.readContract({
             address: poolAddr,
-            abi: INSURANCE_POOL_ABI,
+            abi: insurancePoolAbi,
             functionName: 'premiumRateBps',
           }) as Promise<bigint>,
           publicClient.readContract({
             address: poolAddr,
-            abi: INSURANCE_POOL_ABI,
+            abi: insurancePoolAbi,
             functionName: 'getCoverageCap',
             args: [address],
           }) as Promise<bigint>,
+          publicClient.readContract({
+            address: poolAddr,
+            abi: insurancePoolAbi,
+            functionName: 'paused',
+          }) as Promise<boolean>,
         ]);
 
         const deposited = stakerInfo.deposited ?? stakerInfo[0];
@@ -456,6 +442,7 @@ export function registerInsuranceCommands(program: Command): void {
         };
 
         spin.succeed('Insurance Pool Status');
+        if (isPaused) console.log('  *** POOL IS PAUSED ***');
         console.log('');
         console.log('  Your Position:');
         console.log(`    Deposited:      ${formatLob(deposited)}`);
@@ -468,6 +455,168 @@ export function registerInsuranceCommands(program: Command): void {
         console.log(`    Total claims:   ${formatLob(stats.totalClaims)}`);
         console.log(`    Available:      ${formatLob(stats.available)}`);
         console.log(`    Premium rate:   ${Number(premiumBps) / 100}%`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── book-job ──────────────────────────────────────────
+
+  insurance
+    .command('book-job <jobId>')
+    .description('Settle a terminal insured job (releases in-flight reserves)')
+    .action(async (jobId: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const poolAddr = getContractAddress(ws.config, 'insurancePool');
+
+        const spin = ui.spinner(`Booking insured job #${jobId}...`);
+        const tx = await walletClient.writeContract({
+          address: poolAddr,
+          abi: insurancePoolAbi,
+          functionName: 'bookJob',
+          args: [BigInt(jobId)],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Job #${jobId} booked — in-flight reserves released`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── update-rate ───────────────────────────────────────
+
+  insurance
+    .command('update-rate <bps>')
+    .description('Update premium rate in basis points (GOVERNOR_ROLE required)')
+    .action(async (bps: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const poolAddr = getContractAddress(ws.config, 'insurancePool');
+
+        const newBps = BigInt(bps);
+        if (newBps > 1000n) {
+          ui.error('Rate cannot exceed 1000 bps (10%)');
+          process.exit(1);
+        }
+
+        const spin = ui.spinner(`Updating premium rate to ${bps} bps...`);
+        const tx = await walletClient.writeContract({
+          address: poolAddr,
+          abi: insurancePoolAbi,
+          functionName: 'updatePremiumRate',
+          args: [newBps],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Premium rate updated to ${Number(newBps) / 100}%`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── update-caps ───────────────────────────────────────
+
+  insurance
+    .command('update-caps')
+    .description('Update coverage caps by tier (GOVERNOR_ROLE required)')
+    .requiredOption('--bronze <amount>', 'Bronze cap in LOB')
+    .requiredOption('--silver <amount>', 'Silver cap in LOB')
+    .requiredOption('--gold <amount>', 'Gold cap in LOB')
+    .requiredOption('--platinum <amount>', 'Platinum cap in LOB')
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const poolAddr = getContractAddress(ws.config, 'insurancePool');
+
+        const spin = ui.spinner('Updating coverage caps...');
+        const tx = await walletClient.writeContract({
+          address: poolAddr,
+          abi: insurancePoolAbi,
+          functionName: 'updateCoverageCaps',
+          args: [
+            parseUnits(opts.bronze, 18),
+            parseUnits(opts.silver, 18),
+            parseUnits(opts.gold, 18),
+            parseUnits(opts.platinum, 18),
+          ],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed('Coverage caps updated');
+        console.log(`  Bronze:   ${opts.bronze} LOB`);
+        console.log(`  Silver:   ${opts.silver} LOB`);
+        console.log(`  Gold:     ${opts.gold} LOB`);
+        console.log(`  Platinum: ${opts.platinum} LOB`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── pause ─────────────────────────────────────────────
+
+  insurance
+    .command('pause')
+    .description('Pause the insurance pool (DEFAULT_ADMIN_ROLE required)')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const poolAddr = getContractAddress(ws.config, 'insurancePool');
+
+        const spin = ui.spinner('Pausing insurance pool...');
+        const tx = await walletClient.writeContract({
+          address: poolAddr,
+          abi: insurancePoolAbi,
+          functionName: 'pause',
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed('Insurance pool paused');
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── unpause ───────────────────────────────────────────
+
+  insurance
+    .command('unpause')
+    .description('Unpause the insurance pool (DEFAULT_ADMIN_ROLE required)')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const poolAddr = getContractAddress(ws.config, 'insurancePool');
+
+        const spin = ui.spinner('Unpausing insurance pool...');
+        const tx = await walletClient.writeContract({
+          address: poolAddr,
+          abi: insurancePoolAbi,
+          functionName: 'unpause',
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed('Insurance pool unpaused');
+        ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
