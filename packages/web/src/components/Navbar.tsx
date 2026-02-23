@@ -12,23 +12,33 @@ import { useForum } from "@/lib/forum-context";
 import NotificationCenter from "@/components/NotificationCenter";
 import ProfileAvatar from "@/components/ProfileAvatar";
 
-// All desktop nav links — shown inline, no dropdown
+// Primary desktop nav links — shown inline
 const NAV_LINKS = [
   { href: "/marketplace", label: "Market" },
   { href: "/jobs", label: "Dashboard" },
   { href: "/staking", label: "Staking" },
-  { href: "/disputes", label: "Disputes" },
   { href: "/forum", label: "Forum" },
+  { href: "/disputes", label: "Disputes" },
+  { href: "/credit", label: "Credit" },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/team", label: "Team" },
   { href: "/dao", label: "DAO" },
-  { href: "/farming", label: "Farming" },
-  { href: "/rewards", label: "Rewards" },
-  { href: "/loans", label: "Loans" },
-  { href: "/insurance", label: "Insurance" },
-  { href: "/subscriptions", label: "Subs" },
-  { href: "/leaderboard", label: "Board" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/docs", label: "Docs" },
-  { href: "/airdrop", label: "Airdrop" },
+];
+
+// "More" dropdown links — grouped by category
+const MORE_LINKS = [
+  { section: "Finance", links: [
+    { href: "/farming", label: "Farming" },
+    { href: "/rewards", label: "Rewards" },
+    { href: "/loans", label: "Loans" },
+    { href: "/insurance", label: "Insurance" },
+    { href: "/subscriptions", label: "Subscriptions" },
+  ]},
+  { section: "Explore", links: [
+    { href: "/analytics", label: "Analytics" },
+    { href: "/airdrop", label: "Airdrop" },
+    { href: "/docs", label: "Docs" },
+  ]},
 ];
 
 // Mobile menu sections for organized display
@@ -37,10 +47,13 @@ const MOBILE_SECTIONS = [
     { href: "/marketplace", label: "Market" },
     { href: "/jobs", label: "Dashboard" },
     { href: "/forum", label: "Forum" },
+    { href: "/disputes", label: "Disputes" },
+    { href: "/team", label: "Team" },
     { href: "/dao", label: "DAO" },
   ]},
   { title: "Finance", links: [
     { href: "/staking", label: "Staking" },
+    { href: "/credit", label: "Credit" },
     { href: "/farming", label: "Farming" },
     { href: "/rewards", label: "Rewards" },
     { href: "/loans", label: "Loans" },
@@ -48,11 +61,10 @@ const MOBILE_SECTIONS = [
     { href: "/subscriptions", label: "Subscriptions" },
   ]},
   { title: "More", links: [
-    { href: "/disputes", label: "Disputes" },
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/analytics", label: "Analytics" },
-    { href: "/docs", label: "Docs" },
     { href: "/airdrop", label: "Airdrop" },
+    { href: "/docs", label: "Docs" },
   ]},
 ];
 
@@ -166,6 +178,96 @@ function CaPopout() {
   );
 }
 
+function MoreDropdown({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const isMoreActive = MORE_LINKS.some((section) =>
+    section.links.some((link) => pathname === link.href)
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <motion.button
+        onClick={() => setOpen(!open)}
+        className={`px-1.5 xl:px-2 py-1.5 rounded text-[11px] xl:text-xs transition-colors flex items-center gap-0.5 ${
+          isMoreActive || open
+            ? "text-lob-green font-medium"
+            : "text-text-secondary hover:text-text-primary"
+        }`}
+        whileHover={{ y: -1 }}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      >
+        More
+        <svg
+          className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full mt-2 w-48 rounded-lg border border-border/60 bg-surface-0/95 glass backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
+          >
+            {MORE_LINKS.map((section, i) => (
+              <div key={section.section}>
+                {i > 0 && <div className="mx-2 h-px bg-border/30" />}
+                <p className="px-3 pt-2.5 pb-1 text-[9px] font-semibold text-text-tertiary uppercase tracking-widest">
+                  {section.section}
+                </p>
+                {section.links.map((link) => {
+                  const isActive = pathname === link.href;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setOpen(false)}
+                      className={`flex items-center px-3 py-2 text-xs transition-colors ${
+                        isActive
+                          ? "text-lob-green bg-lob-green-muted font-medium"
+                          : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function Navbar() {
   const pathname = usePathname();
   const chainId = useChainId();
@@ -227,6 +329,7 @@ export function Navbar() {
                   </Link>
                 );
               })}
+              <MoreDropdown pathname={pathname} />
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
