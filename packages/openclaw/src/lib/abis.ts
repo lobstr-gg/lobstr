@@ -116,7 +116,7 @@ export const TREASURY_GOVERNOR_ABI = [
   'function approveAdminProposal(uint256 proposalId)',
   'function executeAdminProposal(uint256 proposalId)',
   'function cancelAdminProposal(uint256 proposalId)',
-  'function getAdminProposal(uint256 proposalId) view returns ((uint256 id, address proposer, address target, bytes callData, string description, uint8 status, uint256 approvalCount, uint256 createdAt, uint256 timelockEnd))',
+  'function getAdminProposal(uint256 proposalId) view returns (uint256 id, address proposer, address target, bytes callData, string description, uint8 status, uint256 approvalCount, uint256 createdAt, uint256 timelockEnd)',
   'function adminProposalApprovals(uint256 proposalId, address signer) view returns (bool)',
   'function createStream(address recipient, address token, uint256 totalAmount, uint256 duration, string role) returns (uint256)',
   'function claimStream(uint256 streamId)',
