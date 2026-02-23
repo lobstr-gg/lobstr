@@ -19,17 +19,20 @@ export async function GET(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const conversations = (await getConversationsForUser(auth.address)).sort(
+    const addr = auth.address.toLowerCase();
+    const conversations = (await getConversationsForUser(addr)).sort(
       (a, b) => b.lastMessageAt - a.lastMessageAt
     );
 
-    // Return conversation list without full message bodies
+    // Return conversations with only the last message (matches Conversation type)
     const list = conversations.map((c) => ({
       id: c.id,
       participants: c.participants,
       lastMessageAt: c.lastMessageAt,
       unreadCount: c.unreadCount,
-      lastMessage: c.messages?.[c.messages.length - 1]?.body?.slice(0, 80) ?? "",
+      messages: c.messages?.length
+        ? [c.messages[c.messages.length - 1]]
+        : [],
     }));
 
     return NextResponse.json({ conversations: list });
@@ -83,6 +86,10 @@ export async function POST(request: NextRequest) {
       to = resolved.address;
     }
 
+    // Normalize addresses to lowercase for consistent Firestore queries
+    to = to.toLowerCase();
+    const senderAddr = auth.address.toLowerCase();
+
     // Validate message body length
     if (typeof messageBody !== "string" || messageBody.length > 5_000) {
       return NextResponse.json(
@@ -91,14 +98,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (to === auth.address) {
+    if (to === senderAddr) {
       return NextResponse.json(
         { error: "Cannot message yourself" },
         { status: 400 }
       );
     }
 
-    const blocked = await isBlockedEither(auth.address, to);
+    const blocked = await isBlockedEither(senderAddr, to);
     if (blocked) {
       return NextResponse.json(
         { error: "Cannot message this user" },
@@ -108,13 +115,13 @@ export async function POST(request: NextRequest) {
 
     const message = {
       id: await nextId("message"),
-      sender: auth.address,
+      sender: senderAddr,
       body: messageBody,
       createdAt: Date.now(),
     };
 
     // Find existing conversation between these two users
-    const convo = await findConversationBetween(auth.address, to);
+    const convo = await findConversationBetween(senderAddr, to);
 
     if (convo) {
       await addMessageToConversation(convo.id, message, {
@@ -142,7 +149,7 @@ export async function POST(request: NextRequest) {
       await createConversation(
         {
           id: convoId,
-          participants: [auth.address, to],
+          participants: [senderAddr, to],
           unreadCount: 1,
           lastMessageAt: message.createdAt,
         },

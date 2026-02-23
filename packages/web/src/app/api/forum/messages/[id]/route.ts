@@ -11,6 +11,7 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
 
   try {
+    const addr = auth.address.toLowerCase();
     const convo = await getConversationById(params.id);
     if (!convo) {
       return NextResponse.json(
@@ -19,7 +20,7 @@ export async function GET(
       );
     }
 
-    if (!convo.participants.includes(auth.address)) {
+    if (!convo.participants.some((p) => p.toLowerCase() === addr)) {
       return NextResponse.json(
         { error: "Not a participant in this conversation" },
         { status: 403 }
