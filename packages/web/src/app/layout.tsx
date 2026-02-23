@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Toaster } from "sonner";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -83,6 +84,7 @@ export default function RootLayout({
             </footer>
           </div>
           <Toaster theme="dark" position="bottom-right" richColors />
+          <ChatWidget />
         </Providers>
       </body>
     </html>
