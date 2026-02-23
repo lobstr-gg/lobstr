@@ -12,15 +12,13 @@ import {
   Coins,
   TrendingUp,
   Shield,
-  Users,
   Eye,
   Gift,
-  Copy,
-  Check,
   ArrowRight,
   Loader2,
 } from "lucide-react";
 import { getContracts, CHAIN } from "@/config/contracts";
+import { InfoButton } from "@/components/InfoButton";
 import {
   useClaimableRewards,
   useAvailableBudget,
@@ -65,14 +63,6 @@ const REWARD_SOURCES = [
     description: "Premiums earned from insurance pool deposits",
   },
   {
-    id: "affiliate",
-    label: "Affiliate Rewards",
-    contract: "AffiliateManager",
-    icon: Users,
-    color: "#F97316",
-    description: "Commission from referred users",
-  },
-  {
     id: "watcher",
     label: "Watcher / Judge Rewards",
     contract: "RewardDistributor",
@@ -87,7 +77,6 @@ const EARNINGS_BREAKDOWN = [
   { label: "Staking", color: "#58B059" },
   { label: "LP Mining", color: "#3B82F6" },
   { label: "Insurance", color: "#06B6D4" },
-  { label: "Affiliate", color: "#F97316" },
   { label: "Watcher", color: "#EAB308" },
 ];
 
@@ -96,7 +85,6 @@ const fmtLob = (raw: bigint | undefined) =>
 
 export default function RewardsPage() {
   const { isConnected, address } = useAccount();
-  const [copiedCode, setCopiedCode] = useState(false);
   const [claimTxPending, setClaimTxPending] = useState(false);
 
   const contracts = getContracts(CHAIN.id);
@@ -128,12 +116,6 @@ export default function RewardsPage() {
     } finally {
       setClaimTxPending(false);
     }
-  };
-
-  const copyReferralCode = () => {
-    navigator.clipboard.writeText("CRUZ-LOB-7X2K");
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const claiming = isClaimPending || claimTxPending;
@@ -173,7 +155,7 @@ export default function RewardsPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Rewards</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">Rewards <InfoButton infoKey="rewards.header" /></h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           All your protocol earnings in one place
         </p>
@@ -359,28 +341,6 @@ export default function RewardsPage() {
                 {source.description}
               </p>
 
-              {/* Affiliate-specific referral code */}
-              {source.id === "affiliate" && (
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-surface-2 rounded px-2.5 py-1.5 font-mono text-[10px] text-text-secondary truncate">
-                      CRUZ-LOB-7X2K
-                    </div>
-                    <motion.button
-                      className="p-1.5 rounded hover:bg-surface-2 transition-colors"
-                      onClick={copyReferralCode}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      {copiedCode ? (
-                        <Check className="w-3.5 h-3.5 text-lob-green" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5 text-text-tertiary" />
-                      )}
-                    </motion.button>
-                  </div>
-                </div>
-              )}
-
               {/* Source indicator */}
               <div className="pt-3 border-t border-border/30">
                 <p className="text-[9px] text-text-tertiary uppercase tracking-wider">Source</p>
@@ -395,8 +355,9 @@ export default function RewardsPage() {
 
       {/* Earnings Breakdown */}
       <motion.div variants={fadeUp} className="card p-5 mb-6">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
           Reward Sources
+          <InfoButton infoKey="rewards.rewardSources" />
         </h3>
 
         <div className="space-y-3">
@@ -441,8 +402,9 @@ export default function RewardsPage() {
 
       {/* How Rewards Work */}
       <motion.div variants={fadeUp} className="card p-5">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
           How Rewards Work
+          <InfoButton infoKey="rewards.howRewardsWork" />
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[

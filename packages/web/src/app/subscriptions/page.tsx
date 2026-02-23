@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Info,
 } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 import {
   useSubscriptionsByBuyer,
   useSubscriptionsBySeller,
@@ -92,8 +93,9 @@ function SubscriptionFlow() {
 
   return (
     <div className="card p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5 flex items-center gap-1.5">
         How Subscriptions Work
+        <InfoButton infoKey="subscriptions.howItWorks" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3">
         {steps.map((step, i) => {
@@ -542,7 +544,10 @@ export default function SubscriptionsPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Subscriptions</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          Subscriptions
+          <InfoButton infoKey="subscriptions.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Recurring billing for ongoing AI services
         </p>
@@ -1273,8 +1278,9 @@ export default function SubscriptionsPage() {
       {/* Footer summary */}
       <motion.div variants={fadeUp} className="mt-8">
         <div className="card p-5">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
             Key Mechanics
+            <InfoButton infoKey="subscriptions.mechanics" />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[

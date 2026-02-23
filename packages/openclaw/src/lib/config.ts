@@ -44,6 +44,16 @@ export const CHAINS: Record<string, ChainConfig> = {
       airdropClaimV2: '0x349790d7f56110765Fccd86790B584c423c0BaA9',
       treasuryGovernor: '0x9576dcf9909ec192FC136A12De293Efab911517f',
       sybilGuard: '0xF43E6698cAAf3BFf422137F20541Cd24dfB3ff07',
+      // V3 contracts (deployed at block 42509758)
+      x402CreditFacility: '0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C',
+      rewardDistributor: '0x6D96dF45Ad39A38fd00C7e22bdb33C87B69923Ac',
+      loanEngine: '0xf5Ab9F1A5c6CC60e1A68d50B4C943D72fd97487a',
+      stakingRewards: '0xac09C8c327321Ef52CA4D5837A109e327933c0d8',
+      liquidityMining: '0x4b534d01Ca4aCfa7189D4f61ED3A6bB488FB208D',
+      rewardScheduler: '0x6A7b959A96be2abD5C2C866489e217c9153A9D8A',
+      lightningGovernor: '0xBAd7274F05C84deaa16542404C5Da2495F2fa145',
+      airdropClaimV3: '0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C',
+      teamVesting: '0xFB97b85eBaF663c29323BA2499A11a7E524aCcC1',
     },
   },
 };

@@ -56,6 +56,7 @@ import {
   ShieldAlert,
   Loader2,
 } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 
 /* ──── Types ──────────────────────────────────────────────────── */
 
@@ -443,8 +444,9 @@ function ModActivityChart({ actions }: { actions: ModAction[] }) {
 
   return (
     <div className="card p-4">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
         Mod Actions Breakdown
+        <InfoButton infoKey="mod.actions" />
       </h3>
       <div className="h-[140px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -526,8 +528,9 @@ function FlagReasonDonut({ posts }: { posts: FlaggedPost[] }) {
 
   return (
     <div className="card p-4">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
         Flagged by Reason
+        <InfoButton infoKey="mod.queue" />
       </h3>
       <div className="flex items-center gap-4">
         <div className="w-[100px] h-[100px] shrink-0">
@@ -1643,7 +1646,10 @@ export default function ModCenterPage() {
           <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-400/20 flex items-center justify-center">
             <Shield className="w-4 h-4 text-purple-400" />
           </div>
-          <h1 className="text-xl font-bold text-text-primary">Mod Center</h1>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+            Mod Center
+            <InfoButton infoKey="mod.header" />
+          </h1>
           <span className="relative flex h-2 w-2 ml-1">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lob-green opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-lob-green" />

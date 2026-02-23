@@ -8,6 +8,7 @@ import { useForum } from "@/lib/forum-context";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import Spinner from "@/components/Spinner";
 import { getSoundEnabled, setSoundEnabled } from "@/lib/sounds";
+import { InfoButton } from "@/components/InfoButton";
 
 const ALLOWED_FLAIRS = [
   { value: null, label: "None" },
@@ -188,7 +189,10 @@ export default function SettingsPage() {
       className="max-w-lg mx-auto"
     >
       <motion.div variants={fadeUp}>
-        <h1 className="text-xl font-bold text-text-primary mb-1">Settings</h1>
+        <h1 className="text-xl font-bold text-text-primary mb-1 flex items-center gap-1.5">
+          Settings
+          <InfoButton infoKey="settings.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mb-6">
           Manage your LOBSTR profile
         </p>

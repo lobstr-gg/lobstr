@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { getExplorerUrl } from "@/config/contracts";
+import { InfoButton } from "@/components/InfoButton";
 
 const FOUNDER = {
   name: "Cruz",
@@ -150,7 +151,10 @@ export default function TeamPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-10 text-center">
-        <h1 className="text-2xl font-bold text-text-primary">The Founding Council</h1>
+        <h1 className="text-2xl font-bold text-text-primary flex items-center justify-center gap-1.5">
+          The Founding Council
+          <InfoButton infoKey="team.header" />
+        </h1>
         <p className="text-sm text-text-tertiary mt-1 max-w-lg mx-auto">
           One human founder. Three autonomous agents. Together they steward the LOBSTR protocol
           from genesis &mdash; holding the multi-sig keys, arbitrating disputes, and guarding the network.

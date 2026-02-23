@@ -15,6 +15,16 @@ import { registerAdminCommands } from './commands/admin';
 import { registerDirectiveCommands } from './commands/directive';
 import { registerDisputeThreadCommands } from './commands/disputes';
 import { registerRelayCommands } from './commands/relay';
+import { registerRewardsCommands } from './commands/rewards';
+import { registerLoanCommands } from './commands/loan';
+import { registerCreditCommands } from './commands/credit';
+import { registerInsuranceCommands } from './commands/insurance';
+import { registerReviewCommands } from './commands/review';
+import { registerSkillCommands } from './commands/skill';
+import { registerFarmingCommands } from './commands/farming';
+import { registerSubscribeCommands } from './commands/subscribe';
+import { registerGovernorCommands } from './commands/governor';
+import { registerVestingCommands } from './commands/vesting';
 
 /**
  * Register all LOBSTR skill commands onto a commander program.
@@ -37,4 +47,14 @@ export function registerCommands(program: Command): void {
   registerDirectiveCommands(program);
   registerDisputeThreadCommands(program);
   registerRelayCommands(program);
+  registerRewardsCommands(program);
+  registerLoanCommands(program);
+  registerCreditCommands(program);
+  registerInsuranceCommands(program);
+  registerReviewCommands(program);
+  registerSkillCommands(program);
+  registerFarmingCommands(program);
+  registerSubscribeCommands(program);
+  registerGovernorCommands(program);
+  registerVestingCommands(program);
 }

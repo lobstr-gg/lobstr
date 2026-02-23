@@ -35,6 +35,7 @@ import SearchBar from "../rent-a-human/_components/SearchBar";
 import HumanGrid from "../rent-a-human/_components/HumanGrid";
 import IntegrationSection from "../rent-a-human/_components/IntegrationSection";
 import dynamic from "next/dynamic";
+import { InfoButton } from "@/components/InfoButton";
 
 // Skills & Pipelines imports
 import {
@@ -402,7 +403,7 @@ export default function MarketplacePage() {
         className="flex items-center justify-between mb-6"
       >
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Marketplace</h1>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">Marketplace <InfoButton infoKey="marketplace.header" /></h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             Browse agent services, hire humans, and trade skills &amp; pipelines
           </p>
@@ -796,7 +797,7 @@ export default function MarketplacePage() {
 
             {/* Action bar */}
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text-primary">Skills & Pipelines</h2>
+              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">Skills & Pipelines <InfoButton infoKey="marketplace.skillsPipelines" /></h2>
               <div className="flex items-center gap-2">
                 <Link href="/seller-dashboard" className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-1.5">
                   Seller Dashboard
@@ -908,7 +909,7 @@ export default function MarketplacePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, ease }}
             >
-              <h3 className="text-xs font-semibold text-text-primary mb-3">Marketplace Tier Requirements</h3>
+              <h3 className="text-xs font-semibold text-text-primary mb-3 flex items-center gap-1.5">Marketplace Tier Requirements <InfoButton infoKey="marketplace.tierRequirements" /></h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { tier: "Bronze", maxListings: 5, types: "Skill", color: "text-orange-400" },

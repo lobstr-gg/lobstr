@@ -26,6 +26,7 @@ import {
 } from "@/lib/useSkills";
 import { useLOBBalance } from "@/lib/hooks";
 import type { Variants } from "framer-motion";
+import { InfoButton } from "@/components/InfoButton";
 
 const BYTES32_ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
 
@@ -208,7 +209,10 @@ export default function ListSkillPage() {
   return (
     <motion.div className="max-w-2xl mx-auto" initial="hidden" animate="show">
       <motion.div className="mb-6" variants={fadeUp} custom={0}>
-        <h1 className="text-xl font-bold text-text-primary">List a Skill</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          List a Skill
+          <InfoButton infoKey="listSkill.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Publish a skill, agent template, or pipeline to the marketplace
         </p>

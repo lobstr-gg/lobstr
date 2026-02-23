@@ -13,8 +13,7 @@ import {
 import * as ui from 'openclaw';
 import { JOB_STATUS, formatLob, CATEGORY_NAMES } from '../lib/format';
 
-// X402 Escrow Bridge — deployed on Base mainnet
-const BRIDGE_ADDRESS = '0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0' as const;
+// X402 Credit Facility ABI (V3 — replaces V1 EscrowBridge)
 const BRIDGE_ABI = parseAbi([
   'function jobPayer(uint256) view returns (address)',
   'function confirmDelivery(uint256 jobId)',
@@ -22,6 +21,9 @@ const BRIDGE_ABI = parseAbi([
   'function claimEscrowRefund(uint256 jobId)',
   'function jobRefundCredit(uint256) view returns (uint256)',
   'function refundClaimed(uint256) view returns (bool)',
+  'function getCreditLine(address) view returns (uint256 limit, uint256 drawn, uint256 available, bool active)',
+  'function drawCredit(uint256 amount)',
+  'function repayCredit(uint256 amount)',
 ]);
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -148,8 +150,9 @@ export function registerJobCommands(program: Command): void {
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
 
         // Check if this is a bridge job
+        const bridgeAddr = getContractAddress(ws.config, 'x402CreditFacility') as `0x${string}`;
         const bridgePayer = await publicClient.readContract({
-          address: BRIDGE_ADDRESS,
+          address: bridgeAddr,
           abi: BRIDGE_ABI,
           functionName: 'jobPayer',
           args: [BigInt(id)],
@@ -160,7 +163,7 @@ export function registerJobCommands(program: Command): void {
         if (isBridgeJob) {
           spin.text = 'Confirming via x402 bridge...';
           tx = await walletClient.writeContract({
-            address: BRIDGE_ADDRESS,
+            address: bridgeAddr,
             abi: BRIDGE_ABI,
             functionName: 'confirmDelivery',
             args: [BigInt(id)],
@@ -198,8 +201,9 @@ export function registerJobCommands(program: Command): void {
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
 
         // Check if this is a bridge job
+        const bridgeAddr = getContractAddress(ws.config, 'x402CreditFacility') as `0x${string}`;
         const bridgePayer = await publicClient.readContract({
-          address: BRIDGE_ADDRESS,
+          address: bridgeAddr,
           abi: BRIDGE_ABI,
           functionName: 'jobPayer',
           args: [BigInt(id)],
@@ -210,7 +214,7 @@ export function registerJobCommands(program: Command): void {
         if (isBridgeJob) {
           spin.text = 'Initiating dispute via x402 bridge...';
           tx = await walletClient.writeContract({
-            address: BRIDGE_ADDRESS,
+            address: bridgeAddr,
             abi: BRIDGE_ABI,
             functionName: 'initiateDispute',
             args: [BigInt(id), opts.evidence],
@@ -245,21 +249,22 @@ export function registerJobCommands(program: Command): void {
         const spin = ui.spinner('Checking refund eligibility...');
 
         // Verify this is a bridge job with a refund credit
+        const bridgeAddr = getContractAddress(ws.config, 'x402CreditFacility') as `0x${string}`;
         const [bridgePayer, credit, claimed] = await Promise.all([
           publicClient.readContract({
-            address: BRIDGE_ADDRESS,
+            address: bridgeAddr,
             abi: BRIDGE_ABI,
             functionName: 'jobPayer',
             args: [BigInt(id)],
           }),
           publicClient.readContract({
-            address: BRIDGE_ADDRESS,
+            address: bridgeAddr,
             abi: BRIDGE_ABI,
             functionName: 'jobRefundCredit',
             args: [BigInt(id)],
           }),
           publicClient.readContract({
-            address: BRIDGE_ADDRESS,
+            address: bridgeAddr,
             abi: BRIDGE_ABI,
             functionName: 'refundClaimed',
             args: [BigInt(id)],
@@ -281,7 +286,7 @@ export function registerJobCommands(program: Command): void {
 
         spin.text = 'Claiming refund...';
         const tx = await walletClient.writeContract({
-          address: BRIDGE_ADDRESS,
+          address: bridgeAddr,
           abi: BRIDGE_ABI,
           functionName: 'claimEscrowRefund',
           args: [BigInt(id)],
@@ -330,11 +335,12 @@ export function registerJobCommands(program: Command): void {
         };
 
         // Check if this is a bridge job
+        const bridgeAddr = getContractAddress(ws.config, 'x402CreditFacility') as `0x${string}`;
         let isBridgeJob = false;
         let realPayer = '';
         try {
           const bridgePayer = await publicClient.readContract({
-            address: BRIDGE_ADDRESS,
+            address: bridgeAddr,
             abi: BRIDGE_ABI,
             functionName: 'jobPayer',
             args: [BigInt(id)],

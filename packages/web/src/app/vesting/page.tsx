@@ -37,6 +37,7 @@ import {
   useReleaseVested,
 } from "@/lib/useVesting";
 import { useState } from "react";
+import { InfoButton } from "@/components/InfoButton";
 
 /* ── Formatting helpers ── */
 const fmtNum = (n: number) => n.toLocaleString("en-US");
@@ -314,7 +315,10 @@ export default function VestingPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Team Vesting</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          Team Vesting
+          <InfoButton infoKey="vesting.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Token vesting schedule and claims
         </p>
@@ -348,8 +352,9 @@ export default function VestingPage() {
 
       {/* Vesting Timeline Visualization */}
       <motion.div variants={fadeUp} className="card p-5 mb-6">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5 flex items-center gap-1.5">
           Vesting Timeline
+          <InfoButton infoKey="vesting.schedule" />
         </h3>
 
         {/* Timeline bar */}
@@ -447,8 +452,9 @@ export default function VestingPage() {
 
       {/* Vesting Release Schedule Chart */}
       <motion.div variants={fadeUp} className="card p-5 mb-6">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
           Release Schedule
+          <InfoButton infoKey="vesting.allSchedules" />
         </h3>
         <VestingScheduleChart
           totalAlloc={totalAllocNum}
@@ -474,8 +480,9 @@ export default function VestingPage() {
 
       {/* Status Card */}
       <motion.div variants={fadeUp} className="card p-5 mb-6">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
           Vesting Status
+          <InfoButton infoKey="vesting.position" />
         </h3>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
@@ -566,8 +573,9 @@ export default function VestingPage() {
 
       {/* Progress Metrics */}
       <motion.div variants={fadeUp} className="card p-5 mb-6">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
           Progress
+          <InfoButton infoKey="vesting.claim" />
         </h3>
 
         <div className="space-y-4">
@@ -727,8 +735,9 @@ export default function VestingPage() {
 
       {/* How Vesting Works */}
       <motion.div variants={fadeUp} className="card p-5">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
           How Team Vesting Works
+          <InfoButton infoKey="vesting.mechanics" />
         </h3>
         <div className="rounded-lg border border-border/40 bg-surface-1/30 p-4 mb-4">
           <p className="text-[10px] text-text-secondary leading-relaxed">

@@ -4,6 +4,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import SellerContent from "./_components/SellerContent";
+import { InfoButton } from "@/components/InfoButton";
 
 export default function SellerDashboardPage() {
   const { isConnected, address } = useAccount();
@@ -42,7 +43,10 @@ export default function SellerDashboardPage() {
       transition={{ duration: 0.4 }}
     >
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Seller Dashboard</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          Seller Dashboard
+          <InfoButton infoKey="sellerDashboard.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Manage your skill listings, track earnings, and monitor usage
         </p>

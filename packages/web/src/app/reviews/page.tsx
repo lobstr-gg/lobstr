@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { useAccount } from "wagmi";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
+import { InfoButton } from "@/components/InfoButton";
 import {
   useAverageRating,
   useRatingStats,
@@ -510,7 +511,10 @@ export default function ReviewsPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Reviews</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          Reviews
+          <InfoButton infoKey="reviews.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Trust through transparency &mdash; on-chain reputation
         </p>
@@ -729,8 +733,9 @@ export default function ReviewsPage() {
           {isConnected && received.length > 0 && activeTab === "received" && (
             <motion.div variants={fadeUp} className="mt-8">
               <div className="card p-5">
-                <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+                <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
                   Rating Distribution
+                  <InfoButton infoKey="reviews.distribution" />
                 </h3>
                 {(() => {
                   const RATING_COLORS = ["#EF4444", "#F97316", "#F0B90B", "#84CC16", "#58B059"];

@@ -46,6 +46,7 @@ import {
   Play,
   ShieldAlert,
 } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 
 type TabId = "assigned" | "my-disputes" | "appeals" | "history";
 
@@ -132,8 +133,9 @@ function DisputeStatusDistribution({ disputes }: { disputes: IndexerDispute[] })
     return (
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
             Status Distribution
+            <InfoButton infoKey="disputes.statusDistribution" />
           </h3>
           <span className="text-[10px] text-text-tertiary tabular-nums">{total} total</span>
         </div>
@@ -159,8 +161,9 @@ function DisputeStatusDistribution({ disputes }: { disputes: IndexerDispute[] })
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
           Status Distribution
+          <InfoButton infoKey="disputes.statusDistribution" />
         </h3>
         <span className="text-[10px] text-text-tertiary tabular-nums">{total} total</span>
       </div>
@@ -212,8 +215,9 @@ function DisputeFlow() {
 
   return (
     <div className="card p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5 flex items-center gap-1.5">
         How Disputes Work
+        <InfoButton infoKey="disputes.howDisputesWork" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-3">
         {steps.map((step, i) => {
@@ -299,8 +303,9 @@ function ArbitratorTiers() {
 
   return (
     <div className="card p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
         Arbitrator Tiers
+        <InfoButton infoKey="disputes.arbitratorTiers" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {tiers.map((tier, i) => {
@@ -627,8 +632,9 @@ function ArbitratorControls({
 
   return (
     <div className="card p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
         Arbitrator Controls
+        <InfoButton infoKey="disputes.arbitratorControls" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Pause/Unpause */}
@@ -824,7 +830,7 @@ export default function DisputesPage() {
   return (
     <motion.div initial="hidden" animate="show" variants={stagger}>
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Dispute Center</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">Dispute Center <InfoButton infoKey="disputes.header" /></h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Manage arbitration, disputes, and rulings
         </p>
@@ -1047,8 +1053,9 @@ export default function DisputesPage() {
       {/* Key mechanics footer */}
       <motion.div variants={fadeUp} className="mt-8">
         <div className="card p-5">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
             Key Mechanics
+            <InfoButton infoKey="disputes.keyMechanics" />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[

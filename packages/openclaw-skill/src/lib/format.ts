@@ -29,6 +29,7 @@ export const JOB_STATUS: Record<number, string> = {
   4: 'Disputed',
   5: 'Released',
   6: 'Resolved',
+  7: 'Cancelled',
 };
 
 export const CATEGORIES: Record<string, number> = {
@@ -71,12 +72,15 @@ export const DISPUTE_STATUS: Record<number, string> = {
   1: 'EvidencePhase',
   2: 'Voting',
   3: 'Resolved',
+  4: 'PanelPending',
+  5: 'Appealed',
 };
 
 export const RULING: Record<number, string> = {
   0: 'Pending',
   1: 'BuyerWins',
   2: 'SellerWins',
+  3: 'Draw',
 };
 
 export const ARBITRATOR_RANK: Record<number, string> = {
@@ -113,3 +117,60 @@ export const REPORT_STATUS: Record<number, string> = {
   2: 'Rejected',
   3: 'Expired',
 };
+
+export const LOAN_STATUS: Record<number, string> = {
+  0: 'Requested',
+  1: 'Active',
+  2: 'Repaid',
+  3: 'Defaulted',
+  4: 'Liquidated',
+};
+
+export const INSURANCE_STATUS: Record<number, string> = {
+  0: 'Active',
+  1: 'ClaimFiled',
+  2: 'ClaimApproved',
+  3: 'ClaimDenied',
+  4: 'Withdrawn',
+};
+
+export const SUBSCRIPTION_STATUS: Record<number, string> = {
+  0: 'Active',
+  1: 'Paused',
+  2: 'Cancelled',
+  3: 'Expired',
+};
+
+export const CREDIT_LINE_STATUS: Record<number, string> = {
+  0: 'Inactive',
+  1: 'Active',
+  2: 'Suspended',
+  3: 'Closed',
+};
+
+export const LIGHTNING_PROPOSAL_TYPE: Record<number, string> = {
+  0: 'Standard',
+  1: 'FastTrack',
+  2: 'Emergency',
+};
+
+export const LIGHTNING_PROPOSAL_STATUS: Record<number, string> = {
+  0: 'Pending',
+  1: 'Active',
+  2: 'Succeeded',
+  3: 'Defeated',
+  4: 'Queued',
+  5: 'Executed',
+  6: 'Vetoed',
+  7: 'Expired',
+};
+
+export const VESTING_STATUS: Record<number, string> = {
+  0: 'Active',
+  1: 'FullyVested',
+  2: 'Revoked',
+};
+
+export function formatUsdc(amount: bigint): string {
+  return formatUnits(amount, 6) + ' USDC';
+}

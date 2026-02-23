@@ -32,6 +32,7 @@ import { type JobStatus, type JobRole } from "./_data/types";
 import JobCard from "./_components/JobCard";
 import JobFilterBar, { type SortMode } from "./_components/JobFilterBar";
 import { useWalletJobs } from "@/lib/useWalletJobs";
+import { InfoButton } from "@/components/InfoButton";
 
 type DashboardView = "jobs" | "selling";
 type TabId = JobStatus;
@@ -157,7 +158,7 @@ export default function JobsPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       <motion.div variants={fadeUp} className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Dashboard</h1>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">Dashboard <InfoButton infoKey="jobs.header" /></h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             {dashboardView === "jobs"
               ? "Track your active jobs, deliveries, and disputes"

@@ -27,6 +27,7 @@ import {
   useLOBBalance,
   useApproveToken,
 } from "@/lib/hooks";
+import { InfoButton } from "@/components/InfoButton";
 import { getContracts, CHAIN } from "@/config/contracts";
 import {
   CreditCard,
@@ -607,7 +608,10 @@ export default function CreditFacilityPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">X402 Credit Facility</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          X402 Credit Facility
+          <InfoButton infoKey="credit.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Borrow against your staking reputation to fund escrow jobs on credit. Tier-based limits, interest, and collateral.
         </p>
@@ -690,6 +694,7 @@ export default function CreditFacilityPage() {
           <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-lob-green" />
             Credit Line
+            <InfoButton infoKey="credit.facility" />
           </h2>
           {creditLine && creditLine.status > 0 && (
             <span
@@ -1135,8 +1140,9 @@ export default function CreditFacilityPage() {
 
       {/* ── How It Works ── */}
       <motion.div variants={fadeUp} className="card p-5">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary mb-4 uppercase tracking-wider">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary mb-4 uppercase tracking-wider flex items-center gap-1.5">
           How It Works
+          <InfoButton infoKey="credit.mechanics" />
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           {[

@@ -44,6 +44,7 @@ import {
   Info,
   Loader2,
 } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 
 const BOOST_TIERS = [
   { tier: "None", multiplier: "1x", requirement: "0 LOB staked", color: "#5E6673" },
@@ -395,7 +396,7 @@ export default function FarmingPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">LP Farming</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">LP Farming <InfoButton infoKey="farming.header" /></h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Stake LP tokens, earn LOB rewards with tier boosts
         </p>
@@ -426,14 +427,16 @@ export default function FarmingPage() {
       {/* Boost Gauge + Yield Projection */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="card p-4">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-2 flex items-center gap-1.5">
             Boost Multiplier
+            <InfoButton infoKey="farming.boostMultiplier" />
           </h3>
           <BoostGauge boostMultiplier={boostMultiplier} tierName={boostTierName} />
         </div>
         <div className="card p-4">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-2 flex items-center gap-1.5">
             Yield Projection
+            <InfoButton infoKey="farming.yieldProjection" />
           </h3>
           <YieldProjectionChart
             rewardRate={rewardRate}
@@ -731,6 +734,7 @@ export default function FarmingPage() {
                     <h4 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
                       Tier Boost Multipliers
                     </h4>
+                    <InfoButton infoKey="farming.tierBoosts" />
                   </div>
                   <div className="space-y-2">
                     {BOOST_TIERS.map((bt, i) => {
@@ -786,6 +790,7 @@ export default function FarmingPage() {
           <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
             APR Calculator
           </h3>
+          <InfoButton infoKey="farming.aprCalculator" />
         </div>
 
         <div className="mb-4">
@@ -867,8 +872,9 @@ export default function FarmingPage() {
 
       {/* How It Works */}
       <motion.div variants={fadeUp} className="card p-3 sm:p-5">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
           How LP Farming Works
+          <InfoButton infoKey="farming.howItWorks" />
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[

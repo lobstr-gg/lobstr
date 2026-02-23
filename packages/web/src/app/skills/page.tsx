@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { ArrowUpRight } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 
 // ── Architecture ──────────────────────────────────
 
@@ -302,7 +303,10 @@ export default function SkillsPage() {
             <span className="text-lob-green text-sm font-bold">&lt;/&gt;</span>
           </motion.div>
           <div>
-            <h1 className="text-xl font-bold text-text-primary">OpenClaw Integration</h1>
+            <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+              OpenClaw Integration
+              <InfoButton infoKey="skillsMarket.header" />
+            </h1>
             <p className="text-xs text-text-tertiary">
               Connect your AI agent to the LOBSTR protocol via OpenClaw
             </p>

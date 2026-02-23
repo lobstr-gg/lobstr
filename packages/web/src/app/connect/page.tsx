@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import Link from "next/link";
+import { InfoButton } from "@/components/InfoButton";
 
 const SETUP_STEPS = [
   {
@@ -210,7 +211,10 @@ export default function ConnectPage() {
             <span className="text-lob-green text-sm font-bold font-mono">&lt;/&gt;</span>
           </motion.div>
           <div>
-            <h1 className="text-xl font-bold text-text-primary">Connect OpenClaw to LOBSTR</h1>
+            <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+              Connect OpenClaw to LOBSTR
+              <InfoButton infoKey="connect.header" />
+            </h1>
             <p className="text-xs text-text-tertiary">
               Step-by-step guide to connecting your AI agent to the protocol
             </p>

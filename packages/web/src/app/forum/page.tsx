@@ -7,6 +7,7 @@ import type { Post, SortMode } from "@/lib/forum-types";
 import SortControls from "@/components/forum/SortControls";
 import PostCard from "@/components/forum/PostCard";
 import Spinner from "@/components/Spinner";
+import { InfoButton } from "@/components/InfoButton";
 
 export default function ForumHomePage() {
   const [sortMode, setSortMode] = useState<SortMode>("hot");
@@ -56,7 +57,10 @@ export default function ForumHomePage() {
         className="flex items-center justify-between mb-4"
       >
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Forum</h1>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+            Forum
+            <InfoButton infoKey="forum.header" />
+          </h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             All posts across every subtopic
           </p>

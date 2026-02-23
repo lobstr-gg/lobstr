@@ -51,6 +51,7 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 
 type Section = "seller" | "arbitrator" | "moderator";
 
@@ -155,8 +156,9 @@ function TierProgressDonut({
 
   return (
     <div className="card p-3 sm:p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
         Tier Progress
+        <InfoButton infoKey="staking.tierProgress" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
         {/* Donut chart */}
@@ -292,6 +294,7 @@ function StakingRewardsSection({
           <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2">
             <Gift className="w-4 h-4 text-lob-green" />
             Staking Rewards
+            <InfoButton infoKey="staking.stakingRewards" />
           </h3>
           <span
             className="text-[10px] font-medium px-2 py-0.5 rounded"
@@ -520,6 +523,7 @@ function StakingOverview({
         <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
           Staking Pools Overview
         </h3>
+        <InfoButton infoKey="staking.poolsOverview" />
       </div>
 
       <div className="rounded-lg border border-border/40 bg-surface-1/30 p-3 mb-5">
@@ -729,7 +733,7 @@ export default function StakingPage() {
   return (
     <motion.div initial="hidden" animate="show" variants={stagger}>
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Staking</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">Staking <InfoButton infoKey="staking.header" /></h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Stake $LOB across separate pools to unlock marketplace listings, arbitrate disputes, or moderate the forum
         </p>
@@ -860,6 +864,7 @@ export default function StakingPage() {
                 <h2 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-text-tertiary" />
                   Stake $LOB
+                  <InfoButton infoKey="staking.stakeLob" />
                 </h2>
                 <span className="text-xs text-text-tertiary tabular-nums">
                   Available: {lobBalanceFmt} LOB
@@ -918,6 +923,7 @@ export default function StakingPage() {
                   <h2 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
                     <Unlock className="w-3.5 h-3.5 text-text-tertiary" />
                     Unstake $LOB
+                    <InfoButton infoKey="staking.unstakeLob" />
                   </h2>
                   <span className="text-xs text-text-tertiary tabular-nums">
                     Staked: {fmtLob(stakedAmount)} LOB
@@ -1032,8 +1038,9 @@ export default function StakingPage() {
             {/* Tier table */}
             <div className="card overflow-hidden">
               <div className="px-4 py-3 border-b border-border">
-                <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
+                <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
                   Seller Tier Benefits
+                  <InfoButton infoKey="staking.sellerTierBenefits" />
                 </h3>
               </div>
               <div className="hidden sm:grid grid-cols-4 gap-4 px-4 py-2.5 text-[10px] font-medium text-text-tertiary uppercase tracking-wider border-b border-border/50">
@@ -1180,8 +1187,9 @@ export default function StakingPage() {
             {/* Tier cards + stake form */}
             <div className="card p-3 sm:p-5 space-y-5">
               <div>
-                <h2 className="text-sm font-semibold text-text-primary mb-1">
+                <h2 className="text-sm font-semibold text-text-primary mb-1 flex items-center gap-1.5">
                   Arbitrator Tiers
+                  <InfoButton infoKey="staking.arbitratorTiers" />
                 </h2>
                 <p className="text-xs text-text-secondary">
                   Higher tiers handle larger disputes and earn bigger reward multipliers.
@@ -1332,8 +1340,9 @@ export default function StakingPage() {
 
                 {/* Eligibility checklist */}
                 <div className="card p-3 sm:p-5">
-                  <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary mb-3 uppercase tracking-wider">
+                  <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary mb-3 uppercase tracking-wider flex items-center gap-1.5">
                     Eligibility
+                    <InfoButton infoKey="staking.moderator" />
                   </h3>
                   <div className="space-y-2.5">
                     {ELIGIBILITY.map((req) => (
@@ -1494,8 +1503,9 @@ export default function StakingPage() {
               {/* Perks sidebar -- 1/3 */}
               <div className="space-y-4">
                 <div className="card p-3 sm:p-5">
-                  <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary mb-3 uppercase tracking-wider">
+                  <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary mb-3 uppercase tracking-wider flex items-center gap-1.5">
                     Moderator Perks
+                    <InfoButton infoKey="staking.moderatorPerks" />
                   </h3>
                   <div className="space-y-3">
                     {PERKS.map((perk) => (
@@ -1545,8 +1555,9 @@ export default function StakingPage() {
       {/* Summary at bottom */}
       <motion.div variants={fadeUp} className="mt-8">
         <div className="card p-3 sm:p-5">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
             Staking Summary
+            <InfoButton infoKey="staking.summary" />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-lg border border-lob-green/15 p-3">

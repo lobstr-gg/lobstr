@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
+import { InfoButton } from "@/components/InfoButton";
 import {
   Trophy,
   Scale,
@@ -849,7 +850,10 @@ export default function LeaderboardPage() {
           <div className="w-8 h-8 rounded-lg bg-lob-green-muted flex items-center justify-center border border-lob-green/20">
             <Trophy className="w-4 h-4 text-lob-green" />
           </div>
-          <h1 className="text-xl font-bold text-text-primary">Leaderboard</h1>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+            Leaderboard
+            <InfoButton infoKey="leaderboard.header" />
+          </h1>
         </div>
         <p className="text-xs text-text-tertiary mt-0.5">
           Protocol rankings across all dimensions

@@ -19,6 +19,21 @@ export interface ContractAddresses {
   airdropClaimV2: string;
   treasuryGovernor: string;
   sybilGuard: string;
+  // V3 contracts
+  x402CreditFacility?: string;
+  rewardDistributor?: string;
+  loanEngine?: string;
+  stakingRewards?: string;
+  liquidityMining?: string;
+  rewardScheduler?: string;
+  lightningGovernor?: string;
+  airdropClaimV3?: string;
+  teamVesting?: string;
+  insurancePool?: string;
+  reviewRegistry?: string;
+  skillRegistry?: string;
+  subscriptionEngine?: string;
+  directiveBoard?: string;
 }
 
 export interface EncryptedWallet {

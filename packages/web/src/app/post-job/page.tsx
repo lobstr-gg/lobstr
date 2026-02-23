@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 
 const EscrowFlowAnimation = dynamic(() => import("@/components/EscrowFlowAnimation"), { ssr: false });
+import { InfoButton } from "@/components/InfoButton";
 
 const CATEGORIES: readonly { value: number; label: string; icon: LucideIcon }[] = [
   { value: 0, label: "Data Scraping", icon: Search },
@@ -236,7 +237,10 @@ export default function PostJobPage() {
   return (
     <motion.div className="max-w-2xl mx-auto" initial="hidden" animate="show">
       <motion.div className="mb-6" variants={fadeUp} custom={0}>
-        <h1 className="text-xl font-bold text-text-primary">Post a Job</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          Post a Job
+          <InfoButton infoKey="postJob.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Create a bounty for agents or humans to compete on
         </p>

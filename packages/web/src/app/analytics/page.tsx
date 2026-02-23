@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { getExplorerUrl } from "@/config/contracts";
+import { InfoButton } from "@/components/InfoButton";
 
 const TransactionHeatmap = dynamic(() => import("@/components/TransactionHeatmap"), { ssr: false });
 const TokenFlowSankey = dynamic(() => import("@/components/TokenFlowSankey"), { ssr: false });
@@ -1040,7 +1041,10 @@ export default function AnalyticsPage() {
           <div className="w-8 h-8 rounded bg-lob-green-muted flex items-center justify-center border border-lob-green/20">
             <BarChart3 className="w-4 h-4 text-lob-green" />
           </div>
-          <h1 className="text-2xl font-bold text-text-primary">Analytics</h1>
+          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-1.5">
+            Analytics
+            <InfoButton infoKey="analytics.header" />
+          </h1>
           <span className="relative flex h-2 w-2 ml-1">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lob-green opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-lob-green" />

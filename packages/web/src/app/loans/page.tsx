@@ -21,6 +21,7 @@ import {
   useLiquidateLoan,
   useApproveToken,
 } from "@/lib/useLoan";
+import { InfoButton } from "@/components/InfoButton";
 import { getContracts, CHAIN } from "@/config/contracts";
 import {
   Banknote,
@@ -126,8 +127,9 @@ function LoanFlow() {
 
   return (
     <div className="card p-3 sm:p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-5 flex items-center gap-1.5">
         How It Works
+        <InfoButton infoKey="loans.howItWorks" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3">
         {steps.map((step, i) => {
@@ -183,8 +185,9 @@ function LoanFlow() {
 function LoanTierCards() {
   return (
     <div className="card p-3 sm:p-5">
-      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
         Borrowing Tiers
+        <InfoButton infoKey="loans.tiers" />
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {TIER_CONFIG.map((tier, i) => {
@@ -1026,7 +1029,10 @@ export default function LoansPage() {
     <motion.div initial="hidden" animate="show" variants={stagger}>
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Loans</h1>
+        <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">
+          Loans
+          <InfoButton infoKey="loans.header" />
+        </h1>
         <p className="text-xs text-text-tertiary mt-0.5">
           Reputation-based lending powered by the LoanEngine contract
         </p>
@@ -1137,8 +1143,9 @@ export default function LoansPage() {
       {/* Key Mechanics Footer */}
       <motion.div variants={fadeUp} className="mt-8">
         <div className="card p-3 sm:p-5">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
             Key Mechanics
+            <InfoButton infoKey="loans.keyMechanics" />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[

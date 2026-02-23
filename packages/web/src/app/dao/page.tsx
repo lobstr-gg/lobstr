@@ -33,6 +33,7 @@ import {
   Users,
   ArrowRight,
 } from "lucide-react";
+import { InfoButton } from "@/components/InfoButton";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -165,8 +166,9 @@ function TreasuryOverview() {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
+        <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
           Treasury
+          <InfoButton infoKey="dao.treasury" />
         </h3>
         {isLoading ? (
           <span className="text-xs text-text-tertiary animate-pulse">Loading...</span>
@@ -232,6 +234,7 @@ function GovernanceFlow() {
         <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
           Governance Process
         </h3>
+        <InfoButton infoKey="dao.governanceProcess" />
       </div>
       <div className="flex items-start justify-between gap-2">
         {GOV_STEPS.map((step, i) => (
@@ -297,6 +300,7 @@ function TreasuryDonut({ lobBalance, isLoading }: { lobBalance: number; isLoadin
         <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
           Treasury Allocation
         </h3>
+        <InfoButton infoKey="dao.treasuryAllocation" />
       </div>
       <div className="flex items-center gap-6">
         <div className="relative w-28 h-28 shrink-0">
@@ -371,6 +375,7 @@ function SignersVisual({ signerCount, requiredApprovals }: { signerCount: number
         <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
           Multisig Security
         </h3>
+        <InfoButton infoKey="dao.multisig" />
       </div>
       <div className="flex items-center gap-3 mb-3">
         <div className="flex -space-x-2">
@@ -509,8 +514,9 @@ export default function DaoPage() {
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
       >
         <div>
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold flex items-center gap-1.5">
             <span className="text-lob-green">Governance</span>
+            <InfoButton infoKey="dao.header" />
           </h1>
           <p className="text-xs text-text-tertiary mt-1">
             Shape the protocol. Lock $LOB for veLOB voting power, vote on proposals,
@@ -965,8 +971,9 @@ export default function DaoPage() {
 
             {/* Quick links */}
             <div className="card p-4">
-              <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
+              <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 Quick Links
+                <InfoButton infoKey="dao.quickLinks" />
               </h3>
               <div className="space-y-2">
                 {[

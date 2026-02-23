@@ -13,7 +13,7 @@ export default function UserCard({ address }: { address: string }) {
   useEffect(() => {
     fetch(`/api/forum/users/${address}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (data) setUser(data); })
+      .then((data) => { if (data?.user) setUser(data.user); })
       .catch(() => {});
   }, [address]);
   const [showCard, setShowCard] = useState(false);
@@ -24,13 +24,9 @@ export default function UserCard({ address }: { address: string }) {
 
   const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
-  // Priority: @username > displayName > shortened address
-  const inlineLabel = user?.username
-    ? `@${user.username}`
-    : user?.displayName
-    ? user.displayName
-    : shortAddress;
-  const isMonoFallback = !user?.username && !user?.displayName;
+  // @handle if set, otherwise address
+  const inlineLabel = user?.username ? `@${user.username}` : shortAddress;
+  const isMonoFallback = !user?.username;
 
   const handleEnter = useCallback(() => {
     if (leaveTimer.current) {
