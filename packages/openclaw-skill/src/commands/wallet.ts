@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { parseAbi, formatUnits } from 'viem';
+import { parseAbi, formatUnits, parseUnits, type Address } from 'viem';
 import {
   ensureWorkspace,
   encryptKey,
@@ -10,10 +10,13 @@ import {
   walletExists,
   promptPassword,
   createPublicClient,
+  createWalletClient,
   getContractAddress,
   LOB_TOKEN_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
+
+const tokenAbi = parseAbi(LOB_TOKEN_ABI as unknown as string[]);
 
 export function registerWalletCommands(program: Command): void {
   const wallet = program
@@ -124,6 +127,54 @@ export function registerWalletCommands(program: Command): void {
         process.exit(1);
       }
     });
+
+  // ── send ──────────────────────────────────────────
+
+  wallet
+    .command('send <amount> <recipient>')
+    .description('Send ETH or LOB to an address')
+    .option('--token <eth|lob>', 'Token to send (default: lob)', 'lob')
+    .action(async (amount: string, recipient: string, opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const token = opts.token.toLowerCase();
+
+        if (token !== 'eth' && token !== 'lob') {
+          ui.error('Token must be "eth" or "lob"');
+          process.exit(1);
+        }
+
+        const parsedAmount = parseUnits(amount, 18);
+        const spin = ui.spinner(`Sending ${amount} ${token.toUpperCase()} to ${recipient}...`);
+
+        let tx: `0x${string}`;
+        if (token === 'eth') {
+          tx = await walletClient.sendTransaction({
+            to: recipient as Address,
+            value: parsedAmount,
+          });
+        } else {
+          const tokenAddr = getContractAddress(ws.config, 'lobToken');
+          tx = await walletClient.writeContract({
+            address: tokenAddr,
+            abi: tokenAbi,
+            functionName: 'transfer',
+            args: [recipient as Address, parsedAmount],
+          });
+        }
+
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed(`Sent ${amount} ${token.toUpperCase()} to ${recipient}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── import ──────────────────────────────────────────
 
   wallet
     .command('import')

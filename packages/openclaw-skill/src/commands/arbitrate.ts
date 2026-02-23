@@ -368,6 +368,87 @@ export function registerArbitrateCommands(program: Command): void {
       }
     });
 
+  // ── counter-evidence ─────────────────────────────────
+
+  arb
+    .command("counter-evidence <disputeId>")
+    .description("Submit counter-evidence for a dispute (seller)")
+    .requiredOption("--evidence <uri>", "Evidence URI (IPFS or HTTPS)")
+    .action(async (disputeId, opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner(
+          `Submitting counter-evidence for dispute #${disputeId}...`
+        );
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "submitCounterEvidence",
+          args: [BigInt(disputeId), opts.evidence],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed(
+          `Counter-evidence submitted for dispute #${disputeId}`
+        );
+        ui.info(`Evidence URI: ${opts.evidence}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── appeal ──────────────────────────────────────────
+
+  arb
+    .command("appeal <disputeId>")
+    .description("Appeal a dispute ruling (requires 500 LOB bond)")
+    .action(async (disputeId) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+        const tokenAddr = getContractAddress(ws.config, "lobToken");
+        const bondAmount = parseUnits("500", 18);
+
+        const spin = ui.spinner("Approving 500 LOB bond...");
+        const approveTx = await walletClient.writeContract({
+          address: tokenAddr,
+          abi: tokenAbi,
+          functionName: "approve",
+          args: [arbAddr, bondAmount],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approveTx });
+
+        spin.text = `Filing appeal for dispute #${disputeId}...`;
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "appealRuling",
+          args: [BigInt(disputeId)],
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Appeal filed for dispute #${disputeId}`);
+        ui.info("500 LOB bond locked");
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
   // ── history ────────────────────────────────────────
 
   arb

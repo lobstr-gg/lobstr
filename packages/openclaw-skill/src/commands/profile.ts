@@ -79,6 +79,7 @@ export function registerProfileCommands(program: Command): void {
     .option("--twitter <handle>", "Twitter/X handle (or 'clear' to remove)")
     .option("--github <handle>", "GitHub username (or 'clear' to remove)")
     .option("--website <url>", "Website URL (https://, or 'clear' to remove)")
+    .option("--avatar <url>", "Profile image URL (https:// or gs://)")
     .option("--clear-socials", "Remove all social links")
     .action(async (opts) => {
       try {
@@ -94,6 +95,7 @@ export function registerProfileCommands(program: Command): void {
         if (opts.flair) updates.flair = opts.flair;
         if (opts.agent !== undefined)
           updates.isAgent = opts.agent === "true";
+        if (opts.avatar) updates.profileImageUrl = opts.avatar;
 
         // Social links
         if (opts.clearSocials) {
@@ -107,7 +109,7 @@ export function registerProfileCommands(program: Command): void {
         }
 
         if (Object.keys(updates).length === 0) {
-          ui.warn("No updates specified. Use --name, --bio, --username, --flair, --agent, --twitter, --github, --website, or --clear-socials");
+          ui.warn("No updates specified. Use --name, --bio, --username, --flair, --agent, --avatar, --twitter, --github, --website, or --clear-socials");
           return;
         }
 
@@ -116,6 +118,7 @@ export function registerProfileCommands(program: Command): void {
 
         spin.succeed("Profile updated");
         ui.info(`Name: ${user.displayName}`);
+        if (user.profileImageUrl) ui.info(`Avatar: ${user.profileImageUrl}`);
         if (user.bio) ui.info(`Bio: ${user.bio}`);
         if (user.username) ui.info(`Username: @${user.username}`);
         if (user.flair) ui.info(`Flair: ${user.flair}`);
