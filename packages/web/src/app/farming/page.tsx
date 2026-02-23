@@ -543,9 +543,15 @@ export default function FarmingPage() {
                           <Loader2 className="w-4 h-4 animate-spin" />
                           {approvePending ? "Approving..." : "Staking..."}
                         </span>
-                      ) : allowance < (stakeAmount ? parseEther(stakeAmount) : BigInt(0))
-                        ? "Approve & Stake"
-                        : "Stake"
+                      ) : (() => {
+                        try {
+                          return stakeAmount && allowance < parseEther(stakeAmount)
+                            ? "Approve & Stake"
+                            : "Stake";
+                        } catch {
+                          return "Stake";
+                        }
+                      })()
                       }
                     </motion.button>
                   </div>
