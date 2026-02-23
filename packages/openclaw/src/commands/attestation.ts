@@ -1,10 +1,12 @@
 import { Command } from 'commander';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ensureWorkspace } from '../lib/workspace';
 import { buildMerkleTree } from '../lib/merkle';
 import { readActivity } from '../lib/activity';
 import { loadWallet } from '../lib/wallet';
+import { poseidonHash } from '../lib/poseidon';
 import { HeartbeatEntry, AttestationInput } from '../types';
 import * as ui from '../lib/ui';
 
@@ -42,6 +44,20 @@ export function registerAttestationCommand(program: Command): void {
 
         // Get wallet address
         const wallet = loadWallet(ws.path);
+
+        // Compute hashes for old-format heartbeats missing hash field
+        spin.text = 'Computing heartbeat hashes...';
+        for (const hb of heartbeats) {
+          if (!hb.hash) {
+            const nonce = BigInt('0x' + crypto.randomBytes(16).toString('hex'));
+            hb.hash = (await poseidonHash([BigInt(hb.timestamp), nonce])).toString();
+          }
+        }
+
+        // Truncate to most recent 256 heartbeats (tree depth-8 = 256 leaves max)
+        if (heartbeats.length > 256) {
+          heartbeats = heartbeats.slice(-256);
+        }
 
         // Build Merkle tree from heartbeat hashes
         spin.text = 'Building Merkle tree...';

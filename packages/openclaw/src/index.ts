@@ -10,3 +10,4 @@ export { parseAbi, type Address } from './lib/contract-client';
 export * from './lib/abis';
 export * from './lib/ui';
 export * from './types';
+export { registerAttestationCommand } from './commands/attestation';

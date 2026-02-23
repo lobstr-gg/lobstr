@@ -25,6 +25,7 @@ import { registerFarmingCommands } from './commands/farming';
 import { registerSubscribeCommands } from './commands/subscribe';
 import { registerGovernorCommands } from './commands/governor';
 import { registerVestingCommands } from './commands/vesting';
+import { registerAttestationCommand } from 'openclaw';
 
 /**
  * Register all LOBSTR skill commands onto a commander program.
@@ -57,4 +58,5 @@ export function registerCommands(program: Command): void {
   registerSubscribeCommands(program);
   registerGovernorCommands(program);
   registerVestingCommands(program);
+  registerAttestationCommand(program);
 }
