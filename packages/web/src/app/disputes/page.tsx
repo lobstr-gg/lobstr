@@ -693,27 +693,32 @@ export default function DisputesPage() {
     refetchInterval: 30_000,
   });
 
-  // arbInfo may be a tuple or object depending on ABI encoding
+  // arbInfo: ABI struct order is [stake, rank, disputesHandled, majorityVotes, active]
   const arbData = useMemo(() => {
     if (!arbInfo) return undefined;
-    // Handle both tuple (array) and struct (object) returns
-    if (Array.isArray(arbInfo)) {
+    try {
+      // Handle both tuple (array) and struct (object) returns
+      if (Array.isArray(arbInfo)) {
+        return {
+          stake: BigInt(arbInfo[0] ?? 0),
+          rank: Number(arbInfo[1] ?? 0),
+          disputesHandled: BigInt(arbInfo[2] ?? 0),
+          majorityVotes: BigInt(arbInfo[3] ?? 0),
+          active: Boolean(arbInfo[4]),
+        };
+      }
+      const info = arbInfo as { rank?: number; disputesHandled?: bigint; majorityVotes?: bigint; active?: boolean; stake?: bigint };
       return {
-        rank: Number(arbInfo[0] ?? 0),
-        disputesHandled: BigInt(arbInfo[1] ?? 0),
-        majorityVotes: BigInt(arbInfo[2] ?? 0),
-        active: Boolean(arbInfo[3]),
-        stake: BigInt(arbInfo[4] ?? 0),
+        rank: Number(info.rank ?? 0),
+        disputesHandled: BigInt(info.disputesHandled ?? 0),
+        majorityVotes: BigInt(info.majorityVotes ?? 0),
+        active: Boolean(info.active),
+        stake: BigInt(info.stake ?? 0),
       };
+    } catch (err) {
+      console.error("[DisputesPage] Failed to parse arbInfo:", err, arbInfo);
+      return undefined;
     }
-    const info = arbInfo as { rank?: number; disputesHandled?: bigint; majorityVotes?: bigint; active?: boolean; stake?: bigint };
-    return {
-      rank: Number(info.rank ?? 0),
-      disputesHandled: BigInt(info.disputesHandled ?? 0),
-      majorityVotes: BigInt(info.majorityVotes ?? 0),
-      active: Boolean(info.active),
-      stake: BigInt(info.stake ?? 0),
-    };
   }, [arbInfo]);
   const arbTier = arbData ? arbData.rank : undefined;
   const casesHandled = arbData ? Number(arbData.disputesHandled) : undefined;

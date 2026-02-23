@@ -544,10 +544,11 @@ export default function CreditFacilityPage() {
   const hasFrozenLine = creditLine && creditLine.status === 2;
   const hasNoLine = !creditLine || creditLine.status === 0 || creditLine.status === 3;
 
-  // Pool utilization
-  const poolTotal = poolData ? (poolData as [bigint, bigint, bigint])[0] : BigInt(0);
-  const poolOutstanding = poolData ? (poolData as [bigint, bigint, bigint])[1] : BigInt(0);
-  const poolAvailable = poolData ? (poolData as [bigint, bigint, bigint])[2] : BigInt(0);
+  // Pool utilization — handle both tuple and struct returns safely
+  const poolArr = poolData && Array.isArray(poolData) ? poolData : undefined;
+  const poolTotal = poolArr ? BigInt(poolArr[0] ?? 0) : BigInt(0);
+  const poolOutstanding = poolArr ? BigInt(poolArr[1] ?? 0) : BigInt(0);
+  const poolAvailable = poolArr ? BigInt(poolArr[2] ?? 0) : BigInt(0);
   const utilizationPct = poolTotal > BigInt(0)
     ? Number((poolOutstanding * BigInt(100)) / poolTotal)
     : 0;
