@@ -21,15 +21,6 @@ import { parseEther, formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDisputesForAddress, isIndexerConfigured, type IndexerDispute } from "@/lib/indexer";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import {
   Shield,
   FileText,
   Users,
@@ -90,25 +81,6 @@ const STATUS_BAR_COLORS: Record<number, string> = {
   4: "#A855F7",
   5: "#58B059",
 };
-
-function StatusDistributionTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; payload: { fill: string; label: string } }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0];
-  return (
-    <div className="rounded-md border border-border/60 bg-surface-0/95 backdrop-blur px-3 py-2 shadow-lg">
-      <p className="text-xs font-medium text-text-primary">{d.payload.label}</p>
-      <p className="text-xs tabular-nums" style={{ color: d.payload.fill }}>
-        {d.value} dispute{d.value !== 1 ? "s" : ""}
-      </p>
-    </div>
-  );
-}
 
 function DisputeStatusDistribution({ disputes }: { disputes: IndexerDispute[] }) {
   const chartData = useMemo(() => {
@@ -721,8 +693,29 @@ export default function DisputesPage() {
     refetchInterval: 30_000,
   });
 
-  const arbData = arbInfo as { rank: number; disputesHandled: bigint; majorityVotes: bigint; active: boolean; stake: bigint } | undefined;
-  const arbTier = arbData ? Number(arbData.rank) : undefined;
+  // arbInfo may be a tuple or object depending on ABI encoding
+  const arbData = useMemo(() => {
+    if (!arbInfo) return undefined;
+    // Handle both tuple (array) and struct (object) returns
+    if (Array.isArray(arbInfo)) {
+      return {
+        rank: Number(arbInfo[0] ?? 0),
+        disputesHandled: BigInt(arbInfo[1] ?? 0),
+        majorityVotes: BigInt(arbInfo[2] ?? 0),
+        active: Boolean(arbInfo[3]),
+        stake: BigInt(arbInfo[4] ?? 0),
+      };
+    }
+    const info = arbInfo as { rank?: number; disputesHandled?: bigint; majorityVotes?: bigint; active?: boolean; stake?: bigint };
+    return {
+      rank: Number(info.rank ?? 0),
+      disputesHandled: BigInt(info.disputesHandled ?? 0),
+      majorityVotes: BigInt(info.majorityVotes ?? 0),
+      active: Boolean(info.active),
+      stake: BigInt(info.stake ?? 0),
+    };
+  }, [arbInfo]);
+  const arbTier = arbData ? arbData.rank : undefined;
   const casesHandled = arbData ? Number(arbData.disputesHandled) : undefined;
   const majorityRate = arbData ? Number(arbData.majorityVotes) : undefined;
   const arbStake = arbData ? arbData.stake : BigInt(0);

@@ -10,23 +10,31 @@ export async function GET(
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
-  const convo = await getConversationById(params.id);
-  if (!convo) {
+  try {
+    const convo = await getConversationById(params.id);
+    if (!convo) {
+      return NextResponse.json(
+        { error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!convo.participants.includes(auth.address)) {
+      return NextResponse.json(
+        { error: "Not a participant in this conversation" },
+        { status: 403 }
+      );
+    }
+
+    // Mark as read
+    await updateConversation(params.id, { unreadCount: 0 });
+
+    return NextResponse.json({ conversation: convo });
+  } catch (err) {
+    console.error("[messages/id] GET error:", err);
     return NextResponse.json(
-      { error: "Conversation not found" },
-      { status: 404 }
+      { error: "Failed to load conversation" },
+      { status: 500 }
     );
   }
-
-  if (!convo.participants.includes(auth.address)) {
-    return NextResponse.json(
-      { error: "Not a participant in this conversation" },
-      { status: 403 }
-    );
-  }
-
-  // Mark as read
-  await updateConversation(params.id, { unreadCount: 0 });
-
-  return NextResponse.json({ conversation: convo });
 }

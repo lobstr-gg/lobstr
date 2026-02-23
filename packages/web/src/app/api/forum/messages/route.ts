@@ -18,20 +18,28 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
-  const conversations = (await getConversationsForUser(auth.address)).sort(
-    (a, b) => b.lastMessageAt - a.lastMessageAt
-  );
+  try {
+    const conversations = (await getConversationsForUser(auth.address)).sort(
+      (a, b) => b.lastMessageAt - a.lastMessageAt
+    );
 
-  // Return conversation list without full message bodies
-  const list = conversations.map((c) => ({
-    id: c.id,
-    participants: c.participants,
-    lastMessageAt: c.lastMessageAt,
-    unreadCount: c.unreadCount,
-    lastMessage: c.messages[c.messages.length - 1]?.body.slice(0, 80),
-  }));
+    // Return conversation list without full message bodies
+    const list = conversations.map((c) => ({
+      id: c.id,
+      participants: c.participants,
+      lastMessageAt: c.lastMessageAt,
+      unreadCount: c.unreadCount,
+      lastMessage: c.messages?.[c.messages.length - 1]?.body?.slice(0, 80) ?? "",
+    }));
 
-  return NextResponse.json({ conversations: list });
+    return NextResponse.json({ conversations: list });
+  } catch (err) {
+    console.error("[messages] GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to load conversations" },
+      { status: 500 }
+    );
+  }
 }
 
 // POST /api/forum/messages — send a DM
@@ -52,108 +60,116 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.json();
-  let { to, body: messageBody } = body;
+  try {
+    const body = await request.json();
+    let { to, body: messageBody } = body;
 
-  if (!to || !messageBody) {
-    return NextResponse.json(
-      { error: "Missing required fields: to, body" },
-      { status: 400 }
-    );
-  }
-
-  // Resolve username to address if not already an address
-  if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
-    const resolved = await getUserByUsername(to);
-    if (!resolved) {
+    if (!to || !messageBody) {
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { error: "Missing required fields: to, body" },
+        { status: 400 }
       );
     }
-    to = resolved.address;
-  }
 
-  // Validate message body length
-  if (typeof messageBody !== "string" || messageBody.length > 5_000) {
-    return NextResponse.json(
-      { error: "Message must be 5,000 characters or fewer" },
-      { status: 400 }
-    );
-  }
+    // Resolve username to address if not already an address
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
+      const resolved = await getUserByUsername(to);
+      if (!resolved) {
+        return NextResponse.json(
+          { error: "User not found" },
+          { status: 404 }
+        );
+      }
+      to = resolved.address;
+    }
 
-  if (to === auth.address) {
-    return NextResponse.json(
-      { error: "Cannot message yourself" },
-      { status: 400 }
-    );
-  }
+    // Validate message body length
+    if (typeof messageBody !== "string" || messageBody.length > 5_000) {
+      return NextResponse.json(
+        { error: "Message must be 5,000 characters or fewer" },
+        { status: 400 }
+      );
+    }
 
-  const blocked = await isBlockedEither(auth.address, to);
-  if (blocked) {
-    return NextResponse.json(
-      { error: "Cannot message this user" },
-      { status: 403 }
-    );
-  }
+    if (to === auth.address) {
+      return NextResponse.json(
+        { error: "Cannot message yourself" },
+        { status: 400 }
+      );
+    }
 
-  const message = {
-    id: await nextId("message"),
-    sender: auth.address,
-    body: messageBody,
-    createdAt: Date.now(),
-  };
+    const blocked = await isBlockedEither(auth.address, to);
+    if (blocked) {
+      return NextResponse.json(
+        { error: "Cannot message this user" },
+        { status: 403 }
+      );
+    }
 
-  // Find existing conversation between these two users
-  const convo = await findConversationBetween(auth.address, to);
-
-  if (convo) {
-    await addMessageToConversation(convo.id, message, {
-      lastMessageAt: message.createdAt,
-      unreadCount: convo.unreadCount + 1,
-    });
-
-    // Notify recipient
-    createNotification(to, {
-      type: "dm_received",
-      title: "New message",
-      body: messageBody.slice(0, 100),
-      read: false,
-      href: `/forum/messages/${convo.id}`,
-      refId: message.id,
+    const message = {
+      id: await nextId("message"),
+      sender: auth.address,
+      body: messageBody,
       createdAt: Date.now(),
-    }).catch(() => {});
+    };
 
-    return NextResponse.json(
-      { message, conversationId: convo.id },
-      { status: 201 }
-    );
-  } else {
-    const convoId = await nextId("conversation");
-    await createConversation(
-      {
-        id: convoId,
-        participants: [auth.address, to],
-        unreadCount: 1,
+    // Find existing conversation between these two users
+    const convo = await findConversationBetween(auth.address, to);
+
+    if (convo) {
+      await addMessageToConversation(convo.id, message, {
         lastMessageAt: message.createdAt,
-      },
-      message
-    );
+        unreadCount: convo.unreadCount + 1,
+      });
 
-    // Notify recipient
-    createNotification(to, {
-      type: "dm_received",
-      title: "New message",
-      body: messageBody.slice(0, 100),
-      read: false,
-      href: `/forum/messages/${convoId}`,
-      refId: message.id,
-      createdAt: Date.now(),
-    }).catch(() => {});
+      // Notify recipient
+      createNotification(to, {
+        type: "dm_received",
+        title: "New message",
+        body: messageBody.slice(0, 100),
+        read: false,
+        href: `/forum/messages/${convo.id}`,
+        refId: message.id,
+        createdAt: Date.now(),
+      }).catch(() => {});
 
+      return NextResponse.json(
+        { message, conversationId: convo.id },
+        { status: 201 }
+      );
+    } else {
+      const convoId = await nextId("conversation");
+      await createConversation(
+        {
+          id: convoId,
+          participants: [auth.address, to],
+          unreadCount: 1,
+          lastMessageAt: message.createdAt,
+        },
+        message
+      );
+
+      // Notify recipient
+      createNotification(to, {
+        type: "dm_received",
+        title: "New message",
+        body: messageBody.slice(0, 100),
+        read: false,
+        href: `/forum/messages/${convoId}`,
+        refId: message.id,
+        createdAt: Date.now(),
+      }).catch(() => {});
+
+      return NextResponse.json(
+        { message, conversationId: convoId },
+        { status: 201 }
+      );
+    }
+  } catch (err) {
+    console.error("[messages] POST error:", err);
     return NextResponse.json(
-      { message, conversationId: convoId },
-      { status: 201 }
+      { error: "Failed to send message" },
+      { status: 500 }
     );
   }
 }

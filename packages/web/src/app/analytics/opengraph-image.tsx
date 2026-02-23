@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 export const runtime = "nodejs";
-export const alt = "LOBSTR Analytics — On-Chain Protocol Intelligence";
+export const alt = "lobstr Analytics — On-Chain Protocol Intelligence";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -20,119 +20,140 @@ export default async function Image() {
     (
       <div
         style={{
-          background:
-            "linear-gradient(135deg, #000000 0%, #0A1A10 50%, #000000 100%)",
+          background: "#060A0F",
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "system-ui, sans-serif",
           position: "relative",
+          overflow: "hidden",
+          fontFamily: "system-ui, -apple-system, sans-serif",
         }}
       >
-        {/* Radial glow */}
+        {/* Glow */}
         <div
           style={{
             position: "absolute",
-            top: "50%",
+            top: "40%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 600,
-            height: 400,
+            width: 700,
+            height: 500,
             background:
-              "radial-gradient(ellipse, rgba(88, 176, 89, 0.08) 0%, transparent 70%)",
+              "radial-gradient(ellipse, rgba(88,176,89,0.12) 0%, rgba(88,176,89,0.04) 40%, transparent 70%)",
             borderRadius: "50%",
           }}
         />
 
+        {/* Content */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 24,
+            justifyContent: "center",
+            width: "100%",
+            height: "100%",
             position: "relative",
+            padding: "48px 80px",
           }}
         >
-          {/* Logo + title */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* Logo + wordmark */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={LOGO_SRC}
-              width={72}
-              height={72}
-              alt="LOBSTR"
-              style={{ borderRadius: 10 }}
+              width={64}
+              height={64}
+              alt="lobstr"
+              style={{
+                borderRadius: 12,
+                border: "2px solid rgba(88,176,89,0.15)",
+              }}
             />
             <div
               style={{
-                fontSize: 64,
+                fontSize: 56,
                 fontWeight: 800,
                 color: "#58B059",
-                letterSpacing: "-1.5px",
-                textShadow: "0 0 60px rgba(88, 176, 89, 0.3)",
+                letterSpacing: "-2px",
+                lineHeight: 1,
               }}
             >
-              LOBSTR
+              lobstr
             </div>
           </div>
 
-          {/* Subtitle */}
+          {/* Page title */}
           <div
             style={{
-              fontSize: 32,
-              fontWeight: 600,
+              fontSize: 36,
+              fontWeight: 700,
               color: "#EAECEF",
-              letterSpacing: "0.5px",
+              marginTop: 28,
+              letterSpacing: "-0.5px",
             }}
           >
             On-Chain Analytics
           </div>
+
+          {/* Description */}
           <div
             style={{
-              fontSize: 18,
+              fontSize: 17,
               color: "#5E6673",
-              maxWidth: 600,
+              marginTop: 12,
               textAlign: "center",
-              lineHeight: 1.5,
+              lineHeight: 1.6,
+              maxWidth: 520,
             }}
           >
-            Live protocol metrics, airdrop tracking, and contract directory
+            Live protocol metrics, transaction heatmaps, and contract directory
           </div>
 
-          {/* Stats */}
-          <div style={{ display: "flex", gap: 56, marginTop: 12 }}>
+          {/* Stat pills */}
+          <div style={{ display: "flex", gap: 16, marginTop: 36 }}>
             {[
-              { label: "Contracts", value: "10" },
-              { label: "Network", value: "Base" },
+              { label: "Contracts", value: "19" },
+              { label: "Network", value: "Base L2" },
               { label: "Data", value: "Live" },
             ].map((stat) => (
               <div
                 key={stat.label}
                 style={{
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  gap: 4,
+                  gap: 10,
+                  background: "rgba(88,176,89,0.06)",
+                  border: "1px solid rgba(88,176,89,0.12)",
+                  borderRadius: 100,
+                  padding: "8px 20px",
                 }}
               >
                 <div
                   style={{
-                    fontSize: 24,
+                    fontSize: 14,
                     fontWeight: 700,
                     color: stat.value === "Live" ? "#58B059" : "#EAECEF",
+                    letterSpacing: "0.5px",
                   }}
                 >
                   {stat.value}
                 </div>
                 <div
                   style={{
+                    width: 3,
+                    height: 3,
+                    borderRadius: "50%",
+                    background: "rgba(88,176,89,0.3)",
+                  }}
+                />
+                <div
+                  style={{
                     fontSize: 12,
                     color: "#5E6673",
                     textTransform: "uppercase",
-                    letterSpacing: "2px",
+                    letterSpacing: "1.5px",
+                    fontWeight: 500,
                   }}
                 >
                   {stat.label}
@@ -142,7 +163,7 @@ export default async function Image() {
           </div>
         </div>
 
-        {/* Bottom bar */}
+        {/* Bottom accent */}
         <div
           style={{
             position: "absolute",
@@ -151,11 +172,26 @@ export default async function Image() {
             right: 0,
             height: 3,
             background:
-              "linear-gradient(90deg, transparent, #58B059, transparent)",
+              "linear-gradient(90deg, transparent 5%, #58B059 50%, transparent 95%)",
           }}
         />
+
+        {/* URL */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 24,
+            right: 40,
+            fontSize: 14,
+            color: "#5E6673",
+            fontWeight: 500,
+            letterSpacing: "0.5px",
+          }}
+        >
+          lobstr.gg/analytics
+        </div>
       </div>
     ),
-    { ...size },
+    { ...size }
   );
 }

@@ -19,6 +19,9 @@
 # Security audit — daily at 9:00 UTC (LOW)
 0 9 * * * /opt/cron/security-audit.sh >> /var/log/agent/security-audit.log 2>&1
 
+# Notification poll — every 5 minutes (HIGH)
+*/5 * * * * /opt/cron/notification-poll.sh >> /var/log/agent/notification-poll.log 2>&1
+
 # V3 cron jobs
 15 */4 * * *  /opt/cron/reward-claimer.sh         # MEDIUM: every 4 hours at :15
 40 * * * *    /opt/cron/loan-monitor.sh            # MEDIUM: every hour at :40

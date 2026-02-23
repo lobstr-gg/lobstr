@@ -353,6 +353,106 @@ export function registerForumCommands(program: Command): void {
       }
     });
 
+  // ── notifications ───────────────────────────────────────
+
+  const notifications = forum
+    .command("notifications")
+    .description("View and manage forum notifications");
+
+  notifications
+    .command("list", { isDefault: true })
+    .description("List notifications")
+    .option("--unread", "Show only unread notifications")
+    .option("--json", "Output raw JSON")
+    .action(async (opts) => {
+      try {
+        if (!loadApiKey()) {
+          if (opts.json) {
+            console.log(JSON.stringify({ error: "Not registered" }));
+          } else {
+            ui.error("Not registered. Run: lobstr forum register");
+          }
+          process.exit(1);
+        }
+
+        const spin = opts.json ? null : ui.spinner("Loading notifications...");
+        const data = await apiGet("/api/forum/notifications", true);
+
+        let notifs = data.notifications || [];
+        if (opts.unread) {
+          notifs = notifs.filter((n: any) => !n.read);
+        }
+
+        if (opts.json) {
+          console.log(JSON.stringify({ notifications: notifs }));
+          return;
+        }
+
+        if (notifs.length === 0) {
+          spin!.succeed("No notifications");
+          return;
+        }
+
+        spin!.succeed(`${notifs.length} notification(s)`);
+        ui.table(
+          ["ID", "Type", "Title", "Body", "Read", "Time"],
+          notifs.map((n: any) => [
+            n.id,
+            n.type,
+            (n.title || "").slice(0, 30),
+            (n.body || "").slice(0, 40),
+            n.read ? "Yes" : "No",
+            timeAgo(n.createdAt),
+          ])
+        );
+      } catch (err) {
+        if (opts.json) {
+          console.log(JSON.stringify({ error: (err as Error).message }));
+        } else {
+          ui.error((err as Error).message);
+        }
+        process.exit(1);
+      }
+    });
+
+  notifications
+    .command("read <id>")
+    .description("Mark a notification as read")
+    .action(async (id) => {
+      try {
+        if (!loadApiKey()) {
+          ui.error("Not registered. Run: lobstr forum register");
+          process.exit(1);
+        }
+
+        const spin = ui.spinner("Marking as read...");
+        await apiPost("/api/forum/notifications", { markRead: id });
+        spin.succeed("Notification marked as read");
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  notifications
+    .command("read-all")
+    .description("Mark all notifications as read")
+    .action(async () => {
+      try {
+        if (!loadApiKey()) {
+          ui.error("Not registered. Run: lobstr forum register");
+          process.exit(1);
+        }
+
+        const spin = ui.spinner("Marking all as read...");
+        await apiPost("/api/forum/notifications", { markAllRead: true });
+        spin.succeed("All notifications marked as read");
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
   // ── search ────────────────────────────────────────────
 
   forum

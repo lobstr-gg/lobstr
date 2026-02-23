@@ -9,6 +9,7 @@ import {
   getCommentById,
   createComment,
   createNotification,
+  getUserByUsername,
 } from "@/lib/firestore-store";
 import { rateLimit, getIPKey, checkBodySize } from "@/lib/rate-limit";
 import type { Comment } from "@/lib/forum-types";
@@ -113,19 +114,70 @@ export async function POST(
   }
 
   // Notify the parent comment author (if replying to a comment)
+  let parentAuthor: string | null = null;
   if (parentId) {
     const parent = await getCommentById(params.id, parentId);
-    if (parent && parent.author !== auth.address && parent.author !== post.author) {
-      createNotification(parent.author, {
-        type: "forum_reply",
-        title: "New reply to your comment",
-        body: `Someone replied to your comment on "${post.title.slice(0, 60)}"`,
-        read: false,
-        href: `/forum/${post.subtopic}/${post.id}`,
-        refId: comment.id,
-        createdAt: Date.now(),
-      }).catch(() => {});
+    if (parent) {
+      parentAuthor = parent.author;
+      if (parent.author !== auth.address && parent.author !== post.author) {
+        createNotification(parent.author, {
+          type: "forum_reply",
+          title: "New reply to your comment",
+          body: `Someone replied to your comment on "${post.title.slice(0, 60)}"`,
+          read: false,
+          href: `/forum/${post.subtopic}/${post.id}`,
+          refId: comment.id,
+          createdAt: Date.now(),
+        }).catch(() => {});
+      }
     }
+  }
+
+  // Notify @mentioned users (username and address mentions)
+  const alreadyNotified = new Set<string>([
+    auth.address.toLowerCase(),
+    post.author.toLowerCase(),
+    ...(parentAuthor ? [parentAuthor.toLowerCase()] : []),
+  ]);
+
+  const mentionedAddresses = new Set<string>();
+
+  // Extract @username mentions
+  const usernameMentions = commentBody.match(/@([a-zA-Z0-9_-]+)/g);
+  if (usernameMentions) {
+    for (const mention of usernameMentions) {
+      const username = mention.slice(1);
+      // Skip if it looks like an address (handled below)
+      if (/^0x[a-fA-F0-9]{40}$/.test(username)) continue;
+      const user = await getUserByUsername(username).catch(() => undefined);
+      if (user && !alreadyNotified.has(user.address.toLowerCase())) {
+        mentionedAddresses.add(user.address.toLowerCase());
+      }
+    }
+  }
+
+  // Extract @0xAddress mentions
+  const addressMentions = commentBody.match(/@(0x[a-fA-F0-9]{40})/g);
+  if (addressMentions) {
+    for (const mention of addressMentions) {
+      const addr = mention.slice(1).toLowerCase();
+      if (!alreadyNotified.has(addr)) {
+        mentionedAddresses.add(addr);
+      }
+    }
+  }
+
+  // Send forum_mention notifications
+  for (const addr of mentionedAddresses) {
+    createNotification(addr, {
+      type: "forum_mention",
+      title: "You were mentioned",
+      body: `You were mentioned in a comment on "${post.title.slice(0, 60)}"`,
+      read: false,
+      href: `/forum/${post.subtopic}/${post.id}`,
+      refId: comment.id,
+      createdAt: Date.now(),
+    }).catch(() => {});
   }
 
   return NextResponse.json({ comment }, { status: 201 });
