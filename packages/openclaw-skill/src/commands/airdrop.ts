@@ -32,7 +32,7 @@ export function registerAirdropCommands(program: Command): void {
         // Read attestation input to show context
         const inputPath = path.join(ws.path, 'attestation', 'input.json');
         if (!fs.existsSync(inputPath)) {
-          ui.error('No attestation found. Run: openclaw attestation generate');
+          ui.error('No attestation found. Run: lobstr attestation generate');
           process.exit(1);
         }
 
@@ -42,7 +42,7 @@ export function registerAirdropCommands(program: Command): void {
         const proofPath = opts.proof || path.join(ws.path, 'attestation', 'proof.json');
         if (!fs.existsSync(proofPath)) {
           ui.error(`Proof file not found: ${proofPath}`);
-          ui.info('Generate proof with: cd packages/circuits && pnpm prove');
+          ui.info('Generate proof with: lobstr attestation prove');
           process.exit(1);
         }
 
@@ -127,65 +127,71 @@ export function registerAirdropCommands(program: Command): void {
       }
     });
 
+  // Shared handler for status/claim-info
+  const claimInfoHandler = async () => {
+    try {
+      const ws = ensureWorkspace();
+      const airdropAbi = parseAbi(AIRDROP_CLAIM_V2_ABI as unknown as string[]);
+      const airdropAddr = getContractAddress(ws.config, 'airdropClaimV2');
+
+      const publicClient = createPublicClient(ws.config);
+      const wallet = loadWallet(ws.path);
+      const address = wallet.address as `0x${string}`;
+
+      const spin = ui.spinner('Fetching claim info...');
+
+      const result = await publicClient.readContract({
+        address: airdropAddr,
+        abi: airdropAbi,
+        functionName: 'getClaimInfo',
+        args: [address],
+      }) as any;
+
+      const info = {
+        claimed: result.claimed ?? result[0],
+        amount: result.amount ?? result[1],
+        vestedAmount: result.vestedAmount ?? result[2],
+        claimedAt: result.claimedAt ?? result[3],
+        tier: result.tier ?? result[4],
+        workspaceHash: result.workspaceHash ?? result[5],
+      };
+
+      spin.succeed('Claim Info');
+      console.log(`  Address:    ${address}`);
+      console.log(`  Claimed:    ${info.claimed ? 'Yes' : 'No'}`);
+
+      if (info.claimed) {
+        console.log(`  Tier:       ${AIRDROP_TIERS[Number(info.tier)] || 'Unknown'}`);
+        console.log(`  Total:      ${formatLob(info.amount)}`);
+        console.log(`  Vested:     ${formatLob(info.vestedAmount)}`);
+        console.log(`  Claimed at: ${new Date(Number(info.claimedAt) * 1000).toISOString()}`);
+
+        const vestingDuration = 180 * 24 * 3600;
+        const elapsed = Math.floor(Date.now() / 1000) - Number(info.claimedAt);
+        const progress = Math.min(100, Math.floor((elapsed / vestingDuration) * 100));
+        console.log(`  Vesting:    ${progress}% (${Math.floor(elapsed / 86400)} / 180 days)`);
+
+        if (info.vestedAmount > 0n) {
+          ui.info('Run "lobstr airdrop release" to claim vested tokens');
+        }
+      } else {
+        ui.info('Not claimed yet. Run "lobstr attestation generate" first');
+      }
+    } catch (err) {
+      ui.error((err as Error).message);
+      process.exit(1);
+    }
+  };
+
+  airdrop
+    .command('status')
+    .description('Check your airdrop claim status')
+    .action(claimInfoHandler);
+
   airdrop
     .command('claim-info')
-    .description('Check your airdrop claim status')
-    .action(async () => {
-      try {
-        const ws = ensureWorkspace();
-        const airdropAbi = parseAbi(AIRDROP_CLAIM_V2_ABI as unknown as string[]);
-        const airdropAddr = getContractAddress(ws.config, 'airdropClaimV2');
-
-        const publicClient = createPublicClient(ws.config);
-        const wallet = loadWallet(ws.path);
-        const address = wallet.address as `0x${string}`;
-
-        const spin = ui.spinner('Fetching claim info...');
-
-        const result = await publicClient.readContract({
-          address: airdropAddr,
-          abi: airdropAbi,
-          functionName: 'getClaimInfo',
-          args: [address],
-        }) as any;
-
-        // Handle both tuple-style (named) and flat (positional) returns
-        const info = {
-          claimed: result.claimed ?? result[0],
-          amount: result.amount ?? result[1],
-          vestedAmount: result.vestedAmount ?? result[2],
-          claimedAt: result.claimedAt ?? result[3],
-          tier: result.tier ?? result[4],
-          workspaceHash: result.workspaceHash ?? result[5],
-        };
-
-        spin.succeed('Claim Info');
-        console.log(`  Address:    ${address}`);
-        console.log(`  Claimed:    ${info.claimed ? 'Yes' : 'No'}`);
-
-        if (info.claimed) {
-          console.log(`  Tier:       ${AIRDROP_TIERS[Number(info.tier)] || 'Unknown'}`);
-          console.log(`  Total:      ${formatLob(info.amount)}`);
-          console.log(`  Vested:     ${formatLob(info.vestedAmount)}`);
-          console.log(`  Claimed at: ${new Date(Number(info.claimedAt) * 1000).toISOString()}`);
-
-          // Calculate vesting progress
-          const vestingDuration = 180 * 24 * 3600; // 180 days in seconds
-          const elapsed = Math.floor(Date.now() / 1000) - Number(info.claimedAt);
-          const progress = Math.min(100, Math.floor((elapsed / vestingDuration) * 100));
-          console.log(`  Vesting:    ${progress}% (${Math.floor(elapsed / 86400)} / 180 days)`);
-
-          if (info.vestedAmount > 0n) {
-            ui.info('Run "lobstr airdrop release" to claim vested tokens');
-          }
-        } else {
-          ui.info('Not claimed yet. Run "openclaw attestation generate" first');
-        }
-      } catch (err) {
-        ui.error((err as Error).message);
-        process.exit(1);
-      }
-    });
+    .description('Check your airdrop claim status (alias for status)')
+    .action(claimInfoHandler);
 
   airdrop
     .command('stats')
