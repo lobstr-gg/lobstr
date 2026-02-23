@@ -104,7 +104,8 @@ export type NotificationType =
   | "proposal_update"
   | "mod_action"
   | "system"
-  | "friend_request";
+  | "friend_request"
+  | "channel_message";
 
 export type FriendRequestStatus = "pending" | "accepted" | "declined";
 
@@ -187,6 +188,28 @@ export const FLAIR_COLORS: Record<PostFlair, { bg: string; text: string; border:
   resolved: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-400/20" },
 };
 
+// ── Channel Types ────────────────────────────────────────────
+
+export type ChannelType = "mod" | "arbitration";
+
+export interface Channel {
+  id: string;
+  type: ChannelType;
+  name: string;
+  disputeId: string | null;
+  participants: string[];
+  lastMessageAt: number;
+  createdAt: number;
+}
+
+export interface ChannelMessage {
+  id: string;
+  channelId: string;
+  sender: string;
+  body: string;
+  createdAt: number;
+}
+
 // ── Relay Message Types ──────────────────────────────────────
 
 export type RelayMessageType =
@@ -197,6 +220,9 @@ export type RelayMessageType =
   | "consensus_response"
   | "heartbeat_alert"
   | "task_assignment"
+  | "command_dispatch"
+  | "command_result"
+  | "workflow_step"
   | "ack";
 
 export interface RelayMessage {

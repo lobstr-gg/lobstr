@@ -40,6 +40,10 @@ const EvidenceViewer = dynamic(() => import("./_components/EvidenceViewer"), { s
 const EvidenceUpload = dynamic(() => import("./_components/EvidenceUpload"), { ssr: false });
 const CounterEvidenceForm = dynamic(() => import("./_components/CounterEvidenceForm"), { ssr: false });
 const DisputeTimeline = dynamic(() => import("./_components/DisputeTimeline"), { ssr: false });
+const ChannelChat = dynamic(
+  () => import("@/components/ChannelChat").then((m) => ({ default: m.ChannelChat })),
+  { ssr: false }
+);
 
 const STATUS_LABELS: Record<number, string> = {
   0: "Open",
@@ -631,6 +635,61 @@ function ArbitratorSection({ address }: { address: `0x${string}` }) {
   );
 }
 
+/* ---- Arbitrator Chat Section ---- */
+function ArbChatSection({
+  disputeId,
+  arbitrators,
+}: {
+  disputeId: string;
+  arbitrators: readonly string[];
+}) {
+  const [ready, setReady] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const channelId = `arb-${disputeId}`;
+
+  // Lazy-create channel on mount
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      setCreating(true);
+      try {
+        const res = await fetch("/api/forum/channels", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            disputeId,
+            participants: [...arbitrators],
+          }),
+        });
+        if (res.ok && !cancelled) {
+          setReady(true);
+        }
+      } catch {
+        // Channel may already exist, try to load it directly
+        if (!cancelled) setReady(true);
+      } finally {
+        if (!cancelled) setCreating(false);
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, [disputeId, arbitrators]);
+
+  if (creating && !ready) return null;
+
+  return (
+    <div>
+      <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <ShieldAlert className="w-3.5 h-3.5" />
+        Arbitrator Private Chat
+      </h3>
+      <ChannelChat channelId={channelId} />
+    </div>
+  );
+}
+
 /* ---- Main Page ---- */
 
 export default function DisputeDetailPage() {
@@ -1050,6 +1109,18 @@ export default function DisputeDetailPage() {
       {isArbitrator && address && (
         <motion.div variants={fadeUp} className="mb-6">
           <ArbitratorSection address={address} />
+        </motion.div>
+      )}
+
+      {/* Arbitrator private chat */}
+      {isArbitrator && dispute.arbitrators && (
+        <motion.div variants={fadeUp} className="mb-6">
+          <ArbChatSection
+            disputeId={disputeIdStr}
+            arbitrators={dispute.arbitrators.filter(
+              (a) => a !== "0x0000000000000000000000000000000000000000"
+            )}
+          />
         </motion.div>
       )}
 

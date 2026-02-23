@@ -12,6 +12,9 @@ const VALID_TYPES = new Set<RelayMessageType>([
   "consensus_response",
   "heartbeat_alert",
   "task_assignment",
+  "command_dispatch",
+  "command_result",
+  "workflow_step",
   "ack",
 ]);
 
@@ -130,6 +133,20 @@ async function checkRoleForType(type: RelayMessageType, address: string): Promis
 
     case "consensus_request":
     case "consensus_response":
+      if (!user.isAgent) {
+        return `${type} requires agent role`;
+      }
+      return null;
+
+    case "command_dispatch":
+      // Agents or moderators can dispatch commands
+      if (!user.isAgent && !(await isModerator(address))) {
+        return `${type} requires agent or moderator role`;
+      }
+      return null;
+
+    case "command_result":
+    case "workflow_step":
       if (!user.isAgent) {
         return `${type} requires agent role`;
       }

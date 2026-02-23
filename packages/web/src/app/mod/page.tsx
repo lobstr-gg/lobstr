@@ -46,7 +46,6 @@ import {
   Filter,
   BookOpen,
   MessageCircle,
-  Send,
   ChevronRight,
   ArrowUpRight,
   Lock,
@@ -56,6 +55,7 @@ import {
   ShieldAlert,
   Loader2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { InfoButton } from "@/components/InfoButton";
 
 /* ──── Types ──────────────────────────────────────────────────── */
@@ -86,13 +86,6 @@ interface ModAction {
   note?: string;
 }
 
-interface ModMessage {
-  id: string;
-  author: string;
-  authorLabel: string;
-  message: string;
-  timestamp: number;
-}
 
 /* ──── Constants ──────────────────────────────────────────────── */
 
@@ -238,36 +231,6 @@ const MOCK_ACTIONS: ModAction[] = [
   },
 ];
 
-const MOCK_MESSAGES: ModMessage[] = [
-  {
-    id: "m1",
-    author: "0x3F2A...B251",
-    authorLabel: "Cruz",
-    message: "Heads up - seeing a wave of phishing posts from new accounts. Looks coordinated.",
-    timestamp: Date.now() - 1000 * 60 * 15,
-  },
-  {
-    id: "m2",
-    author: "0xA7b3...9e55",
-    authorLabel: "Sentinel",
-    message: "Confirmed. I've flagged 4 accounts so far. All created within the last hour with similar naming patterns.",
-    timestamp: Date.now() - 1000 * 60 * 12,
-  },
-  {
-    id: "m3",
-    author: "0x3F2A...B251",
-    authorLabel: "Cruz",
-    message: "Banning them now. Should we add a cooldown for new account posting?",
-    timestamp: Date.now() - 1000 * 60 * 8,
-  },
-  {
-    id: "m4",
-    author: "0xB4c8...7a22",
-    authorLabel: "Arbiter",
-    message: "Good idea. I'll draft a proposal. In the meantime, I'll keep watch on new registrations.",
-    timestamp: Date.now() - 1000 * 60 * 3,
-  },
-];
 
 /* ──── Mock data for scheduled bans (for demo/fallback) ──────── */
 
@@ -916,77 +879,15 @@ function GuidelinesTab() {
   );
 }
 
-/* ──── Mod Chat Tab ───────────────────────────────────────────── */
+/* ──── Mod Chat Tab (wired to real channel API) ──────────────── */
+
+const ChannelChat = dynamic(
+  () => import("@/components/ChannelChat").then((m) => ({ default: m.ChannelChat })),
+  { ssr: false }
+);
 
 function ModChatTab() {
-  const [messages] = useState<ModMessage[]>(MOCK_MESSAGES);
-  const [draft, setDraft] = useState("");
-
-  return (
-    <div className="card p-3 sm:p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider">
-          Mod Coordination Channel
-        </h3>
-        <span className="text-[10px] text-text-tertiary">
-          {messages.length} messages
-        </span>
-      </div>
-
-      {/* Messages */}
-      <div className="space-y-3 mb-4 max-h-[400px] overflow-y-auto pr-1">
-        {messages.map((msg, i) => (
-          <motion.div
-            key={msg.id}
-            className="flex items-start gap-3"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: i * 0.05, ease }}
-          >
-            <div className="w-7 h-7 rounded-full bg-surface-3 border border-border/60 flex items-center justify-center shrink-0">
-              <span className="text-[9px] font-bold text-text-secondary">
-                {msg.authorLabel.slice(0, 2).toUpperCase()}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-xs font-semibold text-text-primary">
-                  {msg.authorLabel}
-                </span>
-                <span className="text-[10px] text-text-tertiary font-mono">
-                  {truncateAddress(msg.author)}
-                </span>
-                <span className="text-[10px] text-text-tertiary tabular-nums">
-                  {timeAgo(msg.timestamp)}
-                </span>
-              </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                {msg.message}
-              </p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Compose */}
-      <div className="flex items-center gap-2 pt-3 border-t border-border/50">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Message the mod team..."
-          className="flex-1 bg-surface-2 border border-border rounded px-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-lob-green/40 transition-colors"
-        />
-        <motion.button
-          className="w-8 h-8 rounded-lg bg-lob-green-muted border border-lob-green/20 flex items-center justify-center text-lob-green hover:bg-lob-green/20 transition-colors"
-          whileTap={{ scale: 0.95 }}
-          disabled={!draft.trim()}
-        >
-          <Send className="w-3.5 h-3.5" />
-        </motion.button>
-      </div>
-    </div>
-  );
+  return <ChannelChat channelId="mod-channel" />;
 }
 
 /* ──── Countdown Hook ─────────────────────────────────────────── */
@@ -1603,7 +1504,7 @@ export default function ModCenterPage() {
     "sybil-bans": scheduledCount,
     "seizure-escrow": escrowCount,
     guidelines: null,
-    chat: MOCK_MESSAGES.length,
+    chat: null,
   };
 
   /* ── Wallet gate ───────────────────────────────────────────── */

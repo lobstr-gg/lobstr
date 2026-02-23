@@ -29,6 +29,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   mod_action: "Mod",
   system: "Sys",
   friend_request: "Friend",
+  channel_message: "Chat",
 };
 
 const TYPE_COLORS: Record<NotificationType, string> = {
@@ -41,6 +42,7 @@ const TYPE_COLORS: Record<NotificationType, string> = {
   dispute_evidence_deadline: "text-red-400",
   proposal_update: "text-cyan-400",
   mod_action: "text-orange-400",
+  channel_message: "text-purple-400",
   system: "text-text-secondary",
   friend_request: "text-lob-green",
 };

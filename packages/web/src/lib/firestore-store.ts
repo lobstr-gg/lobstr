@@ -13,6 +13,8 @@ import type {
   SortMode,
   Review,
   ReviewSummary,
+  Channel,
+  ChannelMessage,
 } from "./forum-types";
 import type { HumanBooking } from "@/app/rent-a-human/_data/types";
 
@@ -715,10 +717,12 @@ const PREFIXES: Record<string, string> = {
   message: "m",
   modLog: "ml",
   review: "rv",
+  channel: "ch",
+  channelMessage: "cm",
 };
 
 export async function nextId(
-  kind: "post" | "comment" | "conversation" | "message" | "modLog" | "review"
+  kind: "post" | "comment" | "conversation" | "message" | "modLog" | "review" | "channel" | "channelMessage"
 ): Promise<string> {
   const db = getDb();
   const ref = col("counters").doc("nextIds");
@@ -1358,4 +1362,96 @@ export async function cleanExpiredRelayMessages(): Promise<number> {
   snap.docs.forEach((doc) => batch.delete(doc.ref));
   await batch.commit();
   return snap.size;
+}
+
+// ── Channels ─────────────────────────────────────────────────
+
+export async function getChannel(id: string): Promise<Channel | undefined> {
+  const snap = await col("channels").doc(id).get();
+  return snap.exists ? (snap.data() as Channel) : undefined;
+}
+
+export async function getChannelsForUser(address: string): Promise<Channel[]> {
+  const addr = address.toLowerCase();
+
+  // Get arb channels where user is a participant
+  const arbSnap = await col("channels")
+    .where("participants", "array-contains", addr)
+    .get();
+  const channels = arbSnap.docs.map((d) => d.data() as Channel);
+
+  // Always include mod-channel if user is a mod
+  const user = await getUserByAddress(addr);
+  if (user?.modTier) {
+    const modChannel = await getChannel("mod-channel");
+    if (modChannel && !channels.some((c) => c.id === "mod-channel")) {
+      channels.push(modChannel);
+    }
+  }
+
+  return channels.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+}
+
+export async function createChannel(channel: Channel): Promise<void> {
+  await col("channels").doc(channel.id).set(channel);
+}
+
+export async function getChannelMessages(
+  channelId: string,
+  limit = 50
+): Promise<ChannelMessage[]> {
+  const snap = await col("channels")
+    .doc(channelId)
+    .collection("messages")
+    .orderBy("createdAt", "asc")
+    .limit(limit)
+    .get();
+  return snap.docs.map((d) => d.data() as ChannelMessage);
+}
+
+export async function addChannelMessage(
+  channelId: string,
+  message: ChannelMessage
+): Promise<void> {
+  const ref = col("channels").doc(channelId);
+  await ref.collection("messages").doc(message.id).set(message);
+  await ref.update({ lastMessageAt: message.createdAt });
+}
+
+export async function ensureModChannel(): Promise<Channel> {
+  const existing = await getChannel("mod-channel");
+  if (existing) return existing;
+
+  const channel: Channel = {
+    id: "mod-channel",
+    type: "mod",
+    name: "Mod Coordination",
+    disputeId: null,
+    participants: [],
+    lastMessageAt: Date.now(),
+    createdAt: Date.now(),
+  };
+  await createChannel(channel);
+  return channel;
+}
+
+export async function ensureArbChannel(
+  disputeId: string,
+  arbitrators: string[]
+): Promise<Channel> {
+  const id = `arb-${disputeId}`;
+  const existing = await getChannel(id);
+  if (existing) return existing;
+
+  const channel: Channel = {
+    id,
+    type: "arbitration",
+    name: `Dispute #${disputeId} Arbitrators`,
+    disputeId,
+    participants: arbitrators.map((a) => a.toLowerCase()),
+    lastMessageAt: Date.now(),
+    createdAt: Date.now(),
+  };
+  await createChannel(channel);
+  return channel;
 }
