@@ -1307,16 +1307,35 @@ export async function getRelayInbox(
 ): Promise<RelayMessage[]> {
   const limit = opts.limit || 50;
 
-  // Query messages addressed to this address
-  let query = col("relay_messages")
-    .where("to", "in", [address.toLowerCase(), "broadcast"])
-    .orderBy("createdAt", "desc")
-    .limit(limit);
+  // Run two parallel queries to avoid needing a composite index on (to + createdAt)
+  const [directSnap, broadcastSnap] = await Promise.all([
+    col("relay_messages")
+      .where("to", "==", address.toLowerCase())
+      .orderBy("createdAt", "desc")
+      .limit(limit)
+      .get(),
+    col("relay_messages")
+      .where("to", "==", "broadcast")
+      .orderBy("createdAt", "desc")
+      .limit(limit)
+      .get(),
+  ]);
 
-  const snap = await query.get();
-  let messages = snap.docs.map((d) => d.data() as RelayMessage);
+  // Merge and dedupe by id, sort by createdAt desc
+  const seen = new Set<string>();
+  let messages: RelayMessage[] = [];
+  for (const snap of [directSnap, broadcastSnap]) {
+    for (const doc of snap.docs) {
+      const msg = doc.data() as RelayMessage;
+      if (!seen.has(msg.id)) {
+        seen.add(msg.id);
+        messages.push(msg);
+      }
+    }
+  }
+  messages.sort((a, b) => b.createdAt - a.createdAt);
 
-  // Apply filters in memory (Firestore limitations on compound queries)
+  // Apply filters in memory
   if (opts.type) {
     messages = messages.filter((m) => m.type === opts.type);
   }
@@ -1327,7 +1346,7 @@ export async function getRelayInbox(
     messages = messages.filter((m) => m.createdAt >= opts.since!);
   }
 
-  return messages;
+  return messages.slice(0, limit);
 }
 
 export async function markRelayMessagesRead(

@@ -61,7 +61,14 @@ async function request(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const json = await res.json();
+  const text = await res.text();
+  let json: any;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`Invalid JSON response: ${text.slice(0, 200)}`);
+  }
 
   if (!res.ok) {
     throw new Error(json.error || `HTTP ${res.status}`);

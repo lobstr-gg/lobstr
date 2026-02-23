@@ -16,14 +16,22 @@ export async function GET(request: NextRequest) {
   const since = params.get("since") ? Number(params.get("since")) : undefined;
   const limit = params.get("limit") ? Number(params.get("limit")) : 50;
 
-  const messages = await getRelayInbox(auth.address.toLowerCase(), {
-    type,
-    unread,
-    since,
-    limit: Math.min(limit, 100),
-  });
+  try {
+    const messages = await getRelayInbox(auth.address.toLowerCase(), {
+      type,
+      unread,
+      since,
+      limit: Math.min(limit, 100),
+    });
 
-  return NextResponse.json({ messages });
+    return NextResponse.json({ messages });
+  } catch (err) {
+    console.error("[relay/inbox] GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch inbox", detail: String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 /**
@@ -50,7 +58,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Max 50 messages per request" }, { status: 400 });
   }
 
-  await markRelayMessagesRead(auth.address.toLowerCase(), body.messageIds);
-
-  return NextResponse.json({ ok: true });
+  try {
+    await markRelayMessagesRead(auth.address.toLowerCase(), body.messageIds);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[relay/inbox] POST error:", err);
+    return NextResponse.json(
+      { error: "Failed to mark messages read", detail: String(err) },
+      { status: 500 }
+    );
+  }
 }
