@@ -293,6 +293,156 @@ export function registerDaoCommands(program: Command): void {
       }
     });
 
+  // ── admin-proposals ───────────────────────────────
+
+  dao
+    .command("admin-proposals")
+    .description("List admin proposals (role grants, contract calls)")
+    .option("--format <fmt>", "Output format: text, json", "text")
+    .option("--status <status>", "Filter by status: pending, approved, executed, cancelled")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const govAddr = getContractAddress(ws.config, "treasuryGovernor");
+
+        const spin = opts.format !== "json" ? ui.spinner("Loading admin proposals...") : null;
+        const found: any[] = [];
+
+        const CONTRACT_LABELS: Record<string, string> = {
+          "0xd41a40145811915075f6935a4755f8688e53c8db": "ReputationSystem",
+          "0xcb7790d3f9b5bfe171eb30c253ab3007d43c441b": "StakingManager",
+          "0x576235a56e0e25feb95ea198d017070ad7f78360": "EscrowEngine",
+          "0xffbded2dba5e27ad5a56c6d4c401124e942ada04": "DisputeArbitration",
+          "0xf5ab9f1a5c6cc60e1a68d50b4c943d72fd97487a": "LoanEngine",
+          "0x0d1d8583561310adeefe18cb3a5729e2666ac14c": "X402CreditFacility",
+          "0x545a01e48cfb6a76699ef12ec1e998c1a275c84e": "SybilGuard",
+          "0xe1d68167a15afa7c4e22df978dc4a66a0b4114fe": "InsurancePool",
+          "0x9b7e2b8cf7de5ef1f85038b050952dc1d4596319": "TreasuryGovernor",
+        };
+
+        for (let i = 1; i <= 100; i++) {
+          try {
+            const result = (await publicClient.readContract({
+              address: govAddr,
+              abi: govAbi,
+              functionName: "getAdminProposal",
+              args: [BigInt(i)],
+            })) as any;
+            const p = {
+              id: result.id ?? result[0],
+              proposer: result.proposer ?? result[1],
+              target: result.target ?? result[2],
+              callData: result.callData ?? result[3],
+              description: result.description ?? result[4],
+              status: result.status ?? result[5],
+              approvalCount: result.approvalCount ?? result[6],
+              createdAt: result.createdAt ?? result[7],
+              timelockEnd: result.timelockEnd ?? result[8],
+            };
+            if (p.id === 0n) break;
+            found.push(p);
+          } catch {
+            break;
+          }
+        }
+
+        // Apply status filter
+        const statusFilter = opts.status?.toLowerCase();
+        const filtered = statusFilter
+          ? found.filter((p) => PROPOSAL_STATUS[p.status]?.toLowerCase() === statusFilter)
+          : found;
+
+        if (filtered.length === 0) {
+          if (opts.format === "json") {
+            console.log(JSON.stringify([]));
+            return;
+          }
+          spin!.succeed(found.length > 0 ? `No ${statusFilter} admin proposals (${found.length} total)` : "No admin proposals found");
+          return;
+        }
+
+        if (opts.format === "json") {
+          console.log(JSON.stringify(filtered.map((p) => ({
+            id: p.id.toString(),
+            proposer: p.proposer,
+            target: p.target,
+            targetLabel: CONTRACT_LABELS[p.target.toLowerCase()] || "Unknown",
+            description: p.description,
+            status: PROPOSAL_STATUS[p.status] || "Unknown",
+            approvalCount: Number(p.approvalCount),
+            createdAt: Number(p.createdAt),
+            timelockEnd: Number(p.timelockEnd),
+          }))));
+          return;
+        }
+
+        spin!.succeed(`${filtered.length} admin proposal(s)${statusFilter ? ` (${statusFilter})` : ""}`);
+        ui.table(
+          ["ID", "Target", "Description", "Status", "Approvals", "Created"],
+          filtered.map((p) => [
+            p.id.toString(),
+            CONTRACT_LABELS[p.target.toLowerCase()] || p.target.slice(0, 10) + "...",
+            p.description.length > 50 ? p.description.slice(0, 47) + "..." : p.description,
+            PROPOSAL_STATUS[p.status] || "Unknown",
+            `${p.approvalCount}/3`,
+            new Date(Number(p.createdAt) * 1000).toLocaleDateString(),
+          ])
+        );
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── admin-proposal <id> ──────────────────────────
+
+  dao
+    .command("admin-proposal <id>")
+    .description("View admin proposal details")
+    .action(async (id) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const govAddr = getContractAddress(ws.config, "treasuryGovernor");
+
+        const spin = ui.spinner("Loading admin proposal...");
+        const result = (await publicClient.readContract({
+          address: govAddr,
+          abi: govAbi,
+          functionName: "getAdminProposal",
+          args: [BigInt(id)],
+        })) as any;
+
+        const p = {
+          id: result.id ?? result[0],
+          proposer: result.proposer ?? result[1],
+          target: result.target ?? result[2],
+          callData: result.callData ?? result[3],
+          description: result.description ?? result[4],
+          status: result.status ?? result[5],
+          approvalCount: result.approvalCount ?? result[6],
+          createdAt: result.createdAt ?? result[7],
+          timelockEnd: result.timelockEnd ?? result[8],
+        };
+
+        spin.succeed(`Admin Proposal #${id}`);
+        ui.info(`Description: ${p.description}`);
+        ui.info(`Target: ${p.target}`);
+        ui.info(`Proposer: ${p.proposer}`);
+        ui.info(`Status: ${PROPOSAL_STATUS[p.status] || "Unknown"}`);
+        ui.info(`Approvals: ${p.approvalCount}/3`);
+        ui.info(`Calldata: ${p.callData}`);
+        ui.info(`Created: ${new Date(Number(p.createdAt) * 1000).toISOString()}`);
+        if (p.timelockEnd > 0n) {
+          ui.info(`Timelock ends: ${new Date(Number(p.timelockEnd) * 1000).toISOString()}`);
+        }
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
   // ── admin-propose ──────────────────────────────────
 
   dao

@@ -154,3 +154,56 @@ export const SYBIL_GUARD_ABI = [
   'event FundsSeized(address indexed account, address indexed token, uint256 amount, uint256 indexed reportId)',
   'event LinkedAccountsRegistered(address indexed primary, address[] linked)',
 ] as const;
+
+export const STAKING_REWARDS_ABI = [
+  'function earned(address user, address token) view returns (uint256)',
+  'function claimRewards(address token)',
+  'function syncStake()',
+  'function rewardPerToken(address token) view returns (uint256)',
+  'function getEffectiveBalance(address user) view returns (uint256)',
+  'function getTotalEffectiveBalance() view returns (uint256)',
+  'function getRewardTokens() view returns (address[])',
+  'function getLastSyncTimestamp(address user) view returns (uint256)',
+] as const;
+
+export const REWARD_DISTRIBUTOR_ABI = [
+  'function claimableBalance(address account, address token) view returns (uint256)',
+  'function claim(address token)',
+  'function totalDistributed() view returns (uint256)',
+  'function totalDeposited() view returns (uint256)',
+  'function availableBudget(address token) view returns (uint256)',
+] as const;
+
+export const LIQUIDITY_MINING_ABI = [
+  'function stake(uint256 amount)',
+  'function withdraw(uint256 amount)',
+  'function getReward()',
+  'function exit()',
+  'function emergencyWithdraw()',
+  'function earned(address account) view returns (uint256)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function rewardRate() view returns (uint256)',
+  'function getBoostMultiplier(address account) view returns (uint256)',
+] as const;
+
+export const LIGHTNING_GOVERNOR_ABI = [
+  'function createProposal(address target, bytes data, string description) returns (uint256)',
+  'function vote(uint256 proposalId)',
+  'function execute(uint256 proposalId)',
+  'function cancel(uint256 proposalId)',
+  'function getProposal(uint256 proposalId) view returns (uint256 id, address proposer, address target, bytes callData, string description, uint8 status, uint256 voteCount, uint256 createdAt, uint256 votingDeadline, uint256 approvedAt, uint256 executionDeadline)',
+  'function hasVoted(uint256 proposalId, address voter) view returns (bool)',
+  'function isWhitelisted(address target, bytes4 selector) view returns (bool)',
+  'function getEffectiveStatus(uint256 proposalId) view returns (uint8)',
+  'function proposalCount() view returns (uint256)',
+  'function quorum() view returns (uint256)',
+  'function executionDelay() view returns (uint256)',
+  'function votingWindow() view returns (uint256)',
+  'function executionWindow() view returns (uint256)',
+  'event ProposalCreated(uint256 indexed proposalId, address indexed proposer, address target, bytes4 selector, string description)',
+  'event Voted(uint256 indexed proposalId, address indexed voter, uint256 newVoteCount)',
+  'event ProposalApproved(uint256 indexed proposalId, uint256 executionDeadline)',
+  'event ProposalExecuted(uint256 indexed proposalId, address indexed executor)',
+  'event ProposalCancelled(uint256 indexed proposalId, address indexed cancelledBy)',
+] as const;

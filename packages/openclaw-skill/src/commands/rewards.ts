@@ -6,23 +6,14 @@ import {
   createWalletClient,
   getContractAddress,
   loadWallet,
+  STAKING_REWARDS_ABI,
+  REWARD_DISTRIBUTOR_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
 import { formatLob } from '../lib/format';
 
-const STAKING_REWARDS_ABI = parseAbi([
-  'function earned(address account) view returns (uint256)',
-  'function claimReward()',
-  'function getRewardRate() view returns (uint256)',
-  'function totalStaked() view returns (uint256)',
-  'function rewardPerToken() view returns (uint256)',
-]);
-
-const REWARD_DISTRIBUTOR_ABI = parseAbi([
-  'function pendingRewards(address account) view returns (uint256)',
-  'function claimRewards()',
-  'function getDistributionInfo() view returns (uint256 totalDistributed, uint256 currentEpoch, uint256 epochReward)',
-]);
+const stakingRewardsAbi = parseAbi(STAKING_REWARDS_ABI as unknown as string[]);
+const rewardDistributorAbi = parseAbi(REWARD_DISTRIBUTOR_ABI as unknown as string[]);
 
 export function registerRewardsCommands(program: Command): void {
   const rewards = program
@@ -43,59 +34,63 @@ export function registerRewardsCommands(program: Command): void {
 
         const stakingRewardsAddr = getContractAddress(ws.config, 'stakingRewards');
         const distributorAddr = getContractAddress(ws.config, 'rewardDistributor');
+        const lobToken = getContractAddress(ws.config, 'lobToken');
 
         const spin = ui.spinner('Fetching reward status...');
 
-        const [earned, rewardRate, totalStaked, rewardPerToken, pending, distInfo] = await Promise.all([
+        const [earned, effectiveBalance, totalEffective, rewardPerToken, claimable, totalDistributed, availableBudget] = await Promise.all([
           publicClient.readContract({
             address: stakingRewardsAddr,
-            abi: STAKING_REWARDS_ABI,
+            abi: stakingRewardsAbi,
             functionName: 'earned',
+            args: [address, lobToken],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: stakingRewardsAddr,
+            abi: stakingRewardsAbi,
+            functionName: 'getEffectiveBalance',
             args: [address],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: stakingRewardsAddr,
-            abi: STAKING_REWARDS_ABI,
-            functionName: 'getRewardRate',
+            abi: stakingRewardsAbi,
+            functionName: 'getTotalEffectiveBalance',
           }) as Promise<bigint>,
           publicClient.readContract({
             address: stakingRewardsAddr,
-            abi: STAKING_REWARDS_ABI,
-            functionName: 'totalStaked',
-          }) as Promise<bigint>,
-          publicClient.readContract({
-            address: stakingRewardsAddr,
-            abi: STAKING_REWARDS_ABI,
+            abi: stakingRewardsAbi,
             functionName: 'rewardPerToken',
+            args: [lobToken],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: distributorAddr,
-            abi: REWARD_DISTRIBUTOR_ABI,
-            functionName: 'pendingRewards',
-            args: [address],
+            abi: rewardDistributorAbi,
+            functionName: 'claimableBalance',
+            args: [address, lobToken],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: distributorAddr,
-            abi: REWARD_DISTRIBUTOR_ABI,
-            functionName: 'getDistributionInfo',
-          }) as Promise<any>,
+            abi: rewardDistributorAbi,
+            functionName: 'totalDistributed',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: distributorAddr,
+            abi: rewardDistributorAbi,
+            functionName: 'availableBudget',
+            args: [lobToken],
+          }) as Promise<bigint>,
         ]);
-
-        const totalDistributed = distInfo.totalDistributed ?? distInfo[0];
-        const currentEpoch = distInfo.currentEpoch ?? distInfo[1];
-        const epochReward = distInfo.epochReward ?? distInfo[2];
 
         spin.succeed('Reward Status');
         console.log('  --- StakingRewards ---');
-        console.log(`  Earned:          ${formatLob(earned)}`);
-        console.log(`  Reward rate:     ${formatLob(rewardRate)}/s`);
-        console.log(`  Total staked:    ${formatLob(totalStaked)}`);
-        console.log(`  Reward/token:    ${formatLob(rewardPerToken)}`);
+        console.log(`  Earned (LOB):      ${formatLob(earned)}`);
+        console.log(`  Effective balance: ${formatLob(effectiveBalance)}`);
+        console.log(`  Total effective:   ${formatLob(totalEffective)}`);
+        console.log(`  Reward/token:      ${formatLob(rewardPerToken)}`);
         console.log('  --- RewardDistributor ---');
-        console.log(`  Pending:         ${formatLob(pending)}`);
+        console.log(`  Claimable (LOB):   ${formatLob(claimable)}`);
         console.log(`  Total distributed: ${formatLob(totalDistributed)}`);
-        console.log(`  Current epoch:   ${currentEpoch.toString()}`);
-        console.log(`  Epoch reward:    ${formatLob(epochReward)}`);
+        console.log(`  Available budget:  ${formatLob(availableBudget)}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
@@ -115,20 +110,23 @@ export function registerRewardsCommands(program: Command): void {
 
         const stakingRewardsAddr = getContractAddress(ws.config, 'stakingRewards');
         const distributorAddr = getContractAddress(ws.config, 'rewardDistributor');
+        const lobToken = getContractAddress(ws.config, 'lobToken');
 
         const spin = ui.spinner('Claiming staking rewards...');
         const tx1 = await walletClient.writeContract({
           address: stakingRewardsAddr,
-          abi: STAKING_REWARDS_ABI,
-          functionName: 'claimReward',
+          abi: stakingRewardsAbi,
+          functionName: 'claimRewards',
+          args: [lobToken],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx1 });
 
         spin.text = 'Claiming distributor rewards...';
         const tx2 = await walletClient.writeContract({
           address: distributorAddr,
-          abi: REWARD_DISTRIBUTOR_ABI,
-          functionName: 'claimRewards',
+          abi: rewardDistributorAbi,
+          functionName: 'claim',
+          args: [lobToken],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx2 });
 
@@ -155,28 +153,58 @@ export function registerRewardsCommands(program: Command): void {
 
         const stakingRewardsAddr = getContractAddress(ws.config, 'stakingRewards');
         const distributorAddr = getContractAddress(ws.config, 'rewardDistributor');
+        const lobToken = getContractAddress(ws.config, 'lobToken');
 
         const spin = ui.spinner('Fetching pending rewards...');
 
-        const [earned, pending] = await Promise.all([
+        const [earned, claimable] = await Promise.all([
           publicClient.readContract({
             address: stakingRewardsAddr,
-            abi: STAKING_REWARDS_ABI,
+            abi: stakingRewardsAbi,
             functionName: 'earned',
-            args: [address],
+            args: [address, lobToken],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: distributorAddr,
-            abi: REWARD_DISTRIBUTOR_ABI,
-            functionName: 'pendingRewards',
-            args: [address],
+            abi: rewardDistributorAbi,
+            functionName: 'claimableBalance',
+            args: [address, lobToken],
           }) as Promise<bigint>,
         ]);
 
         spin.succeed('Pending Rewards');
         console.log(`  StakingRewards:    ${formatLob(earned)}`);
-        console.log(`  RewardDistributor: ${formatLob(pending)}`);
-        console.log(`  Total:             ${formatLob(earned + pending)}`);
+        console.log(`  RewardDistributor: ${formatLob(claimable)}`);
+        console.log(`  Total:             ${formatLob(earned + claimable)}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── sync ────────────────────────────────────────────
+
+  rewards
+    .command('sync')
+    .description('Sync your effective staking balance (call periodically to avoid staleness)')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const stakingRewardsAddr = getContractAddress(ws.config, 'stakingRewards');
+
+        const spin = ui.spinner('Syncing stake...');
+        const tx = await walletClient.writeContract({
+          address: stakingRewardsAddr,
+          abi: stakingRewardsAbi,
+          functionName: 'syncStake',
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed('Stake synced');
+        ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

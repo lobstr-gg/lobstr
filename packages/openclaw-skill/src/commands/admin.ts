@@ -13,6 +13,7 @@ import * as ui from "openclaw";
 const ACCESS_CONTROL_ABI = parseAbi([
   "function grantRole(bytes32 role, address account)",
   "function revokeRole(bytes32 role, address account)",
+  "function renounceRole(bytes32 role, address account)",
   "function hasRole(bytes32 role, address account) view returns (bool)",
   "function getRoleAdmin(bytes32 role) view returns (bytes32)",
   "function pause()",
@@ -29,6 +30,16 @@ const CONTRACT_MAP: Record<string, string> = {
   DisputeArbitration: "disputeArbitration",
   EscrowEngine: "escrowEngine",
   ReputationSystem: "reputationSystem",
+  InsurancePool: "insurancePool",
+  LoanEngine: "loanEngine",
+  X402CreditFacility: "x402CreditFacility",
+  LightningGovernor: "lightningGovernor",
+  StakingRewards: "stakingRewards",
+  LiquidityMining: "liquidityMining",
+  RewardDistributor: "rewardDistributor",
+  RewardScheduler: "rewardScheduler",
+  AirdropClaimV3: "airdropClaimV3",
+  TeamVesting: "teamVesting",
 };
 
 function resolveRoleHash(role: string): `0x${string}` {
@@ -141,6 +152,58 @@ export function registerAdminCommands(program: Command): void {
         spin.succeed(`${opts.role} revoked`);
         ui.info(`Contract: ${opts.contract} (${contractAddr})`);
         ui.info(`Account: ${account}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── renounce-role ────────────────────────────────
+
+  admin
+    .command("renounce-role")
+    .description("Renounce your own role on a contract (irreversible)")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--role <role>", "Role name to renounce")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient, address: callerAddr } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey as any);
+        const roleHash = resolveRoleHash(opts.role);
+
+        // Verify caller has the role
+        const has = await publicClient.readContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "hasRole",
+          args: [roleHash, callerAddr],
+        });
+
+        if (!has) {
+          ui.info(`You don't have ${opts.role} on ${opts.contract} — nothing to renounce`);
+          return;
+        }
+
+        const spin = ui.spinner(`Renouncing ${opts.role} on ${opts.contract}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "renounceRole",
+          args: [roleHash, callerAddr],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`${opts.role} renounced on ${opts.contract}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);

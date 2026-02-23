@@ -120,7 +120,7 @@ export function registerStakeCommands(program: Command): void {
 
   program
     .command('unstake <amount>')
-    .description('Request unstake of LOB tokens')
+    .description('Request unstake of LOB tokens (starts 7-day cooldown)')
     .action(async (amount: string) => {
       try {
         const ws = ensureWorkspace();
@@ -141,7 +141,62 @@ export function registerStakeCommands(program: Command): void {
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
         spin.succeed(`Unstake requested for ${amount} LOB`);
-        ui.info('7-day cooldown before withdrawal');
+        ui.info('7-day cooldown before withdrawal. Run `lobstr withdraw` after cooldown.');
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  program
+    .command('withdraw')
+    .description('Withdraw tokens after unstake cooldown expires')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const stakingAbi = parseAbi(STAKING_MANAGER_ABI as unknown as string[]);
+        const stakingAddr = getContractAddress(ws.config, 'stakingManager');
+
+        const publicClient = createPublicClient(ws.config);
+        const wallet = loadWallet(ws.path);
+        const address = wallet.address as `0x${string}`;
+
+        // Check if there's a pending unstake request
+        const result = await publicClient.readContract({
+          address: stakingAddr,
+          abi: stakingAbi,
+          functionName: 'getStakeInfo',
+          args: [address],
+        }) as any;
+
+        const unstakeRequestTime = result.unstakeRequestTime ?? result[1];
+        const unstakeRequestAmount = result.unstakeRequestAmount ?? result[2];
+
+        if (unstakeRequestTime === 0n) {
+          ui.error('No pending unstake request. Use `lobstr unstake <amount>` first.');
+          process.exit(1);
+        }
+
+        const readyAt = Number(unstakeRequestTime) * 1000 + 7 * 24 * 3600 * 1000;
+        if (Date.now() < readyAt) {
+          const readyDate = new Date(readyAt);
+          ui.error(`Cooldown not expired. Withdrawal available ${readyDate.toISOString()}`);
+          process.exit(1);
+        }
+
+        const spin = ui.spinner(`Withdrawing ${formatLob(unstakeRequestAmount)} LOB...`);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const tx = await walletClient.writeContract({
+          address: stakingAddr,
+          abi: stakingAbi,
+          functionName: 'unstake',
+          args: [],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Withdrew ${formatLob(unstakeRequestAmount)} LOB`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);

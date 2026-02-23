@@ -391,6 +391,30 @@ export function useTreasuryRequiredApprovals() {
   });
 }
 
+// --- TreasuryGovernor: Admin Proposals ---
+
+export function useAdminProposal(proposalId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.treasuryGovernor,
+    abi: TreasuryGovernorABI,
+    functionName: "getAdminProposal",
+    args: proposalId !== undefined ? [proposalId] : undefined,
+    query: { enabled: proposalId !== undefined && !!contracts },
+  });
+}
+
+export function useAdminProposalApproval(proposalId?: bigint, signer?: `0x${string}`) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.treasuryGovernor,
+    abi: TreasuryGovernorABI,
+    functionName: "adminProposalApprovals",
+    args: proposalId !== undefined && signer ? [proposalId, signer] : undefined,
+    query: { enabled: proposalId !== undefined && !!signer && !!contracts },
+  });
+}
+
 // --- TreasuryGovernor: Streams ---
 
 export function useTreasuryStream(streamId?: bigint) {
@@ -534,6 +558,39 @@ export function useUndelegate() {
       address: contracts.treasuryGovernor,
       abi: TreasuryGovernorABI,
       functionName: "undelegate",
+      args: [],
+    });
+  };
+}
+
+// --- TreasuryGovernor: Admin Proposal Write hooks ---
+
+export function useApproveAdminProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "approveAdminProposal",
+      args: [proposalId],
+    });
+  };
+}
+
+export function useExecuteAdminProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "executeAdminProposal",
+      args: [proposalId],
     });
   };
 }

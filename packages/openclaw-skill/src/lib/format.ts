@@ -138,7 +138,7 @@ export const SUBSCRIPTION_STATUS: Record<number, string> = {
   0: 'Active',
   1: 'Paused',
   2: 'Cancelled',
-  3: 'Expired',
+  3: 'Completed',
 };
 
 export const CREDIT_LINE_STATUS: Record<number, string> = {
@@ -148,21 +148,12 @@ export const CREDIT_LINE_STATUS: Record<number, string> = {
   3: 'Closed',
 };
 
-export const LIGHTNING_PROPOSAL_TYPE: Record<number, string> = {
-  0: 'Standard',
-  1: 'FastTrack',
-  2: 'Emergency',
-};
-
 export const LIGHTNING_PROPOSAL_STATUS: Record<number, string> = {
-  0: 'Pending',
-  1: 'Active',
-  2: 'Succeeded',
-  3: 'Defeated',
-  4: 'Queued',
-  5: 'Executed',
-  6: 'Vetoed',
-  7: 'Expired',
+  0: 'Active',
+  1: 'Approved',
+  2: 'Executed',
+  3: 'Cancelled',
+  4: 'Expired',
 };
 
 export const VESTING_STATUS: Record<number, string> = {

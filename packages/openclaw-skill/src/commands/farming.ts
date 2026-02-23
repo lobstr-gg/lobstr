@@ -6,22 +6,12 @@ import {
   createWalletClient,
   getContractAddress,
   loadWallet,
+  LIQUIDITY_MINING_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
 import { formatLob } from '../lib/format';
 
-const LIQUIDITY_MINING_ABI = parseAbi([
-  'function stake(uint256 amount)',
-  'function withdraw(uint256 amount)',
-  'function getReward()',
-  'function exit()',
-  'function emergencyWithdraw()',
-  'function earned(address account) view returns (uint256)',
-  'function balanceOf(address account) view returns (uint256)',
-  'function totalSupply() view returns (uint256)',
-  'function rewardRate() view returns (uint256)',
-  'function getBoostMultiplier(address account) view returns (uint256)',
-]);
+const liquidityMiningAbi = parseAbi(LIQUIDITY_MINING_ABI as unknown as string[]);
 
 export function registerFarmingCommands(program: Command): void {
   const farming = program
@@ -45,7 +35,7 @@ export function registerFarmingCommands(program: Command): void {
         const spin = ui.spinner('Staking LP tokens...');
         const tx = await walletClient.writeContract({
           address: farmAddr,
-          abi: LIQUIDITY_MINING_ABI,
+          abi: liquidityMiningAbi,
           functionName: 'stake',
           args: [parsedAmount],
         });
@@ -76,7 +66,7 @@ export function registerFarmingCommands(program: Command): void {
         const spin = ui.spinner('Unstaking LP tokens...');
         const tx = await walletClient.writeContract({
           address: farmAddr,
-          abi: LIQUIDITY_MINING_ABI,
+          abi: liquidityMiningAbi,
           functionName: 'withdraw',
           args: [parsedAmount],
         });
@@ -105,7 +95,7 @@ export function registerFarmingCommands(program: Command): void {
         const spin = ui.spinner('Claiming farming rewards...');
         const tx = await walletClient.writeContract({
           address: farmAddr,
-          abi: LIQUIDITY_MINING_ABI,
+          abi: liquidityMiningAbi,
           functionName: 'getReward',
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -133,7 +123,7 @@ export function registerFarmingCommands(program: Command): void {
         const spin = ui.spinner('Exiting farm (withdraw all + claim)...');
         const tx = await walletClient.writeContract({
           address: farmAddr,
-          abi: LIQUIDITY_MINING_ABI,
+          abi: liquidityMiningAbi,
           functionName: 'exit',
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -161,7 +151,7 @@ export function registerFarmingCommands(program: Command): void {
         const spin = ui.spinner('Emergency withdrawing LP tokens...');
         const tx = await walletClient.writeContract({
           address: farmAddr,
-          abi: LIQUIDITY_MINING_ABI,
+          abi: liquidityMiningAbi,
           functionName: 'emergencyWithdraw',
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -192,29 +182,29 @@ export function registerFarmingCommands(program: Command): void {
         const [staked, earned, totalSupply, rewardRate, boostBps] = await Promise.all([
           publicClient.readContract({
             address: farmAddr,
-            abi: LIQUIDITY_MINING_ABI,
+            abi: liquidityMiningAbi,
             functionName: 'balanceOf',
             args: [address],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: farmAddr,
-            abi: LIQUIDITY_MINING_ABI,
+            abi: liquidityMiningAbi,
             functionName: 'earned',
             args: [address],
           }) as Promise<bigint>,
           publicClient.readContract({
             address: farmAddr,
-            abi: LIQUIDITY_MINING_ABI,
+            abi: liquidityMiningAbi,
             functionName: 'totalSupply',
           }) as Promise<bigint>,
           publicClient.readContract({
             address: farmAddr,
-            abi: LIQUIDITY_MINING_ABI,
+            abi: liquidityMiningAbi,
             functionName: 'rewardRate',
           }) as Promise<bigint>,
           publicClient.readContract({
             address: farmAddr,
-            abi: LIQUIDITY_MINING_ABI,
+            abi: liquidityMiningAbi,
             functionName: 'getBoostMultiplier',
             args: [address],
           }) as Promise<bigint>,

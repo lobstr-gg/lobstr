@@ -1,28 +1,14 @@
 import { Command } from 'commander';
-import { parseAbi, type Address } from 'viem';
+import { type Address } from 'viem';
 import {
   ensureWorkspace,
   createPublicClient,
   createWalletClient,
   getContractAddress,
+  LIGHTNING_GOVERNOR_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
-import { formatLob, LIGHTNING_PROPOSAL_TYPE, LIGHTNING_PROPOSAL_STATUS } from '../lib/format';
-
-const LIGHTNING_GOVERNOR_ABI = parseAbi([
-  'function propose(string description, address target, bytes calldata_, uint8 proposalType) returns (uint256)',
-  'function castVote(uint256 proposalId, bool support)',
-  'function execute(uint256 proposalId)',
-  'function cancel(uint256 proposalId)',
-  'function getProposal(uint256 proposalId) view returns (uint256 id, address proposer, string description, address target, bytes calldataHash, uint8 proposalType, uint8 status, uint256 forVotes, uint256 againstVotes, uint256 deadline)',
-  'function proposalCount() view returns (uint256)',
-]);
-
-const PROPOSAL_TYPE_MAP: Record<string, number> = {
-  'standard': 0,
-  'fast-track': 1,
-  'emergency': 2,
-};
+import { LIGHTNING_PROPOSAL_STATUS } from '../lib/format';
 
 export function registerGovernorCommands(program: Command): void {
   const governor = program
@@ -33,11 +19,10 @@ export function registerGovernorCommands(program: Command): void {
 
   governor
     .command('propose')
-    .description('Create a governance proposal')
-    .requiredOption('--description <desc>', 'Proposal description')
+    .description('Create a governance proposal (Platinum tier required)')
     .requiredOption('--target <addr>', 'Target contract address')
     .requiredOption('--calldata <hex>', 'Encoded calldata (0x...)')
-    .requiredOption('--type <standard|fast-track|emergency>', 'Proposal type')
+    .requiredOption('--description <desc>', 'Proposal description')
     .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
@@ -45,28 +30,20 @@ export function registerGovernorCommands(program: Command): void {
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
         const govAddr = getContractAddress(ws.config, 'lightningGovernor');
 
-        const proposalType = PROPOSAL_TYPE_MAP[opts.type];
-        if (proposalType === undefined) {
-          ui.error(`Invalid proposal type: ${opts.type}. Use: standard, fast-track, emergency`);
-          process.exit(1);
-        }
-
         const spin = ui.spinner('Creating proposal...');
         const tx = await walletClient.writeContract({
           address: govAddr,
           abi: LIGHTNING_GOVERNOR_ABI,
-          functionName: 'propose',
+          functionName: 'createProposal',
           args: [
-            opts.description,
             opts.target as Address,
             opts.calldata as `0x${string}`,
-            proposalType,
+            opts.description,
           ],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
         spin.succeed('Proposal created');
-        ui.info(`Type: ${LIGHTNING_PROPOSAL_TYPE[proposalType]}`);
         ui.info(`Target: ${opts.target}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
@@ -79,27 +56,24 @@ export function registerGovernorCommands(program: Command): void {
 
   governor
     .command('vote <id>')
-    .description('Cast a vote on a proposal')
-    .requiredOption('--support <yes|no>', 'Vote support (yes or no)')
-    .action(async (id: string, opts) => {
+    .description('Vote on a proposal (Platinum tier required)')
+    .action(async (id: string) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
         const govAddr = getContractAddress(ws.config, 'lightningGovernor');
 
-        const support = opts.support.toLowerCase() === 'yes';
-
-        const spin = ui.spinner(`Voting ${support ? 'FOR' : 'AGAINST'} proposal #${id}...`);
+        const spin = ui.spinner(`Voting on proposal #${id}...`);
         const tx = await walletClient.writeContract({
           address: govAddr,
           abi: LIGHTNING_GOVERNOR_ABI,
-          functionName: 'castVote',
-          args: [BigInt(id), support],
+          functionName: 'vote',
+          args: [BigInt(id)],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed(`Voted ${support ? 'FOR' : 'AGAINST'} proposal #${id}`);
+        spin.succeed(`Voted on proposal #${id}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -111,7 +85,7 @@ export function registerGovernorCommands(program: Command): void {
 
   governor
     .command('execute <id>')
-    .description('Execute a passed proposal')
+    .description('Execute an approved proposal (EXECUTOR_ROLE required)')
     .action(async (id: string) => {
       try {
         const ws = ensureWorkspace();
@@ -178,11 +152,18 @@ export function registerGovernorCommands(program: Command): void {
 
         const spin = ui.spinner('Loading proposals...');
 
-        const count = await publicClient.readContract({
-          address: govAddr,
-          abi: LIGHTNING_GOVERNOR_ABI,
-          functionName: 'proposalCount',
-        }) as bigint;
+        const [count, currentQuorum] = await Promise.all([
+          publicClient.readContract({
+            address: govAddr,
+            abi: LIGHTNING_GOVERNOR_ABI,
+            functionName: 'proposalCount',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: govAddr,
+            abi: LIGHTNING_GOVERNOR_ABI,
+            functionName: 'quorum',
+          }) as Promise<bigint>,
+        ]);
 
         if (count === 0n) {
           spin.succeed('No proposals found');
@@ -200,33 +181,33 @@ export function registerGovernorCommands(program: Command): void {
             }) as any;
 
             proposals.push({
-              id: result.id ?? result[0],
-              proposer: result.proposer ?? result[1],
-              description: result.description ?? result[2],
-              target: result.target ?? result[3],
-              calldataHash: result.calldataHash ?? result[4],
-              proposalType: result.proposalType ?? result[5],
-              status: result.status ?? result[6],
-              forVotes: result.forVotes ?? result[7],
-              againstVotes: result.againstVotes ?? result[8],
-              deadline: result.deadline ?? result[9],
+              id: result[0],
+              proposer: result[1],
+              target: result[2],
+              callData: result[3],
+              description: result[4],
+              status: result[5],
+              voteCount: result[6],
+              createdAt: result[7],
+              votingDeadline: result[8],
+              approvedAt: result[9],
+              executionDeadline: result[10],
             });
           } catch {
             break;
           }
         }
 
-        spin.succeed(`${proposals.length} proposal(s)`);
+        spin.succeed(`${proposals.length} proposal(s) | quorum: ${currentQuorum}`);
         ui.table(
-          ['ID', 'Type', 'Proposer', 'For', 'Against', 'Status', 'Deadline'],
+          ['ID', 'Proposer', 'Target', 'Votes', 'Status', 'Deadline'],
           proposals.map((p: any) => [
             p.id.toString(),
-            LIGHTNING_PROPOSAL_TYPE[Number(p.proposalType)] || 'Unknown',
             p.proposer.slice(0, 10) + '...',
-            formatLob(p.forVotes),
-            formatLob(p.againstVotes),
+            p.target.slice(0, 10) + '...',
+            `${p.voteCount}/${currentQuorum}`,
             LIGHTNING_PROPOSAL_STATUS[Number(p.status)] || 'Unknown',
-            new Date(Number(p.deadline) * 1000).toLocaleDateString(),
+            new Date(Number(p.votingDeadline) * 1000).toLocaleDateString(),
           ])
         );
       } catch (err) {

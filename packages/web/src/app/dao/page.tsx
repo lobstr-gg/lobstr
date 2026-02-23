@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatEther } from "viem";
+import { formatEther, type Address } from "viem";
+import { useReadContracts, useAccount } from "wagmi";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import {
   useTreasuryBalance,
@@ -11,18 +12,21 @@ import {
   useTreasuryRequiredApprovals,
   useDelegatee,
   useDelegatorCount,
+  useAdminProposalApproval,
+  useApproveAdminProposal,
+  useExecuteAdminProposal,
+  useDelegate,
+  useUndelegate,
 } from "@/lib/hooks";
 import { getContracts, CHAIN, getExplorerUrl } from "@/config/contracts";
 import {
-  type ProposalType,
-  type ProposalStatus,
   type BountyCategory,
   type BountyStatus,
   type BountyDifficulty,
-  TYPE_LABELS,
   formatNumber,
+  timeAgo,
 } from "./_data/dao-utils";
-import { useAccount } from "wagmi";
+import { TreasuryGovernorABI } from "@/config/abis";
 import {
   FileText,
   Vote,
@@ -32,6 +36,8 @@ import {
   Landmark,
   Users,
   ArrowRight,
+  Clock,
+  ExternalLink,
 } from "lucide-react";
 import { InfoButton } from "@/components/InfoButton";
 
@@ -39,62 +45,389 @@ import { InfoButton } from "@/components/InfoButton";
 
 type TabId = "proposals" | "bounties" | "delegates";
 
-type ProposalSort = "newest" | "most_votes" | "ending_soon";
-type BountySort = "newest" | "highest_reward" | "ending_soon";
+type AdminProposalStatus = "pending" | "approved" | "executed" | "cancelled" | "expired";
+
+interface AdminProposal {
+  id: bigint;
+  proposer: Address;
+  target: Address;
+  callData: `0x${string}`;
+  description: string;
+  status: number;
+  approvalCount: bigint;
+  createdAt: bigint;
+  timelockEnd: bigint;
+}
+
+const ADMIN_STATUS_LABELS: Record<number, AdminProposalStatus> = {
+  0: "pending",
+  1: "approved",
+  2: "executed",
+  3: "cancelled",
+  4: "expired",
+};
+
+const ADMIN_STATUS_COLORS: Record<AdminProposalStatus, { bg: string; text: string; dot: string }> = {
+  pending: { bg: "bg-yellow-500/10", text: "text-yellow-400", dot: "bg-yellow-400" },
+  approved: { bg: "bg-blue-500/10", text: "text-blue-400", dot: "bg-blue-400" },
+  executed: { bg: "bg-purple-500/10", text: "text-purple-400", dot: "bg-purple-400" },
+  cancelled: { bg: "bg-zinc-500/10", text: "text-zinc-400", dot: "bg-zinc-400" },
+  expired: { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
+};
+
+/* Known signer addresses */
+const KNOWN_SIGNERS: { address: Address; label: string }[] = [
+  { address: "0x8a1C742A8A2F4f7C1295443809acE281723650fb", label: "Sentinel (Deployer)" },
+  { address: "0xb761530d346D39B2c10B546545c24a0b0a3285D0", label: "Arbiter" },
+  { address: "0x443c4ff3CAa0E344b10CA19779B2E8AB1ACcd672", label: "Steward" },
+  { address: "0x3F2ABc3BDb1e3e4F0120e560554c3c842286B251", label: "Cruz" },
+];
+
+/* Known contract addresses for readable target names */
+const TARGET_LABELS: Record<string, string> = {
+  "0xd41a40145811915075f6935a4755f8688e53c8db": "ReputationSystem",
+  "0xcb7790d3f9b5bfe171eb30c253ab3007d43c441b": "StakingManager",
+  "0x0d1d8583561310adeefe18cb3a5729e2666ac14c": "X402CreditFacility",
+  "0x576235a56e0e25feb95ea198d017070ad7f78360": "EscrowEngine",
+  "0xffbded2dba5e27ad5a56c6d4c401124e942ada04": "DisputeArbitration",
+  "0xf5ab9f1a5c6cc60e1a68d50b4c943d72fd97487a": "LoanEngine",
+  "0x545a01e48cfb6a76699ef12ec1e998c1a275c84e": "SybilGuard",
+  "0xe1d68167a15afa7c4e22df978dc4a66a0b4114fe": "InsurancePool",
+  "0x9b7e2b8cf7de5ef1f85038b050952dc1d4596319": "TreasuryGovernor",
+};
 
 /* ── Constants ────────────────────────────────────────────────── */
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "proposals", label: "Proposals" },
+  { id: "proposals", label: "Admin Proposals" },
   { id: "bounties", label: "Bounties" },
   { id: "delegates", label: "Delegates" },
 ];
 
-const PROPOSAL_TYPES: ProposalType[] = [
-  "parameter",
-  "treasury",
-  "upgrade",
-  "social",
-  "emergency",
-];
-
-const PROPOSAL_STATUSES: ProposalStatus[] = [
-  "active",
-  "pending",
-  "passed",
-  "failed",
-  "executed",
-  "cancelled",
-];
-
 const BOUNTY_CATEGORIES: BountyCategory[] = [
-  "development",
-  "design",
-  "documentation",
-  "research",
-  "community",
-  "security",
-  "marketing",
-];
-
-const BOUNTY_STATUSES: BountyStatus[] = [
-  "open",
-  "claimed",
-  "in_review",
-  "completed",
-  "expired",
+  "development", "design", "documentation", "research", "community", "security", "marketing",
 ];
 
 const BOUNTY_DIFFICULTIES: BountyDifficulty[] = [
-  "beginner",
-  "intermediate",
-  "advanced",
-  "expert",
+  "beginner", "intermediate", "advanced", "expert",
 ];
+
+/* On-chain BountyStatus enum: Open(0), Claimed(1), Completed(2), Cancelled(3) */
+const ONCHAIN_BOUNTY_STATUS: Record<number, string> = {
+  0: "open",
+  1: "claimed",
+  2: "completed",
+  3: "cancelled",
+};
+
+const ONCHAIN_BOUNTY_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  open: { bg: "bg-green-500/10", text: "text-green-400", dot: "bg-green-400" },
+  claimed: { bg: "bg-yellow-500/10", text: "text-yellow-400", dot: "bg-yellow-400" },
+  completed: { bg: "bg-purple-500/10", text: "text-purple-400", dot: "bg-purple-400" },
+  cancelled: { bg: "bg-zinc-500/10", text: "text-zinc-400", dot: "bg-zinc-400" },
+};
+
+const DIFFICULTY_LABELS: Record<number, string> = {
+  0: "beginner",
+  1: "intermediate",
+  2: "advanced",
+  3: "expert",
+};
+
+const DIFFICULTY_COLORS: Record<string, string> = {
+  beginner: "text-green-400",
+  intermediate: "text-yellow-400",
+  advanced: "text-orange-400",
+  expert: "text-red-400",
+};
+
+const PROPOSAL_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
+const PROPOSAL_TIMELOCK = 24 * 60 * 60; // 24 hours in seconds
+
+/* ── Scan range for admin proposals ──────────────────────────── */
+const SCAN_COUNT = 20;
+
+/* ── useAdminProposals hook ──────────────────────────────────── */
+
+function useAdminProposals(): { proposals: AdminProposal[]; isLoading: boolean } {
+  const contracts = getContracts(CHAIN.id);
+  const governorAddr = contracts?.treasuryGovernor;
+
+  const calls = Array.from({ length: SCAN_COUNT }, (_, i) => ({
+    address: governorAddr as Address,
+    abi: TreasuryGovernorABI,
+    functionName: "getAdminProposal" as const,
+    args: [BigInt(i + 1)],
+  }));
+
+  const { data, isLoading } = useReadContracts({
+    contracts: calls,
+    query: { enabled: !!governorAddr },
+  });
+
+  const proposals: AdminProposal[] = [];
+  if (data) {
+    for (let i = 0; i < data.length; i++) {
+      const r = data[i];
+      if (r.status === "success" && r.result) {
+        const [id, proposer, target, callData, description, status, approvalCount, createdAt, timelockEnd] =
+          r.result as [bigint, Address, Address, `0x${string}`, string, number, bigint, bigint, bigint];
+        if (id > 0n) {
+          proposals.push({ id, proposer, target, callData, description, status, approvalCount, createdAt, timelockEnd });
+        }
+      }
+    }
+  }
+
+  return { proposals, isLoading };
+}
+
+/* ── Bounty types & hook ────────────────────────────────────── */
+
+interface OnchainBounty {
+  id: bigint;
+  creator: Address;
+  title: string;
+  description: string;
+  reward: bigint;
+  token: Address;
+  status: number;
+  category: string;
+  difficulty: number;
+  claimant: Address;
+  createdAt: bigint;
+  deadline: bigint;
+}
+
+const BOUNTY_SCAN_COUNT = 20;
+
+function useBounties(): { bounties: OnchainBounty[]; isLoading: boolean } {
+  const contracts = getContracts(CHAIN.id);
+  const governorAddr = contracts?.treasuryGovernor;
+
+  const calls = Array.from({ length: BOUNTY_SCAN_COUNT }, (_, i) => ({
+    address: governorAddr as Address,
+    abi: TreasuryGovernorABI,
+    functionName: "getBounty" as const,
+    args: [BigInt(i + 1)],
+  }));
+
+  const { data, isLoading } = useReadContracts({
+    contracts: calls,
+    query: { enabled: !!governorAddr },
+  });
+
+  const bounties: OnchainBounty[] = [];
+  if (data) {
+    for (let i = 0; i < data.length; i++) {
+      const r = data[i];
+      if (r.status === "success" && r.result) {
+        const d = r.result as any;
+        const id = d.id ?? d[0];
+        if (id > 0n) {
+          bounties.push({
+            id,
+            creator: d.creator ?? d[1],
+            title: d.title ?? d[2],
+            description: d.description ?? d[3],
+            reward: d.reward ?? d[4],
+            token: d.token ?? d[5],
+            status: Number(d.status ?? d[6]),
+            category: d.category ?? d[7],
+            difficulty: Number(d.difficulty ?? d[8]),
+            claimant: d.claimant ?? d[9],
+            createdAt: d.createdAt ?? d[10],
+            deadline: d.deadline ?? d[11],
+          });
+        }
+      }
+    }
+  }
+
+  return { bounties, isLoading };
+}
+
+/* ── Bounty Card ───────────────────────────────────────────── */
+
+function BountyCard({ bounty }: { bounty: OnchainBounty }) {
+  const statusLabel = ONCHAIN_BOUNTY_STATUS[bounty.status] ?? "open";
+  const statusColors = ONCHAIN_BOUNTY_STATUS_COLORS[statusLabel] ?? ONCHAIN_BOUNTY_STATUS_COLORS.open;
+  const diffLabel = DIFFICULTY_LABELS[bounty.difficulty] ?? "beginner";
+  const diffColor = DIFFICULTY_COLORS[diffLabel] ?? "text-green-400";
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const isExpired = bounty.deadline > 0n && now > bounty.deadline && statusLabel === "open";
+
+  const creatorLabel = KNOWN_SIGNERS.find(
+    s => s.address.toLowerCase() === bounty.creator.toLowerCase()
+  )?.label ?? `${bounty.creator.slice(0, 6)}...${bounty.creator.slice(-4)}`;
+
+  return (
+    <motion.div
+      className="border border-border/50 rounded-lg p-4 hover:border-lob-green/20 transition-colors"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] text-text-tertiary font-mono">#{String(bounty.id)}</span>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+            isExpired ? ONCHAIN_BOUNTY_STATUS_COLORS.cancelled.bg + " " + ONCHAIN_BOUNTY_STATUS_COLORS.cancelled.text
+              : statusColors.bg + " " + statusColors.text
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isExpired ? ONCHAIN_BOUNTY_STATUS_COLORS.cancelled.dot : statusColors.dot}`} />
+            {isExpired ? "Expired" : statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}
+          </span>
+          <span className={`text-[10px] font-medium ${diffColor}`}>
+            {diffLabel.charAt(0).toUpperCase() + diffLabel.slice(1)}
+          </span>
+        </div>
+        <span className="text-xs font-bold text-lob-green tabular-nums shrink-0">
+          {formatNumber(Number(formatEther(bounty.reward)))} LOB
+        </span>
+      </div>
+
+      <p className="text-xs text-text-primary font-medium mb-1 leading-relaxed">
+        {bounty.title}
+      </p>
+      {bounty.description && (
+        <p className="text-[10px] text-text-tertiary mb-2 line-clamp-2">
+          {bounty.description}
+        </p>
+      )}
+
+      <div className="flex items-center gap-3 text-[10px] text-text-tertiary">
+        <span className="px-1.5 py-0.5 rounded bg-surface-2">{bounty.category}</span>
+        <span>by {creatorLabel}</span>
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          {timeAgo(Number(bounty.createdAt) * 1000)}
+        </span>
+        {bounty.deadline > 0n && !isExpired && (
+          <span className="text-yellow-400">
+            Deadline: {new Date(Number(bounty.deadline) * 1000).toLocaleDateString()}
+          </span>
+        )}
+        {bounty.claimant !== "0x0000000000000000000000000000000000000000" && (
+          <span className="text-blue-400">
+            Claimed by {bounty.claimant.slice(0, 6)}...{bounty.claimant.slice(-4)}
+          </span>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Admin Proposal Card ─────────────────────────────────────── */
+
+function AdminProposalCard({ proposal, requiredApprovals }: { proposal: AdminProposal; requiredApprovals: number }) {
+  const { address } = useAccount();
+  const { data: hasApproved } = useAdminProposalApproval(proposal.id, address);
+  const approveProposal = useApproveAdminProposal();
+  const executeProposal = useExecuteAdminProposal();
+
+  const statusKey = ADMIN_STATUS_LABELS[proposal.status] ?? "pending";
+  const colors = ADMIN_STATUS_COLORS[statusKey];
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const isExpired = now > proposal.createdAt + BigInt(PROPOSAL_EXPIRY);
+  const timelockPassed = proposal.timelockEnd > 0n && now >= proposal.timelockEnd;
+
+  const effectiveStatus = isExpired && (statusKey === "pending" || statusKey === "approved")
+    ? "expired" : statusKey;
+  const effectiveColors = ADMIN_STATUS_COLORS[effectiveStatus];
+
+  const targetLabel = TARGET_LABELS[proposal.target.toLowerCase()] ?? `${proposal.target.slice(0, 8)}...`;
+  const proposerLabel = KNOWN_SIGNERS.find(
+    s => s.address.toLowerCase() === proposal.proposer.toLowerCase()
+  )?.label ?? `${proposal.proposer.slice(0, 6)}...${proposal.proposer.slice(-4)}`;
+
+  const canApprove = effectiveStatus === "pending" && address && !hasApproved;
+  const canExecute = effectiveStatus === "approved" && timelockPassed && !isExpired;
+
+  return (
+    <motion.div
+      className="border border-border/50 rounded-lg p-4 hover:border-lob-green/20 transition-colors"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] text-text-tertiary font-mono">#{String(proposal.id)}</span>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${effectiveColors.bg} ${effectiveColors.text}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${effectiveColors.dot}`} />
+            {effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1)}
+          </span>
+          <span className="text-[10px] text-text-tertiary px-1.5 py-0.5 rounded bg-surface-2 font-mono">
+            {targetLabel}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] text-text-tertiary tabular-nums">
+            {Number(proposal.approvalCount)}/{requiredApprovals}
+          </span>
+          <div className="flex -space-x-1">
+            {Array.from({ length: requiredApprovals }, (_, i) => (
+              <div
+                key={i}
+                className={`w-4 h-4 rounded-full border border-surface-1 ${
+                  i < Number(proposal.approvalCount)
+                    ? "bg-lob-green/30"
+                    : "bg-surface-3"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-text-primary font-medium mb-1.5 leading-relaxed">
+        {proposal.description}
+      </p>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-[10px] text-text-tertiary">
+          <span>by {proposerLabel}</span>
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {timeAgo(Number(proposal.createdAt) * 1000)}
+          </span>
+          {effectiveStatus === "approved" && !timelockPassed && (
+            <span className="text-blue-400">
+              Timelock: {Math.ceil((Number(proposal.timelockEnd) - Number(now)) / 3600)}h left
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-1.5">
+          {canApprove && (
+            <motion.button
+              className="btn-primary text-[10px] px-2.5 py-1"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => approveProposal(proposal.id)}
+            >
+              Approve
+            </motion.button>
+          )}
+          {canExecute && (
+            <motion.button
+              className="btn-primary text-[10px] px-2.5 py-1"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => executeProposal(proposal.id)}
+            >
+              Execute
+            </motion.button>
+          )}
+          {hasApproved && effectiveStatus === "pending" && (
+            <span className="text-[10px] text-lob-green/60 px-2 py-1">Approved</span>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 /* ── Governance Stats Component ───────────────────────────────── */
 
-function GovernanceStats() {
+function GovernanceStats({ proposalCount, pendingCount, openBounties }: { proposalCount: number; pendingCount: number; openBounties: number }) {
   const contracts = getContracts(CHAIN.id);
   const { data: lobBalance } = useTreasuryBalance(contracts?.lobToken);
   const { data: signerCount } = useTreasurySignerCount();
@@ -102,25 +435,15 @@ function GovernanceStats() {
 
   const lobBalanceFormatted = lobBalance
     ? formatNumber(Number(formatEther(lobBalance as bigint)))
-    : "—";
+    : "\u2014";
 
   const stats = [
-    // TODO: Iterate proposals from contract when nextProposalId is available
-    { label: "Active Proposals", value: "0" },
-    { label: "Open Bounties", value: "0" },
-    { label: "Treasury Signers", value: signerCount !== undefined ? String(Number(signerCount)) : "—" },
-    {
-      label: "Treasury LOB",
-      value: lobBalanceFormatted,
-    },
-    {
-      label: "Required Approvals",
-      value: requiredApprovals !== undefined ? String(Number(requiredApprovals)) : "—",
-    },
-    {
-      label: "Proposals (All Time)",
-      value: "0",
-    },
+    { label: "Pending Proposals", value: String(pendingCount) },
+    { label: "Open Bounties", value: String(openBounties) },
+    { label: "Treasury Signers", value: signerCount !== undefined ? String(Number(signerCount)) : "\u2014" },
+    { label: "Treasury LOB", value: lobBalanceFormatted },
+    { label: "Required Approvals", value: requiredApprovals !== undefined ? String(Number(requiredApprovals)) : "\u2014" },
+    { label: "Proposals (All Time)", value: String(proposalCount) },
   ];
 
   return (
@@ -152,78 +475,13 @@ function GovernanceStats() {
   );
 }
 
-/* ── Treasury Overview Component ──────────────────────────────── */
-
-function TreasuryOverview() {
-  const contracts = getContracts(CHAIN.id);
-  const lobTokenAddress = contracts?.lobToken;
-  const { data: lobBalance, isLoading } = useTreasuryBalance(lobTokenAddress);
-
-  const lobBalanceNum = lobBalance
-    ? Number(formatEther(lobBalance as bigint))
-    : 0;
-
-  return (
-    <div className="card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-          Treasury
-          <InfoButton infoKey="dao.treasury" />
-        </h3>
-        {isLoading ? (
-          <span className="text-xs text-text-tertiary animate-pulse">Loading...</span>
-        ) : (
-          <span className="text-sm font-bold text-text-primary tabular-nums">
-            {formatNumber(lobBalanceNum)} LOB
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        {/* LOB balance from contract */}
-        <div className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-surface-3 flex items-center justify-center text-[9px] font-bold text-text-primary">
-              L
-            </div>
-            <div>
-              <p className="text-xs font-medium text-text-primary">
-                LOB
-              </p>
-              <p className="text-[10px] text-text-tertiary tabular-nums">
-                {isLoading ? "..." : formatNumber(lobBalanceNum)}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-medium text-lob-green tabular-nums">
-              {isLoading ? "..." : formatNumber(lobBalanceNum)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* TODO: Add ETH and USDC balance reads when treasury holds multiple tokens */}
-
-      <a
-        href={getExplorerUrl("address", contracts?.treasuryGovernor ?? "")}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block text-center text-[10px] text-lob-green hover:underline mt-3"
-      >
-        View on Basescan
-      </a>
-    </div>
-  );
-}
-
 /* ── Governance Process Flow ──────────────────────────────────── */
 
 const GOV_STEPS = [
-  { icon: FileText, label: "Draft Proposal", desc: "Write and submit on-chain" },
-  { icon: Vote, label: "Voting Period", desc: "veLOB holders cast votes" },
-  { icon: CheckCircle2, label: "Quorum Check", desc: "Meets threshold to pass" },
-  { icon: Rocket, label: "Execution", desc: "Multisig executes on-chain" },
+  { icon: FileText, label: "Create Proposal", desc: "Signer submits on-chain" },
+  { icon: Vote, label: "Multisig Approval", desc: "3-of-4 signers approve" },
+  { icon: Clock, label: "24h Timelock", desc: "Cooldown before execution" },
+  { icon: Rocket, label: "Execution", desc: "Anyone executes on-chain" },
 ];
 
 function GovernanceFlow() {
@@ -305,21 +563,11 @@ function TreasuryDonut({ lobBalance, isLoading }: { lobBalance: number; isLoadin
       <div className="flex items-center gap-6">
         <div className="relative w-28 h-28 shrink-0">
           <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-            {/* Background ring */}
-            <circle
-              cx="50" cy="50" r="45"
-              fill="none"
-              stroke="#1E2431"
-              strokeWidth="8"
-            />
-            {/* Treasury slice */}
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#1E2431" strokeWidth="8" />
             {!isLoading && (
               <motion.circle
                 cx="50" cy="50" r="45"
-                fill="none"
-                stroke="#58B059"
-                strokeWidth="8"
-                strokeLinecap="round"
+                fill="none" stroke="#58B059" strokeWidth="8" strokeLinecap="round"
                 strokeDasharray={`${treasuryDash} ${remainDash}`}
                 initial={{ strokeDashoffset: circumference }}
                 animate={{ strokeDashoffset: 0 }}
@@ -366,8 +614,6 @@ function TreasuryDonut({ lobBalance, isLoading }: { lobBalance: number; isLoadin
 /* ── Multisig Signers Visual ─────────────────────────────────── */
 
 function SignersVisual({ signerCount, requiredApprovals }: { signerCount: number; requiredApprovals: number }) {
-  const signers = Array.from({ length: signerCount }, (_, i) => i);
-
   return (
     <div className="card p-5">
       <div className="flex items-center gap-2 mb-4">
@@ -379,9 +625,9 @@ function SignersVisual({ signerCount, requiredApprovals }: { signerCount: number
       </div>
       <div className="flex items-center gap-3 mb-3">
         <div className="flex -space-x-2">
-          {signers.map((i) => (
+          {KNOWN_SIGNERS.map((signer, i) => (
             <motion.div
-              key={i}
+              key={signer.address}
               className={`w-8 h-8 rounded-full border-2 border-surface-1 flex items-center justify-center text-[9px] font-bold ${
                 i < requiredApprovals
                   ? "bg-lob-green/20 text-lob-green"
@@ -390,8 +636,9 @@ function SignersVisual({ signerCount, requiredApprovals }: { signerCount: number
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.1 + i * 0.08 }}
+              title={`${signer.label} (${signer.address.slice(0, 6)}...${signer.address.slice(-4)})`}
             >
-              S{i + 1}
+              {signer.label.charAt(0)}
             </motion.div>
           ))}
         </div>
@@ -441,9 +688,7 @@ function FilterPill({
     >
       {label}
       {count !== undefined && (
-        <span
-          className={`tabular-nums ${active ? "text-lob-green/70" : "text-text-tertiary/60"}`}
-        >
+        <span className={`tabular-nums ${active ? "text-lob-green/70" : "text-text-tertiary/60"}`}>
           {count}
         </span>
       )}
@@ -470,39 +715,60 @@ export default function DaoPage() {
   const signerCountNum = signerCount !== undefined ? Number(signerCount) : 0;
   const requiredApprovalsNum = requiredApprovals !== undefined ? Number(requiredApprovals) : 0;
 
+  /* ── Admin proposals ────────────────────────────────────── */
+  const { proposals, isLoading: proposalsLoading } = useAdminProposals();
+  const pendingProposals = proposals.filter(p => p.status === 0);
+
+  /* ── Bounties ─────────────────────────────────────────── */
+  const { bounties, isLoading: bountiesLoading } = useBounties();
+
+  /* ── Delegation ──────────────────────────────────────────── */
+  const delegateFn = useDelegate();
+  const undelegateFn = useUndelegate();
+  const [delegateInput, setDelegateInput] = useState("");
+
   /* ── Tab state ────────────────────────────────────────────── */
   const [activeTab, setActiveTab] = useState<TabId>("proposals");
 
-  /* ── Proposal filters ─────────────────────────────────────── */
-  const [proposalSearch, setProposalSearch] = useState("");
-  const [proposalTypeFilter, setProposalTypeFilter] = useState<
-    "all" | ProposalType
-  >("all");
-  const [proposalStatusFilter, setProposalStatusFilter] = useState<
-    "all" | ProposalStatus
-  >("all");
-  const [proposalSort, setProposalSort] =
-    useState<ProposalSort>("newest");
+  /* ── Proposal status filter ───────────────────────────────── */
+  const [proposalStatusFilter, setProposalStatusFilter] = useState<"all" | AdminProposalStatus>("all");
 
   /* ── Bounty filters ───────────────────────────────────────── */
   const [bountySearch, setBountySearch] = useState("");
-  const [bountyCategoryFilter, setBountyCategoryFilter] = useState<
-    "all" | BountyCategory
-  >("all");
-  const [bountyStatusFilter, setBountyStatusFilter] = useState<
-    "all" | BountyStatus
-  >("all");
-  const [bountyDifficultyFilter, setBountyDifficultyFilter] = useState<
-    "all" | BountyDifficulty
-  >("all");
-  const [bountySort, setBountySort] = useState<BountySort>("newest");
+  const [bountyCategoryFilter, setBountyCategoryFilter] = useState<"all" | BountyCategory>("all");
+  const [bountyStatusFilter, setBountyStatusFilter] = useState<"all" | BountyStatus>("all");
+  const [bountyDifficultyFilter, setBountyDifficultyFilter] = useState<"all" | BountyDifficulty>("all");
+
+  /* ── Filter proposals by status ──────────────────────────── */
+  const now = Math.floor(Date.now() / 1000);
+  const filteredProposals = proposals.filter(p => {
+    if (proposalStatusFilter === "all") return true;
+    const statusKey = ADMIN_STATUS_LABELS[p.status] ?? "pending";
+    const isExpired = now > Number(p.createdAt) + PROPOSAL_EXPIRY;
+    const effective = isExpired && (statusKey === "pending" || statusKey === "approved") ? "expired" : statusKey;
+    return effective === proposalStatusFilter;
+  });
+
+  /* ── Filter bounties ──────────────────────────────────────── */
+  const filteredBounties = bounties.filter(b => {
+    const statusLabel = ONCHAIN_BOUNTY_STATUS[b.status] ?? "open";
+    const diffLabel = DIFFICULTY_LABELS[b.difficulty] ?? "beginner";
+
+    if (bountySearch) {
+      const q = bountySearch.toLowerCase();
+      if (!b.title.toLowerCase().includes(q) && !b.description.toLowerCase().includes(q)) return false;
+    }
+    if (bountyCategoryFilter !== "all" && b.category.toLowerCase() !== bountyCategoryFilter) return false;
+    if (bountyStatusFilter !== "all" && statusLabel !== bountyStatusFilter) return false;
+    if (bountyDifficultyFilter !== "all" && diffLabel !== bountyDifficultyFilter) return false;
+    return true;
+  });
 
   /* ── Tab counts ───────────────────────────────────────────── */
-  // TODO: Iterate proposals from contract when nextProposalId is available
   const tabCounts: Record<TabId, number> = {
-    proposals: 0,
-    bounties: 0,
-    delegates: signerCount !== undefined ? Number(signerCount) : 0,
+    proposals: proposals.length,
+    bounties: bounties.length,
+    delegates: signerCountNum,
   };
 
   /* ── Render ───────────────────────────────────────────────── */
@@ -519,26 +785,31 @@ export default function DaoPage() {
             <InfoButton infoKey="dao.header" />
           </h1>
           <p className="text-xs text-text-tertiary mt-1">
-            Shape the protocol. Lock $LOB for veLOB voting power, vote on proposals,
-            fund bounties, delegate.
+            3-of-4 multisig governance. Create proposals, approve, execute after 24h timelock.
           </p>
         </div>
-        <Link href="/dao/create">
+        <a
+          href={getExplorerUrl("address", contracts?.treasuryGovernor ?? "")}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <motion.span
-            className="btn-primary inline-flex items-center gap-1.5"
-            whileHover={{
-              boxShadow: "inset 0 1px 0 rgba(88,176,89,0.12), 0 4px 16px rgba(88,176,89,0.08)",
-            }}
-            whileTap={{ scale: 0.97 }}
+            className="btn-secondary inline-flex items-center gap-1.5 text-xs"
+            whileHover={{ borderColor: "rgba(88,176,89,0.3)" }}
           >
-            + Create Proposal
+            <ExternalLink className="w-3 h-3" />
+            TreasuryGovernor
           </motion.span>
-        </Link>
+        </a>
       </motion.div>
 
       {/* ── Stats ───────────────────────────────────────────── */}
       <motion.div variants={fadeUp} className="mb-6">
-        <GovernanceStats />
+        <GovernanceStats
+          proposalCount={proposals.length}
+          pendingCount={pendingProposals.length}
+          openBounties={bounties.filter(b => b.status === 0).length}
+        />
       </motion.div>
 
       {/* ── Layout: Main + Sidebar ──────────────────────────── */}
@@ -557,10 +828,7 @@ export default function DaoPage() {
                 className="relative px-4 py-2 text-sm font-medium -mb-px"
               >
                 <motion.span
-                  animate={{
-                    color:
-                      activeTab === tab.id ? "#EAECEF" : "#5E6673",
-                  }}
+                  animate={{ color: activeTab === tab.id ? "#EAECEF" : "#5E6673" }}
                   className="relative z-10 flex items-center gap-1.5"
                 >
                   {tab.label}
@@ -578,11 +846,7 @@ export default function DaoPage() {
                   <motion.div
                     layoutId="dao-tab"
                     className="absolute bottom-0 left-0 right-0 h-0.5 bg-lob-green"
-                    transition={{
-                      type: "spring",
-                      stiffness: 400,
-                      damping: 30,
-                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
               </button>
@@ -600,105 +864,56 @@ export default function DaoPage() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25 }}
               >
-                {/* Filter bar */}
-                <div className="space-y-3 mb-4">
-                  {/* Row 1: Search + Type dropdown + Sort */}
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={proposalSearch}
-                        onChange={(e) =>
-                          setProposalSearch(e.target.value)
-                        }
-                        placeholder="Search proposals..."
-                        className="input-field pl-8 text-xs"
-                      />
-                      <svg
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </div>
-                    <select
-                      value={proposalTypeFilter}
-                      onChange={(e) =>
-                        setProposalTypeFilter(
-                          e.target.value as "all" | ProposalType
-                        )
-                      }
-                      className="input-field text-xs w-auto sm:w-40"
-                    >
-                      <option value="all">All Types</option>
-                      {PROPOSAL_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {TYPE_LABELS[type].label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={proposalSort}
-                      onChange={(e) =>
-                        setProposalSort(
-                          e.target.value as ProposalSort
-                        )
-                      }
-                      className="input-field text-xs w-auto sm:w-40"
-                    >
-                      <option value="newest">Newest</option>
-                      <option value="most_votes">Most Votes</option>
-                      <option value="ending_soon">
-                        Ending Soon
-                      </option>
-                    </select>
-                  </div>
-
-                  {/* Row 2: Status pills */}
-                  <div className="flex flex-wrap gap-1.5">
-                    <FilterPill
-                      label="All"
-                      active={proposalStatusFilter === "all"}
-                      onClick={() => setProposalStatusFilter("all")}
-                      count={0}
-                    />
-                    {PROPOSAL_STATUSES.map((status) => (
+                {/* Status filter pills */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  <FilterPill
+                    label="All"
+                    active={proposalStatusFilter === "all"}
+                    onClick={() => setProposalStatusFilter("all")}
+                    count={proposals.length}
+                  />
+                  {(["pending", "approved", "executed", "cancelled"] as AdminProposalStatus[]).map((status) => {
+                    const count = proposals.filter(p => {
+                      const sk = ADMIN_STATUS_LABELS[p.status] ?? "pending";
+                      const expired = now > Number(p.createdAt) + PROPOSAL_EXPIRY;
+                      const eff = expired && (sk === "pending" || sk === "approved") ? "expired" : sk;
+                      return eff === status;
+                    }).length;
+                    return (
                       <FilterPill
                         key={status}
-                        label={
-                          status.charAt(0).toUpperCase() +
-                          status.slice(1)
-                        }
+                        label={status.charAt(0).toUpperCase() + status.slice(1)}
                         active={proposalStatusFilter === status}
-                        onClick={() =>
-                          setProposalStatusFilter(status)
-                        }
-                        count={0}
+                        onClick={() => setProposalStatusFilter(status)}
+                        count={count}
                       />
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
 
-                {/* TODO: Iterate proposals from contract when nextProposalId is available */}
-                {/* Empty state for proposals */}
-                <EmptyState
-                  message="No proposals yet"
-                  action={
-                    <Link
-                      href="/dao/create"
-                      className="text-lob-green hover:underline"
-                    >
-                      Create the first proposal
-                    </Link>
-                  }
-                />
+                {/* Proposal list */}
+                {proposalsLoading ? (
+                  <div className="text-center py-12">
+                    <span className="text-xs text-text-tertiary animate-pulse">Loading proposals...</span>
+                  </div>
+                ) : filteredProposals.length > 0 ? (
+                  <div className="space-y-3">
+                    {filteredProposals
+                      .sort((a, b) => Number(b.id) - Number(a.id))
+                      .map((p) => (
+                        <AdminProposalCard
+                          key={String(p.id)}
+                          proposal={p}
+                          requiredApprovals={requiredApprovalsNum}
+                        />
+                      ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    message="No proposals match this filter"
+                    action="Try selecting a different status."
+                  />
+                )}
               </motion.div>
             )}
 
@@ -711,140 +926,81 @@ export default function DaoPage() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25 }}
               >
-                {/* Filter bar */}
                 <div className="space-y-3 mb-4">
-                  {/* Row 1: Search + Sort + Post Bounty */}
                   <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                       <input
                         type="text"
                         value={bountySearch}
-                        onChange={(e) =>
-                          setBountySearch(e.target.value)
-                        }
+                        onChange={(e) => setBountySearch(e.target.value)}
                         placeholder="Search bounties..."
                         className="input-field pl-8 text-xs"
                       />
                       <svg
                         className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
-                    <select
-                      value={bountySort}
-                      onChange={(e) =>
-                        setBountySort(
-                          e.target.value as BountySort
-                        )
-                      }
-                      className="input-field text-xs w-auto sm:w-44"
-                    >
-                      <option value="newest">Newest</option>
-                      <option value="highest_reward">
-                        Highest Reward
-                      </option>
-                      <option value="ending_soon">
-                        Ending Soon
-                      </option>
-                    </select>
-                    <motion.span
-                      className="btn-primary inline-flex items-center gap-1 text-xs whitespace-nowrap opacity-50 cursor-not-allowed"
-                      title="Coming soon — bounties will be available after Phase 2 governance launch"
-                    >
-                      + Post Bounty
-                    </motion.span>
                   </div>
 
-                  {/* Row 2: Category pills */}
                   <div className="flex flex-wrap gap-1.5">
-                    <FilterPill
-                      label="All"
-                      active={bountyCategoryFilter === "all"}
-                      onClick={() =>
-                        setBountyCategoryFilter("all")
-                      }
-                    />
+                    <FilterPill label="All" active={bountyCategoryFilter === "all"} onClick={() => setBountyCategoryFilter("all")} count={bounties.length} />
                     {BOUNTY_CATEGORIES.map((cat) => (
                       <FilterPill
                         key={cat}
-                        label={
-                          cat.charAt(0).toUpperCase() + cat.slice(1)
-                        }
+                        label={cat.charAt(0).toUpperCase() + cat.slice(1)}
                         active={bountyCategoryFilter === cat}
                         onClick={() => setBountyCategoryFilter(cat)}
+                        count={bounties.filter(b => b.category.toLowerCase() === cat).length}
                       />
                     ))}
                   </div>
 
-                  {/* Row 3: Status + Difficulty pills */}
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[10px] text-text-tertiary uppercase tracking-wider mr-1">
-                      Status:
-                    </span>
-                    <FilterPill
-                      label="All"
-                      active={bountyStatusFilter === "all"}
-                      onClick={() => setBountyStatusFilter("all")}
-                    />
-                    {BOUNTY_STATUSES.map((status) => (
+                  <div className="flex flex-wrap gap-1.5">
+                    <FilterPill label="All Status" active={bountyStatusFilter === "all"} onClick={() => setBountyStatusFilter("all")} />
+                    {(["open", "claimed", "completed"] as BountyStatus[]).map((status) => (
                       <FilterPill
                         key={status}
-                        label={
-                          status === "in_review"
-                            ? "In Review"
-                            : status.charAt(0).toUpperCase() +
-                              status.slice(1)
-                        }
+                        label={status.charAt(0).toUpperCase() + status.slice(1)}
                         active={bountyStatusFilter === status}
-                        onClick={() =>
-                          setBountyStatusFilter(status)
-                        }
+                        onClick={() => setBountyStatusFilter(status)}
                       />
                     ))}
+                  </div>
 
-                    <span className="text-border mx-1">|</span>
-
-                    <span className="text-[10px] text-text-tertiary uppercase tracking-wider mr-1">
-                      Level:
-                    </span>
-                    <FilterPill
-                      label="All"
-                      active={bountyDifficultyFilter === "all"}
-                      onClick={() =>
-                        setBountyDifficultyFilter("all")
-                      }
-                    />
+                  <div className="flex flex-wrap gap-1.5">
+                    <FilterPill label="All Difficulty" active={bountyDifficultyFilter === "all"} onClick={() => setBountyDifficultyFilter("all")} />
                     {BOUNTY_DIFFICULTIES.map((diff) => (
                       <FilterPill
                         key={diff}
-                        label={
-                          diff.charAt(0).toUpperCase() +
-                          diff.slice(1)
-                        }
+                        label={diff.charAt(0).toUpperCase() + diff.slice(1)}
                         active={bountyDifficultyFilter === diff}
-                        onClick={() =>
-                          setBountyDifficultyFilter(diff)
-                        }
+                        onClick={() => setBountyDifficultyFilter(diff)}
                       />
                     ))}
                   </div>
                 </div>
 
-                {/* TODO: Iterate bounties from contract when nextBountyId is available */}
-                {/* Empty state for bounties */}
-                <EmptyState
-                  message="No bounties yet"
-                  action="Bounties will appear here once created on-chain."
-                />
+                {bountiesLoading ? (
+                  <div className="text-center py-12">
+                    <span className="text-xs text-text-tertiary animate-pulse">Loading bounties...</span>
+                  </div>
+                ) : filteredBounties.length > 0 ? (
+                  <div className="space-y-3">
+                    {filteredBounties
+                      .sort((a, b) => Number(b.id) - Number(a.id))
+                      .map((b) => (
+                        <BountyCard key={String(b.id)} bounty={b} />
+                      ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    message={bounties.length > 0 ? "No bounties match this filter" : "No bounties yet"}
+                    action={bounties.length > 0 ? "Try a different filter." : "Bounties will appear here once created on-chain."}
+                  />
+                )}
               </motion.div>
             )}
 
@@ -859,53 +1015,66 @@ export default function DaoPage() {
               >
                 {/* Your Delegation card */}
                 <div className="card p-4 mb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-col gap-3">
                     <div>
                       <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-1">
                         Your Delegation
                       </h3>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
-                        <div>
-                          <span className="text-text-tertiary">
-                            Delegate:{" "}
-                          </span>
-                          <span className="text-text-secondary font-mono">
-                            {delegatee &&
-                            delegatee !== "0x0000000000000000000000000000000000000000"
-                              ? `${String(delegatee).slice(0, 6)}...${String(delegatee).slice(-4)}`
-                              : "Not delegated"}
-                          </span>
+                      {!address ? (
+                        <p className="text-xs text-text-tertiary">Connect wallet to manage delegation</p>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
+                          <div>
+                            <span className="text-text-tertiary">Delegate: </span>
+                            <span className="text-text-secondary font-mono">
+                              {delegatee && delegatee !== "0x0000000000000000000000000000000000000000"
+                                ? (() => {
+                                    const known = KNOWN_SIGNERS.find(s => s.address.toLowerCase() === String(delegatee).toLowerCase());
+                                    return known ? known.label : `${String(delegatee).slice(0, 6)}...${String(delegatee).slice(-4)}`;
+                                  })()
+                                : "Not delegated"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-text-tertiary">Delegators to you: </span>
+                            <span className="text-text-primary font-medium tabular-nums">
+                              {delegatorCount !== undefined ? String(Number(delegatorCount)) : "0"}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-text-tertiary">
-                            Delegators to you:{" "}
-                          </span>
-                          <span className="text-text-primary font-medium tabular-nums">
-                            {delegatorCount !== undefined
-                              ? String(Number(delegatorCount))
-                              : "0"}
-                          </span>
+                      )}
+                    </div>
+                    {address && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={delegateInput}
+                          onChange={(e) => setDelegateInput(e.target.value)}
+                          placeholder="0x... address to delegate to"
+                          className="input-field text-xs flex-1 font-mono"
+                        />
+                        <div className="flex gap-2">
+                          <motion.button
+                            className="btn-primary text-xs"
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => {
+                              if (delegateInput.startsWith("0x") && delegateInput.length === 42) {
+                                delegateFn(delegateInput as `0x${string}`);
+                              }
+                            }}
+                          >
+                            Delegate
+                          </motion.button>
+                          <motion.button
+                            className="btn-secondary text-xs"
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => undelegateFn()}
+                          >
+                            Undelegate
+                          </motion.button>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <motion.button
-                        className="btn-primary text-xs"
-                        whileHover={{
-                          boxShadow:
-                            "0 0 20px rgba(88,176,89,0.2)",
-                        }}
-                        whileTap={{ scale: 0.97 }}
-                      >
-                        Delegate
-                      </motion.button>
-                      <motion.button
-                        className="btn-secondary text-xs"
-                        whileTap={{ scale: 0.97 }}
-                      >
-                        Undelegate
-                      </motion.button>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -914,55 +1083,56 @@ export default function DaoPage() {
                   <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
                     Treasury Governance
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                     <div className="bg-surface-2 rounded px-3 py-2">
-                      <p className="text-[10px] text-text-tertiary uppercase tracking-wider">
-                        Total Signers
-                      </p>
+                      <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Total Signers</p>
                       <p className="text-lg font-bold text-text-primary tabular-nums mt-0.5">
-                        {signerCount !== undefined
-                          ? String(Number(signerCount))
-                          : "—"}
+                        {signerCount !== undefined ? String(Number(signerCount)) : "\u2014"}
                       </p>
                     </div>
                     <div className="bg-surface-2 rounded px-3 py-2">
-                      <p className="text-[10px] text-text-tertiary uppercase tracking-wider">
-                        Required Approvals
-                      </p>
+                      <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Required Approvals</p>
                       <p className="text-lg font-bold text-text-primary tabular-nums mt-0.5">
-                        {requiredApprovals !== undefined
-                          ? String(Number(requiredApprovals))
-                          : "—"}
+                        {requiredApprovals !== undefined ? String(Number(requiredApprovals)) : "\u2014"}
                       </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Top Delegates heading */}
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
-                    Top Delegates
-                  </h3>
-                  <span className="text-[10px] text-text-tertiary">
-                    Ranked by voting power
-                  </span>
+                  {/* Signer list */}
+                  <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2">Multisig Signers</h4>
+                  <div className="space-y-2">
+                    {KNOWN_SIGNERS.map((signer) => (
+                      <div key={signer.address} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-lob-green/15 flex items-center justify-center text-[9px] font-bold text-lob-green">
+                            {signer.label.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-text-primary">{signer.label}</p>
+                            <p className="text-[10px] text-text-tertiary font-mono">
+                              {signer.address.slice(0, 6)}...{signer.address.slice(-4)}
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={getExplorerUrl("address", signer.address)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-lob-green hover:underline"
+                        >
+                          View
+                        </a>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-
-                {/* TODO: Iterate delegates when on-chain delegate enumeration is available */}
-                <EmptyState
-                  message="No delegates found"
-                  action="Delegate data will populate from on-chain once the governance contract is active."
-                />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
         {/* ── Sidebar ─────────────────────────────────────────── */}
-        <motion.div
-          variants={fadeUp}
-          className="w-full lg:w-72 flex-shrink-0"
-        >
+        <motion.div variants={fadeUp} className="w-full lg:w-72 flex-shrink-0">
           <div className="lg:sticky lg:top-20 space-y-3">
             <TreasuryDonut lobBalance={lobBalanceNum} isLoading={lobLoading} />
             {signerCountNum > 0 && (
@@ -996,7 +1166,7 @@ export default function DaoPage() {
         </motion.div>
       </div>
 
-      {/* ── Governance Flow — full-width at bottom ───────────── */}
+      {/* ── Governance Flow ───────────────────────────────────── */}
       <motion.div variants={fadeUp} className="mt-6">
         <GovernanceFlow />
       </motion.div>
@@ -1018,11 +1188,7 @@ function EmptyState({
       <motion.div
         className="w-10 h-10 rounded-full border border-border mx-auto mb-4 flex items-center justify-center"
         animate={{ rotate: [0, 360] }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear",
-        }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
       >
         <div className="w-1.5 h-1.5 rounded-full bg-lob-green/30" />
       </motion.div>
