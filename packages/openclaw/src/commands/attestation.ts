@@ -13,10 +13,29 @@ import * as ui from '../lib/ui';
 
 const PTAU_URL = 'https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_17.ptau';
 
-// Resolve circuit files — Docker puts them at /opt/lobstr/circuits/,
-// dev environment has them at packages/circuits/build/
+// Writable directory for generated files (zkey, vkey) — workspace survives restarts
+function writableCircuitsDir(): string {
+  // Prefer workspace circuits dir (writable even with read-only rootfs)
+  try {
+    const ws = ensureWorkspace();
+    const dir = path.join(ws.path, 'circuits');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  } catch {
+    // Fallback to Docker circuits dir or dev build dir
+    if (fs.existsSync('/opt/lobstr/circuits')) return '/opt/lobstr/circuits';
+    const devDir = path.join(__dirname, '..', '..', '..', 'circuits', 'build');
+    if (!fs.existsSync(devDir)) fs.mkdirSync(devDir, { recursive: true });
+    return devDir;
+  }
+}
+
+// Resolve circuit files — checks workspace, Docker, and dev paths
 function resolveCircuitPath(filename: string): string {
+  let wsPath: string | undefined;
+  try { wsPath = path.join(ensureWorkspace().path, 'circuits', filename); } catch {}
   const candidates = [
+    ...(wsPath ? [wsPath] : []),
     path.join('/opt/lobstr/circuits', filename),
     path.join(__dirname, '..', '..', '..', 'circuits', 'build', filename),
     path.join(__dirname, '..', '..', '..', 'circuits', 'build', 'airdropAttestation_js', filename),
@@ -150,10 +169,8 @@ export function registerAttestationCommand(program: Command): void {
     .action(async (opts) => {
       const spin = ui.spinner('Starting trusted setup...');
       try {
-        // Determine output directory (Docker: /opt/lobstr/circuits, else: circuits/build)
-        const circuitsDir = fs.existsSync('/opt/lobstr/circuits')
-          ? '/opt/lobstr/circuits'
-          : path.join(__dirname, '..', '..', '..', 'circuits', 'build');
+        // Use writable directory (workspace/circuits in Docker, circuits/build in dev)
+        const circuitsDir = writableCircuitsDir();
 
         const r1csPath = resolveCircuitPath('airdropAttestation.r1cs');
         const zkeyPath = path.join(circuitsDir, 'airdropAttestation_0001.zkey');
@@ -248,6 +265,7 @@ export function registerAttestationCommand(program: Command): void {
         console.log();
         ui.success('Ready to generate proofs');
         ui.info('Next: lobstr attestation generate && lobstr attestation prove');
+        process.exit(0);
       } catch (err) {
         spin.fail('Trusted setup failed');
         ui.error((err as Error).message);
@@ -378,6 +396,7 @@ export function registerAttestationCommand(program: Command): void {
         console.log();
         ui.success(`Output: ${outputPath}`);
         ui.info('Next: lobstr airdrop submit-attestation');
+        process.exit(0);
       } catch (err) {
         spin.fail('Failed to generate proof');
         ui.error((err as Error).message);

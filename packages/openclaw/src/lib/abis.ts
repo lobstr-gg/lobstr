@@ -67,6 +67,20 @@ export const AIRDROP_CLAIM_V2_ABI = [
   'event VestedTokensReleased(address indexed claimant, uint256 amount)',
 ] as const;
 
+export const AIRDROP_CLAIM_V3_ABI = [
+  'function claim(uint256[2] pA, uint256[2][2] pB, uint256[2] pC, uint256[2] pubSignals, bytes approvalSig, uint256 powNonce)',
+  'function completeMilestone(address claimant, uint8 milestone)',
+  'function getClaimInfo(address claimant) view returns (bool claimed, uint256 released, uint256 milestonesCompleted, uint256 claimedAt)',
+  'function isMilestoneComplete(address claimant, uint8 milestone) view returns (bool)',
+  'function getMerkleRoot() view returns (uint256)',
+  'function difficultyTarget() view returns (uint256)',
+  'function totalClaimed() view returns (uint256)',
+  'function claimWindowEnd() view returns (uint256)',
+  'function maxAirdropPool() view returns (uint256)',
+  'event AirdropClaimed(address indexed claimant, uint256 immediateRelease)',
+  'event MilestoneCompleted(address indexed claimant, uint8 milestone, uint256 amountReleased)',
+] as const;
+
 export const REPUTATION_SYSTEM_ABI = [
   'function getScore(address user) view returns (uint256 score, uint8 tier)',
   'function getReputationData(address user) view returns (uint256 score, uint256 completions, uint256 disputesLost, uint256 disputesWon, uint256 firstActivityTimestamp)',

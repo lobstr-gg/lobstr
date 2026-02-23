@@ -122,8 +122,31 @@ export const LOAN_STATUS: Record<number, string> = {
   0: 'Requested',
   1: 'Active',
   2: 'Repaid',
-  3: 'Defaulted',
-  4: 'Liquidated',
+  3: 'Liquidated',
+  4: 'Cancelled',
+};
+
+export const LOAN_TERM: Record<number, string> = {
+  0: '7 days',
+  1: '14 days',
+  2: '30 days',
+  3: '90 days',
+};
+
+export const MILESTONE_NAMES: Record<number, string> = {
+  0: 'JobComplete',
+  1: 'ServiceListed',
+  2: 'StakeActive',
+  3: 'ReputationEarned',
+  4: 'GovernanceVote',
+};
+
+export const MILESTONE_DESC: Record<number, string> = {
+  0: 'Complete 1 job',
+  1: 'Create 1 listing',
+  2: 'Stake >= 100 LOB',
+  3: 'Rep score >= 1000',
+  4: 'Cast 1 arb vote',
 };
 
 export const INSURANCE_STATUS: Record<number, string> = {

@@ -6,8 +6,12 @@ import {
   createWalletClient,
   getContractAddress,
   LIGHTNING_GOVERNOR_ABI,
+  parseAbi,
 } from 'openclaw';
 import * as ui from 'openclaw';
+
+// viem readContract needs parsed ABI objects, not human-readable strings
+const GOVERNOR_ABI = parseAbi(LIGHTNING_GOVERNOR_ABI as unknown as string[]);
 import { LIGHTNING_PROPOSAL_STATUS } from '../lib/format';
 
 export function registerGovernorCommands(program: Command): void {
@@ -33,7 +37,7 @@ export function registerGovernorCommands(program: Command): void {
         const spin = ui.spinner('Creating proposal...');
         const tx = await walletClient.writeContract({
           address: govAddr,
-          abi: LIGHTNING_GOVERNOR_ABI,
+          abi: GOVERNOR_ABI,
           functionName: 'createProposal',
           args: [
             opts.target as Address,
@@ -67,7 +71,7 @@ export function registerGovernorCommands(program: Command): void {
         const spin = ui.spinner(`Voting on proposal #${id}...`);
         const tx = await walletClient.writeContract({
           address: govAddr,
-          abi: LIGHTNING_GOVERNOR_ABI,
+          abi: GOVERNOR_ABI,
           functionName: 'vote',
           args: [BigInt(id)],
         });
@@ -96,7 +100,7 @@ export function registerGovernorCommands(program: Command): void {
         const spin = ui.spinner(`Executing proposal #${id}...`);
         const tx = await walletClient.writeContract({
           address: govAddr,
-          abi: LIGHTNING_GOVERNOR_ABI,
+          abi: GOVERNOR_ABI,
           functionName: 'execute',
           args: [BigInt(id)],
         });
@@ -125,7 +129,7 @@ export function registerGovernorCommands(program: Command): void {
         const spin = ui.spinner(`Cancelling proposal #${id}...`);
         const tx = await walletClient.writeContract({
           address: govAddr,
-          abi: LIGHTNING_GOVERNOR_ABI,
+          abi: GOVERNOR_ABI,
           functionName: 'cancel',
           args: [BigInt(id)],
         });
@@ -155,12 +159,12 @@ export function registerGovernorCommands(program: Command): void {
         const [count, currentQuorum] = await Promise.all([
           publicClient.readContract({
             address: govAddr,
-            abi: LIGHTNING_GOVERNOR_ABI,
+            abi: GOVERNOR_ABI,
             functionName: 'proposalCount',
           }) as Promise<bigint>,
           publicClient.readContract({
             address: govAddr,
-            abi: LIGHTNING_GOVERNOR_ABI,
+            abi: GOVERNOR_ABI,
             functionName: 'quorum',
           }) as Promise<bigint>,
         ]);
@@ -175,7 +179,7 @@ export function registerGovernorCommands(program: Command): void {
           try {
             const result = await publicClient.readContract({
               address: govAddr,
-              abi: LIGHTNING_GOVERNOR_ABI,
+              abi: GOVERNOR_ABI,
               functionName: 'getProposal',
               args: [i],
             }) as any;

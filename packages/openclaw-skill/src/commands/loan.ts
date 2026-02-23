@@ -6,18 +6,48 @@ import {
   createWalletClient,
   getContractAddress,
   loadWallet,
-  LOB_TOKEN_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
-import { formatLob, LOAN_STATUS } from '../lib/format';
+import { formatLob, LOAN_STATUS, LOAN_TERM } from '../lib/format';
 
 const LOAN_ENGINE_ABI = parseAbi([
-  'function requestLoan(uint256 amount, uint256 collateral, uint256 durationDays, string purpose) returns (uint256)',
-  'function repayLoan(uint256 loanId)',
-  'function getLoan(uint256 loanId) view returns (uint256 id, address borrower, uint256 amount, uint256 collateral, uint256 repaid, uint256 dueDate, uint8 status, string purpose)',
-  'function loanCount() view returns (uint256)',
-  'function getBorrowerLoans(address borrower) view returns (uint256[])',
+  'function requestLoan(uint256 principal, uint8 term) returns (uint256)',
+  'function cancelLoan(uint256 loanId)',
+  'function fundLoan(uint256 loanId)',
+  'function repay(uint256 loanId, uint256 amount)',
+  'function getLoan(uint256 loanId) view returns (uint256 id, address borrower, address lender, uint256 principal, uint256 interestAmount, uint256 protocolFee, uint256 collateralAmount, uint256 totalRepaid, uint8 status, uint8 term, uint256 requestedAt, uint256 fundedAt, uint256 dueDate)',
+  'function getActiveLoanIds(address borrower) view returns (uint256[])',
+  'function getBorrowerProfile(address borrower) view returns (uint256 activeLoans, uint256 totalBorrowed, uint256 totalRepaid, uint256 defaults, bool restricted)',
+  'function getMaxBorrow(address borrower) view returns (uint256)',
+  'function getInterestRate(address borrower) view returns (uint256)',
+  'function getCollateralRequired(uint256 principal, address borrower) view returns (uint256)',
+  'function getOutstandingAmount(uint256 loanId) view returns (uint256)',
 ]);
+
+const TERM_MAP: Record<string, number> = {
+  '7d': 0,
+  '14d': 1,
+  '30d': 2,
+  '90d': 3,
+};
+
+function parseLoanResult(result: any) {
+  return {
+    id: result[0],
+    borrower: result[1],
+    lender: result[2],
+    principal: result[3],
+    interestAmount: result[4],
+    protocolFee: result[5],
+    collateralAmount: result[6],
+    totalRepaid: result[7],
+    status: result[8],
+    term: result[9],
+    requestedAt: result[10],
+    fundedAt: result[11],
+    dueDate: result[12],
+  };
+}
 
 export function registerLoanCommands(program: Command): void {
   const loan = program
@@ -28,45 +58,36 @@ export function registerLoanCommands(program: Command): void {
 
   loan
     .command('request')
-    .description('Request a loan (approve LOB collateral first)')
-    .requiredOption('--amount <amt>', 'Loan amount in LOB')
-    .requiredOption('--collateral <col>', 'Collateral amount in LOB')
-    .requiredOption('--duration <days>', 'Loan duration in days')
-    .requiredOption('--purpose <desc>', 'Loan purpose description')
+    .description('Request a loan')
+    .requiredOption('--amount <amt>', 'Loan principal in LOB')
+    .option('--term <term>', 'Loan term: 7d, 14d, 30d, 90d (default: 30d)', '30d')
     .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
-        const tokenAbi = parseAbi(LOB_TOKEN_ABI as unknown as string[]);
         const loanAddr = getContractAddress(ws.config, 'loanEngine');
-        const tokenAddr = getContractAddress(ws.config, 'lobToken');
+
+        const termIndex = TERM_MAP[opts.term];
+        if (termIndex === undefined) {
+          ui.error(`Invalid term: ${opts.term}. Use: 7d, 14d, 30d, 90d`);
+          process.exit(1);
+        }
 
         const parsedAmount = parseUnits(opts.amount, 18);
-        const parsedCollateral = parseUnits(opts.collateral, 18);
 
-        const spin = ui.spinner('Approving LOB collateral...');
-        const approveTx = await walletClient.writeContract({
-          address: tokenAddr,
-          abi: tokenAbi,
-          functionName: 'approve',
-          args: [loanAddr, parsedCollateral],
-        });
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-
-        spin.text = 'Requesting loan...';
+        const spin = ui.spinner('Requesting loan...');
         const tx = await walletClient.writeContract({
           address: loanAddr,
           abi: LOAN_ENGINE_ABI,
           functionName: 'requestLoan',
-          args: [parsedAmount, parsedCollateral, BigInt(opts.duration), opts.purpose],
+          args: [parsedAmount, termIndex],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
         spin.succeed('Loan requested');
         ui.info(`Amount: ${opts.amount} LOB`);
-        ui.info(`Collateral: ${opts.collateral} LOB`);
-        ui.info(`Duration: ${opts.duration} days`);
+        ui.info(`Term: ${LOAN_TERM[termIndex]}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -78,7 +99,51 @@ export function registerLoanCommands(program: Command): void {
 
   loan
     .command('repay <id>')
-    .description('Repay a loan')
+    .description('Repay a loan (full or partial)')
+    .option('--amount <amt>', 'Partial repayment amount in LOB (default: full outstanding)')
+    .action(async (id: string, opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const loanAddr = getContractAddress(ws.config, 'loanEngine');
+
+        let repayAmount: bigint;
+        if (opts.amount) {
+          repayAmount = parseUnits(opts.amount, 18);
+        } else {
+          const outstanding = await publicClient.readContract({
+            address: loanAddr,
+            abi: LOAN_ENGINE_ABI,
+            functionName: 'getOutstandingAmount',
+            args: [BigInt(id)],
+          }) as bigint;
+          repayAmount = outstanding;
+        }
+
+        const spin = ui.spinner(`Repaying loan #${id}...`);
+        const tx = await walletClient.writeContract({
+          address: loanAddr,
+          abi: LOAN_ENGINE_ABI,
+          functionName: 'repay',
+          args: [BigInt(id), repayAmount],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Loan #${id} repaid`);
+        ui.info(`Amount: ${formatLob(repayAmount)}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── cancel ──────────────────────────────────────────
+
+  loan
+    .command('cancel <id>')
+    .description('Cancel a pending loan request')
     .action(async (id: string) => {
       try {
         const ws = ensureWorkspace();
@@ -86,16 +151,45 @@ export function registerLoanCommands(program: Command): void {
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
         const loanAddr = getContractAddress(ws.config, 'loanEngine');
 
-        const spin = ui.spinner(`Repaying loan #${id}...`);
+        const spin = ui.spinner(`Cancelling loan #${id}...`);
         const tx = await walletClient.writeContract({
           address: loanAddr,
           abi: LOAN_ENGINE_ABI,
-          functionName: 'repayLoan',
+          functionName: 'cancelLoan',
           args: [BigInt(id)],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed(`Loan #${id} repaid`);
+        spin.succeed(`Loan #${id} cancelled`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── fund ────────────────────────────────────────────
+
+  loan
+    .command('fund <id>')
+    .description('Fund a pending loan request (become lender)')
+    .action(async (id: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const loanAddr = getContractAddress(ws.config, 'loanEngine');
+
+        const spin = ui.spinner(`Funding loan #${id}...`);
+        const tx = await walletClient.writeContract({
+          address: loanAddr,
+          abi: LOAN_ENGINE_ABI,
+          functionName: 'fundLoan',
+          args: [BigInt(id)],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Loan #${id} funded`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -122,25 +216,25 @@ export function registerLoanCommands(program: Command): void {
           args: [BigInt(id)],
         }) as any;
 
-        const loanData = {
-          id: result.id ?? result[0],
-          borrower: result.borrower ?? result[1],
-          amount: result.amount ?? result[2],
-          collateral: result.collateral ?? result[3],
-          repaid: result.repaid ?? result[4],
-          dueDate: result.dueDate ?? result[5],
-          status: result.status ?? result[6],
-          purpose: result.purpose ?? result[7],
-        };
+        const l = parseLoanResult(result);
 
         spin.succeed(`Loan #${id}`);
-        console.log(`  Borrower:   ${loanData.borrower}`);
-        console.log(`  Amount:     ${formatLob(loanData.amount)}`);
-        console.log(`  Collateral: ${formatLob(loanData.collateral)}`);
-        console.log(`  Repaid:     ${formatLob(loanData.repaid)}`);
-        console.log(`  Due date:   ${new Date(Number(loanData.dueDate) * 1000).toISOString()}`);
-        console.log(`  Status:     ${LOAN_STATUS[Number(loanData.status)] || 'Unknown'}`);
-        console.log(`  Purpose:    ${loanData.purpose}`);
+        console.log(`  Borrower:     ${l.borrower}`);
+        console.log(`  Lender:       ${l.lender === '0x0000000000000000000000000000000000000000' ? 'Unfunded' : l.lender}`);
+        console.log(`  Principal:    ${formatLob(l.principal)}`);
+        console.log(`  Interest:     ${formatLob(l.interestAmount)}`);
+        console.log(`  Protocol fee: ${formatLob(l.protocolFee)}`);
+        console.log(`  Collateral:   ${formatLob(l.collateralAmount)}`);
+        console.log(`  Repaid:       ${formatLob(l.totalRepaid)}`);
+        console.log(`  Status:       ${LOAN_STATUS[Number(l.status)] || 'Unknown'}`);
+        console.log(`  Term:         ${LOAN_TERM[Number(l.term)] || 'Unknown'}`);
+        console.log(`  Requested:    ${new Date(Number(l.requestedAt) * 1000).toISOString()}`);
+        if (Number(l.fundedAt) > 0) {
+          console.log(`  Funded:       ${new Date(Number(l.fundedAt) * 1000).toISOString()}`);
+        }
+        if (Number(l.dueDate) > 0) {
+          console.log(`  Due date:     ${new Date(Number(l.dueDate) * 1000).toISOString()}`);
+        }
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
@@ -151,7 +245,7 @@ export function registerLoanCommands(program: Command): void {
 
   loan
     .command('list')
-    .description("List user's loans")
+    .description("List user's active loans")
     .action(async () => {
       try {
         const ws = ensureWorkspace();
@@ -164,12 +258,12 @@ export function registerLoanCommands(program: Command): void {
         const loanIds = await publicClient.readContract({
           address: loanAddr,
           abi: LOAN_ENGINE_ABI,
-          functionName: 'getBorrowerLoans',
+          functionName: 'getActiveLoanIds',
           args: [address],
         }) as bigint[];
 
         if (loanIds.length === 0) {
-          spin.succeed('No loans found');
+          spin.succeed('No active loans');
           return;
         }
 
@@ -182,28 +276,71 @@ export function registerLoanCommands(program: Command): void {
             args: [lid],
           }) as any;
 
-          loans.push({
-            id: result.id ?? result[0],
-            amount: result.amount ?? result[2],
-            collateral: result.collateral ?? result[3],
-            dueDate: result.dueDate ?? result[5],
-            status: result.status ?? result[6],
-            purpose: result.purpose ?? result[7],
-          });
+          loans.push(parseLoanResult(result));
         }
 
         spin.succeed(`${loans.length} loan(s)`);
         ui.table(
-          ['ID', 'Amount', 'Collateral', 'Due', 'Status', 'Purpose'],
+          ['ID', 'Principal', 'Collateral', 'Term', 'Due', 'Status'],
           loans.map((l: any) => [
             l.id.toString(),
-            formatLob(l.amount),
-            formatLob(l.collateral),
-            new Date(Number(l.dueDate) * 1000).toLocaleDateString(),
+            formatLob(l.principal),
+            formatLob(l.collateralAmount),
+            LOAN_TERM[Number(l.term)] || '?',
+            Number(l.dueDate) > 0 ? new Date(Number(l.dueDate) * 1000).toLocaleDateString() : '-',
             LOAN_STATUS[Number(l.status)] || 'Unknown',
-            l.purpose.length > 30 ? l.purpose.slice(0, 30) + '...' : l.purpose,
           ])
         );
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── profile ─────────────────────────────────────────
+
+  loan
+    .command('profile')
+    .description('View your borrower profile')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const wallet = loadWallet(ws.path);
+        const address = wallet.address as `0x${string}`;
+        const loanAddr = getContractAddress(ws.config, 'loanEngine');
+
+        const spin = ui.spinner('Fetching borrower profile...');
+        const [profile, maxBorrow, interestRate] = await Promise.all([
+          publicClient.readContract({
+            address: loanAddr,
+            abi: LOAN_ENGINE_ABI,
+            functionName: 'getBorrowerProfile',
+            args: [address],
+          }) as any,
+          publicClient.readContract({
+            address: loanAddr,
+            abi: LOAN_ENGINE_ABI,
+            functionName: 'getMaxBorrow',
+            args: [address],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: loanAddr,
+            abi: LOAN_ENGINE_ABI,
+            functionName: 'getInterestRate',
+            args: [address],
+          }) as Promise<bigint>,
+        ]);
+
+        spin.succeed('Borrower Profile');
+        console.log(`  Address:        ${address}`);
+        console.log(`  Active loans:   ${profile[0]}`);
+        console.log(`  Total borrowed: ${formatLob(profile[1])}`);
+        console.log(`  Total repaid:   ${formatLob(profile[2])}`);
+        console.log(`  Defaults:       ${profile[3]}`);
+        console.log(`  Restricted:     ${profile[4] ? 'Yes' : 'No'}`);
+        console.log(`  Max borrow:     ${formatLob(maxBorrow)}`);
+        console.log(`  Interest rate:  ${Number(interestRate) / 100}%`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

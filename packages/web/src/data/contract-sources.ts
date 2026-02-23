@@ -2595,4 +2595,254 @@ contract AirdropClaimV2 is IAirdropClaimV2, AccessControl, ReentrancyGuard, Paus
     }
 }`,
   },
+  {
+    name: "InsurancePool",
+    fileName: "InsurancePool.sol",
+    description:
+      "Escrow insurance pool with Synthetix-style premium distribution. Buyers insure jobs, stakers underwrite claims and earn premiums.",
+    lines: 416,
+    source: `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IInsurancePool} from "./interfaces/IInsurancePool.sol";
+import {IEscrowEngine} from "./interfaces/IEscrowEngine.sol";
+import {IDisputeArbitration} from "./interfaces/IDisputeArbitration.sol";
+import {IReputationSystem} from "./interfaces/IReputationSystem.sol";
+import {IStakingManager} from "./interfaces/IStakingManager.sol";
+import {ISybilGuard} from "./interfaces/ISybilGuard.sol";
+import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
+
+contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+
+    bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
+
+    IERC20 public immutable LOB_TOKEN;
+    IEscrowEngine public immutable ESCROW_ENGINE;
+    IDisputeArbitration public immutable DISPUTE_ARBITRATION;
+    IReputationSystem public immutable REPUTATION_SYSTEM;
+    IStakingManager public immutable STAKING_MANAGER;
+    ISybilGuard public immutable SYBIL_GUARD;
+    IServiceRegistry public immutable SERVICE_REGISTRY;
+    address public immutable TREASURY;
+
+    uint256 public premiumRateBps = 50; // 0.5%
+
+    // Coverage caps by reputation tier (in LOB wei)
+    uint256 public coverageCapBronze = 100e18;
+    uint256 public coverageCapSilver = 500e18;
+    uint256 public coverageCapGold = 2500e18;
+    uint256 public coverageCapPlatinum = 10000e18;
+
+    uint256 public totalPoolDeposits;
+    uint256 public totalPremiumsCollected;
+    uint256 public totalClaimsPaid;
+
+    // Synthetix-style premium distribution
+    uint256 public rewardPerTokenStored;
+    uint256 private _totalStaked;
+    uint256 private _totalRewardsAccrued;
+    uint256 private _totalRewardsClaimed;
+    uint256 private _totalRefundLiabilities;
+    uint256 private _totalInFlightPrincipal;
+
+    mapping(address => PoolStaker) private _stakers;
+    mapping(uint256 => bool) private _insuredJobs;
+    mapping(uint256 => bool) private _claimPaid;
+    mapping(uint256 => bool) private _refundClaimed;
+    mapping(uint256 => uint256) private _jobPremiums;
+    mapping(uint256 => address) private _jobBuyer;
+    mapping(uint256 => uint256) private _jobRefundAmount;
+    mapping(uint256 => bool) private _jobSettled;
+
+    constructor(address _lobToken, address _escrowEngine, address _disputeArbitration,
+        address _reputationSystem, address _stakingManager, address _sybilGuard,
+        address _serviceRegistry, address _treasury) {
+        LOB_TOKEN = IERC20(_lobToken);
+        ESCROW_ENGINE = IEscrowEngine(_escrowEngine);
+        DISPUTE_ARBITRATION = IDisputeArbitration(_disputeArbitration);
+        REPUTATION_SYSTEM = IReputationSystem(_reputationSystem);
+        STAKING_MANAGER = IStakingManager(_stakingManager);
+        SYBIL_GUARD = ISybilGuard(_sybilGuard);
+        SERVICE_REGISTRY = IServiceRegistry(_serviceRegistry);
+        TREASURY = _treasury;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  POOL STAKING (Premium Yield)
+    // ═══════════════════════════════════════════════════════════════
+
+    function depositToPool(uint256 amount) external nonReentrant whenNotPaused {
+        require(amount > 0, "InsurancePool: zero amount");
+        _updatePoolReward(msg.sender);
+        _stakers[msg.sender].deposited += amount;
+        _totalStaked += amount;
+        totalPoolDeposits += amount;
+        LOB_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
+        emit PoolDeposited(msg.sender, amount);
+    }
+
+    function withdrawFromPool(uint256 amount) external nonReentrant whenNotPaused {
+        require(amount > 0 && _stakers[msg.sender].deposited >= amount, "InsurancePool: invalid");
+        _updatePoolReward(msg.sender);
+        _stakers[msg.sender].deposited -= amount;
+        _totalStaked -= amount;
+        uint256 postBalance = LOB_TOKEN.balanceOf(address(this)) - amount;
+        uint256 liabilities = (_totalRewardsAccrued - _totalRewardsClaimed)
+            + _totalRefundLiabilities + _totalInFlightPrincipal;
+        require(postBalance >= liabilities, "InsurancePool: would breach solvency");
+        LOB_TOKEN.safeTransfer(msg.sender, amount);
+        emit PoolWithdrawn(msg.sender, amount);
+    }
+
+    function claimPoolRewards() external nonReentrant whenNotPaused {
+        _updatePoolReward(msg.sender);
+        uint256 reward = _stakers[msg.sender].pendingRewards;
+        require(reward > 0, "InsurancePool: nothing to claim");
+        _stakers[msg.sender].pendingRewards = 0;
+        _totalRewardsClaimed += reward;
+        LOB_TOKEN.safeTransfer(msg.sender, reward);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  INSURED JOBS
+    // ═══════════════════════════════════════════════════════════════
+
+    function createInsuredJob(uint256 listingId, address seller, uint256 amount, address token)
+        external nonReentrant whenNotPaused returns (uint256 jobId) {
+        require(!SYBIL_GUARD.checkBanned(msg.sender), "InsurancePool: buyer banned");
+        require(token == address(LOB_TOKEN), "InsurancePool: only LOB supported");
+        uint256 premium = (amount * premiumRateBps) / 10000;
+        LOB_TOKEN.safeTransferFrom(msg.sender, address(this), amount + premium);
+        _distributePremium(premium);
+        totalPremiumsCollected += premium;
+        LOB_TOKEN.safeApprove(address(ESCROW_ENGINE), amount);
+        jobId = ESCROW_ENGINE.createJob(listingId, seller, amount, token);
+        _insuredJobs[jobId] = true;
+        _jobPremiums[jobId] = premium;
+        _jobBuyer[jobId] = msg.sender;
+        _totalInFlightPrincipal += amount;
+        emit InsuredJobCreated(jobId, msg.sender, premium);
+    }
+
+    function claimRefund(uint256 jobId) external nonReentrant whenNotPaused {
+        require(_insuredJobs[jobId] && _jobBuyer[jobId] == msg.sender, "InsurancePool: invalid");
+        require(!_refundClaimed[jobId], "InsurancePool: already claimed");
+        _settleJob(jobId);
+        uint256 refundAmount = _jobRefundAmount[jobId];
+        require(refundAmount > 0, "InsurancePool: no refund");
+        _refundClaimed[jobId] = true;
+        _totalRefundLiabilities -= refundAmount;
+        LOB_TOKEN.safeTransfer(msg.sender, refundAmount);
+    }
+
+    /// @notice Insurance payout = max(0, job.amount - escrowRefund), capped by tier
+    function fileClaim(uint256 jobId) external nonReentrant whenNotPaused {
+        require(_insuredJobs[jobId] && _jobBuyer[jobId] == msg.sender && !_claimPaid[jobId], "InsurancePool: invalid");
+        IEscrowEngine.Job memory job = ESCROW_ENGINE.getJob(jobId);
+        require(job.status == IEscrowEngine.JobStatus.Resolved, "InsurancePool: not resolved");
+        _settleJob(jobId);
+        uint256 netLoss = job.amount > _jobRefundAmount[jobId] ? job.amount - _jobRefundAmount[jobId] : 0;
+        require(netLoss > 0, "InsurancePool: no net loss");
+        uint256 claimAmount = netLoss > getCoverageCap(msg.sender) ? getCoverageCap(msg.sender) : netLoss;
+        uint256 reserved = (_totalRewardsAccrued - _totalRewardsClaimed) + _totalRefundLiabilities + _totalInFlightPrincipal;
+        uint256 poolAvailable = LOB_TOKEN.balanceOf(address(this)) > reserved ? LOB_TOKEN.balanceOf(address(this)) - reserved : 0;
+        if (claimAmount > poolAvailable) claimAmount = poolAvailable;
+        require(claimAmount > 0, "InsurancePool: no coverage");
+        _claimPaid[jobId] = true;
+        totalClaimsPaid += claimAmount;
+        LOB_TOKEN.safeTransfer(msg.sender, claimAmount);
+        emit ClaimPaid(jobId, msg.sender, claimAmount);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  PROXY BUYER ACTIONS
+    // ═══════════════════════════════════════════════════════════════
+
+    function confirmInsuredDelivery(uint256 jobId) external nonReentrant whenNotPaused {
+        require(_insuredJobs[jobId] && _jobBuyer[jobId] == msg.sender, "InsurancePool: invalid");
+        ESCROW_ENGINE.confirmDelivery(jobId);
+        _settleJob(jobId);
+    }
+
+    function initiateInsuredDispute(uint256 jobId, string calldata evidenceURI) external nonReentrant whenNotPaused {
+        require(_insuredJobs[jobId] && _jobBuyer[jobId] == msg.sender, "InsurancePool: invalid");
+        ESCROW_ENGINE.initiateDispute(jobId, evidenceURI);
+    }
+
+    function bookJob(uint256 jobId) external {
+        require(_insuredJobs[jobId], "InsurancePool: not insured");
+        _settleJob(jobId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ADMIN / VIEWS / INTERNAL
+    // ═══════════════════════════════════════════════════════════════
+
+    function updatePremiumRate(uint256 newBps) external onlyRole(GOVERNOR_ROLE) {
+        require(newBps <= 1000, "InsurancePool: rate too high");
+        premiumRateBps = newBps;
+    }
+
+    function updateCoverageCaps(uint256 b, uint256 s, uint256 g, uint256 p) external onlyRole(GOVERNOR_ROLE) {
+        coverageCapBronze = b; coverageCapSilver = s; coverageCapGold = g; coverageCapPlatinum = p;
+    }
+
+    function getCoverageCap(address buyer) public view returns (uint256) {
+        (, IReputationSystem.ReputationTier tier) = REPUTATION_SYSTEM.getScore(buyer);
+        if (tier == IReputationSystem.ReputationTier.Platinum) return coverageCapPlatinum;
+        if (tier == IReputationSystem.ReputationTier.Gold) return coverageCapGold;
+        if (tier == IReputationSystem.ReputationTier.Silver) return coverageCapSilver;
+        return coverageCapBronze;
+    }
+
+    function getPoolStats() external view returns (uint256, uint256, uint256, uint256) {
+        uint256 reserved = (_totalRewardsAccrued - _totalRewardsClaimed) + _totalRefundLiabilities + _totalInFlightPrincipal;
+        uint256 bal = LOB_TOKEN.balanceOf(address(this));
+        return (totalPoolDeposits, totalPremiumsCollected, totalClaimsPaid, bal > reserved ? bal - reserved : 0);
+    }
+
+    function _settleJob(uint256 jobId) internal {
+        if (_jobSettled[jobId]) return;
+        IEscrowEngine.Job memory job = ESCROW_ENGINE.getJob(jobId);
+        if (job.status != IEscrowEngine.JobStatus.Resolved &&
+            job.status != IEscrowEngine.JobStatus.Confirmed &&
+            job.status != IEscrowEngine.JobStatus.Released) return;
+        _jobSettled[jobId] = true;
+        _totalInFlightPrincipal -= job.amount;
+        if (job.status == IEscrowEngine.JobStatus.Resolved) {
+            uint256 did = ESCROW_ENGINE.getJobDisputeId(jobId);
+            IDisputeArbitration.Dispute memory d = DISPUTE_ARBITRATION.getDispute(did);
+            uint256 refund;
+            if (d.ruling == IDisputeArbitration.Ruling.BuyerWins) refund = job.amount;
+            else if (d.ruling == IDisputeArbitration.Ruling.Draw) refund = job.amount / 2 - job.fee / 2;
+            _jobRefundAmount[jobId] = refund;
+            if (refund > 0) _totalRefundLiabilities += refund;
+        }
+    }
+
+    function _distributePremium(uint256 premium) internal {
+        if (_totalStaked == 0) { LOB_TOKEN.safeTransfer(TREASURY, premium); return; }
+        rewardPerTokenStored += (premium * 1e18) / _totalStaked;
+        _totalRewardsAccrued += premium;
+    }
+
+    function _updatePoolReward(address account) internal {
+        if (account != address(0) && _stakers[account].deposited > 0) {
+            _stakers[account].pendingRewards += (_stakers[account].deposited *
+                (rewardPerTokenStored - _stakers[account].rewardPerTokenPaid)) / 1e18;
+        }
+        if (account != address(0)) _stakers[account].rewardPerTokenPaid = rewardPerTokenStored;
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) { _pause(); }
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) { _unpause(); }
+}`,
+  },
 ];
