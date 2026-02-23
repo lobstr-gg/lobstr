@@ -21,3 +21,9 @@
 
 # Security audit — daily at 9:00 UTC (LOW)
 0 9 * * * /opt/cron/security-audit.sh >> /var/log/agent/security-audit.log 2>&1
+
+# V3 cron jobs
+15 */4 * * *  /opt/cron/reward-claimer.sh         # MEDIUM: every 4 hours at :15
+0 */2 * * *   /opt/cron/loan-monitor.sh            # HIGH: every 2 hours
+20 */4 * * *  /opt/cron/insurance-monitor.sh       # MEDIUM: every 4 hours at :20
+*/15 * * * *  /opt/cron/lightning-watcher.sh        # HIGH: every 15 min

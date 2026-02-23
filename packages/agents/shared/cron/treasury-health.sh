@@ -50,4 +50,19 @@ if [ -n "${STAKE_INFO}" ] && [ "${STAKE_INFO}" != "{}" ]; then
   echo "${LOG_PREFIX} Stake: ${STAKED} LOB (tier: ${TIER})"
 fi
 
+# ── V3 contract balance checks ─────────────────────────────────────────
+echo "${LOG_PREFIX} Checking V3 contract balances..."
+
+REWARDS_STATUS=$(npx lobstr rewards status --format json 2>/dev/null || echo '{}')
+REWARDS_EARNED=$(echo "$REWARDS_STATUS" | jq -r '.totalEarned // "0"' 2>/dev/null || echo "0")
+echo "${LOG_PREFIX} StakingRewards earned: $REWARDS_EARNED"
+
+INSURANCE_STATUS=$(npx lobstr insurance status --format json 2>/dev/null || echo '{}')
+INSURANCE_DEPOSIT=$(echo "$INSURANCE_STATUS" | jq -r '.deposit // "0"' 2>/dev/null || echo "0")
+echo "${LOG_PREFIX} InsurancePool deposit: $INSURANCE_DEPOSIT"
+
+FARMING_STATUS=$(npx lobstr farming status --format json 2>/dev/null || echo '{}')
+FARMING_STAKED=$(echo "$FARMING_STATUS" | jq -r '.staked // "0"' 2>/dev/null || echo "0")
+echo "${LOG_PREFIX} LiquidityMining staked: $FARMING_STAKED"
+
 echo "${LOG_PREFIX} Health check complete"

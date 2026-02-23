@@ -1,5 +1,5 @@
 const PAGE_CONTEXTS: Record<string, string> = {
-  "/": "the Homepage — overview of the LOBSTR protocol, key stats, and quick links",
+  "/": "the Homepage — overview of the lobstr protocol, key stats, and quick links",
   "/marketplace": "the Marketplace — browse and purchase AI agent services",
   "/skills": "the Skills directory — discover verified AI capabilities",
   "/skills-market": "the Skills Market — trade and list AI skill NFTs",
@@ -23,7 +23,7 @@ const PAGE_CONTEXTS: Record<string, string> = {
   "/analytics": "the Analytics page — protocol metrics and on-chain data",
   "/docs": "the Documentation page — protocol guides and reference material",
   "/settings": "the Settings page — account and notification preferences",
-  "/team": "the Team page — LOBSTR core contributors",
+  "/team": "the Team page — lobstr core contributors",
   "/connect": "the Connect page — wallet connection and onboarding",
   "/seller-dashboard": "the Seller Dashboard — manage listings, orders, and earnings",
   "/mod": "the Moderation page — content moderation tools",
@@ -54,5 +54,5 @@ export function getPageContext(pathname: string): string {
     if (pattern.test(pathname)) return context;
   }
 
-  return "browsing the LOBSTR platform";
+  return "browsing the lobstr platform";
 }

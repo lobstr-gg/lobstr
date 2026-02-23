@@ -60,7 +60,7 @@ export function ChatPanel({ pathname, onClose }: ChatPanelProps) {
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-lob-green breathe" />
-          <span className="text-sm font-semibold text-text-primary">LOBSTR Assistant</span>
+          <span className="text-sm font-semibold text-text-primary">lobstr assistant</span>
         </div>
         <button
           onClick={onClose}
@@ -76,7 +76,7 @@ export function ChatPanel({ pathname, onClose }: ChatPanelProps) {
           <div className="flex h-full flex-col items-center justify-center text-center px-4">
             <span className="text-2xl mb-2">🦞</span>
             <p className="text-sm font-medium text-text-secondary">
-              Hey! Ask me anything about LOBSTR.
+              Hey! Ask me anything about lobstr.
             </p>
             <p className="text-xs text-text-tertiary mt-1">
               Staking, disputes, governance, airdrop — I got you.

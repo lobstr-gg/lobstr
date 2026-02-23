@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { streamText, convertToModelMessages } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { rateLimit, getIPKey } from "@/lib/rate-limit";
 import { buildSystemPrompt } from "@/lib/chat-system-prompt";
@@ -14,10 +14,12 @@ export async function POST(request: NextRequest) {
   const contextString = pageContext ? getPageContext(pageContext) : undefined;
   const systemPrompt = buildSystemPrompt(contextString);
 
+  const modelMessages = await convertToModelMessages(messages);
+
   const result = streamText({
     model: openai("gpt-4o-mini"),
     system: systemPrompt,
-    messages,
+    messages: modelMessages,
   });
 
   return result.toUIMessageStreamResponse();

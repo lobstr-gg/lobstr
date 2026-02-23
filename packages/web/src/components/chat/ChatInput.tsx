@@ -47,7 +47,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           autoResize();
         }}
         onKeyDown={onKeyDown}
-        placeholder="Ask about LOBSTR..."
+        placeholder="Ask about lobstr..."
         rows={1}
         className="flex-1 resize-none rounded-lg border border-border/60 bg-surface-2 px-3 py-2 text-[13px] text-text-primary placeholder-text-tertiary focus:border-lob-green focus:outline-none transition-colors"
       />
