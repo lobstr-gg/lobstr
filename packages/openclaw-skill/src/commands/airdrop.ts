@@ -14,6 +14,50 @@ import {
 import * as ui from 'openclaw';
 import { formatLob, MILESTONE_NAMES, MILESTONE_DESC } from '../lib/format';
 
+/** Post a Discord progress alert (fire-and-forget). Uses discord-post.sh (bot API, no dedup). */
+function discordProgress(title: string, message: string): void {
+  const agent = process.env.AGENT_NAME || 'agent';
+  const channelId = process.env.DISCORD_ALERTS_CHANNEL_ID;
+  const postScript = '/opt/scripts/discord-post.sh';
+
+  // Use discord-post.sh with embed (no dedup, uses bot token)
+  if (channelId && fs.existsSync(postScript)) {
+    try {
+      const { execFileSync } = require('child_process');
+      const payload = JSON.stringify({
+        embeds: [{
+          title: `⛏️ [${agent}] ${title}`,
+          description: message,
+          color: 3447003,
+          footer: { text: new Date().toISOString() },
+        }],
+      });
+      execFileSync(postScript, [channelId, '--embed', payload], {
+        timeout: 10000,
+        stdio: 'ignore',
+      });
+      return;
+    } catch { /* fall through */ }
+  }
+
+  // Fallback: direct webhook
+  const url = process.env.LOBSTR_WEBHOOK_URL;
+  if (!url) return;
+  const payload = JSON.stringify({
+    embeds: [{
+      title: `⛏️ [${agent}] ${title}`,
+      description: message,
+      color: 3447003,
+      footer: { text: new Date().toISOString() },
+    }],
+  });
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+  }).catch(() => {});
+}
+
 export function registerAirdropCommands(program: Command): void {
   const airdrop = program
     .command('airdrop')
@@ -116,8 +160,20 @@ export function registerAirdropCommands(program: Command): void {
           functionName: 'difficultyTarget',
         }) as bigint;
 
+        // Estimate expected iterations: 2^256 / difficultyTarget
+        const MAX_HASH = 2n ** 256n;
+        const expectedIters = MAX_HASH / DIFFICULTY_TARGET;
+        const POW_TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+        ui.info(`PoW difficulty: ~${expectedIters.toLocaleString()} expected iterations`);
+        ui.info(`Timeout: 12 hours`);
+        discordProgress('PoW Started', `Target: ~${expectedIters.toLocaleString()} iterations\nAddress: \`${address}\`\nTimeout: 12 hours`);
+
         let powNonce = 0n;
         const startTime = Date.now();
+        let lastSpinner = startTime;
+        let lastDiscord = startTime;
+        const DISCORD_INTERVAL = 3 * 60 * 1000; // 3 minutes
         while (true) {
           const hash = BigInt(keccak256(
             encodePacked(
@@ -127,13 +183,49 @@ export function registerAirdropCommands(program: Command): void {
           ));
           if (hash < DIFFICULTY_TARGET) break;
           powNonce++;
-          if (powNonce % 10000n === 0n) {
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-            powSpin.text = `Computing PoW nonce... (${powNonce} iterations, ${elapsed}s)`;
+
+          const now = Date.now();
+          const elapsedSec = (now - startTime) / 1000;
+
+          // Progress update every 30s (console.log for log files, spinner for TTY)
+          if (now - lastSpinner >= 30000) {
+            lastSpinner = now;
+            const rate = Number(powNonce) / elapsedSec;
+            const remaining = (Number(expectedIters) - Number(powNonce)) / rate;
+            const pct = (Number(powNonce) / Number(expectedIters) * 100).toFixed(1);
+            const etaMin = Math.max(0, remaining / 60).toFixed(0);
+            const msg = `PoW: ${powNonce.toLocaleString()} iters | ${rate.toFixed(0)} h/s | ~${pct}% | ETA ~${etaMin}m`;
+            powSpin.text = msg;
+            console.log(`[pow] ${msg}`);
+          }
+
+          // Discord progress every 3 minutes
+          if (now - lastDiscord >= DISCORD_INTERVAL) {
+            lastDiscord = now;
+            const rate = Number(powNonce) / elapsedSec;
+            const remaining = (Number(expectedIters) - Number(powNonce)) / rate;
+            const pct = (Number(powNonce) / Number(expectedIters) * 100).toFixed(1);
+            const etaMin = Math.max(0, remaining / 60).toFixed(0);
+            const elapsedMin = (elapsedSec / 60).toFixed(0);
+            discordProgress('PoW Progress', [
+              `Iterations: ${powNonce.toLocaleString()} / ~${expectedIters.toLocaleString()}`,
+              `Progress: ${pct}%`,
+              `Hash rate: ${rate.toFixed(0)} h/s`,
+              `Elapsed: ${elapsedMin}m | ETA: ~${etaMin}m`,
+            ].join('\n'));
+          }
+
+          if (now - startTime > POW_TIMEOUT_MS) {
+            powSpin.fail(`PoW timeout after 12 hours (${powNonce.toLocaleString()} iterations)`);
+            discordProgress('PoW TIMEOUT', `Failed after 12 hours\nIterations: ${powNonce.toLocaleString()}`);
+            ui.error('Could not find valid nonce within 12h. Try again or contact ops.');
+            process.exit(1);
           }
         }
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        powSpin.succeed(`PoW nonce found: ${powNonce} (${elapsed}s)`);
+        const finalRate = (Number(powNonce) / parseFloat(elapsed)).toFixed(0);
+        powSpin.succeed(`PoW nonce found: ${powNonce} (${elapsed}s, ${finalRate} h/s)`);
+        discordProgress('PoW COMPLETE', `Nonce found: ${powNonce}\nTime: ${elapsed}s\nHash rate: ${finalRate} h/s`);
 
         // C. Submit proof — V3: claim() not submitProof(), pubSignals is uint256[2]
         const spin = ui.spinner('Submitting proof on-chain...');

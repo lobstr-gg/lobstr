@@ -106,33 +106,64 @@ export function registerRewardsCommands(program: Command): void {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
-        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const wallet = loadWallet(ws.path);
+        const address = wallet.address as `0x${string}`;
 
         const stakingRewardsAddr = getContractAddress(ws.config, 'stakingRewards');
         const distributorAddr = getContractAddress(ws.config, 'rewardDistributor');
         const lobToken = getContractAddress(ws.config, 'lobToken');
 
-        const spin = ui.spinner('Claiming staking rewards...');
-        const tx1 = await walletClient.writeContract({
-          address: stakingRewardsAddr,
-          abi: stakingRewardsAbi,
-          functionName: 'claimRewards',
-          args: [lobToken],
-        });
-        await publicClient.waitForTransactionReceipt({ hash: tx1 });
+        // Check pending amounts before sending txs
+        const spin = ui.spinner('Checking pending rewards...');
+        const [earned, claimable] = await Promise.all([
+          publicClient.readContract({
+            address: stakingRewardsAddr,
+            abi: stakingRewardsAbi,
+            functionName: 'earned',
+            args: [address, lobToken],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: distributorAddr,
+            abi: rewardDistributorAbi,
+            functionName: 'claimableBalance',
+            args: [address, lobToken],
+          }) as Promise<bigint>,
+        ]);
 
-        spin.text = 'Claiming distributor rewards...';
-        const tx2 = await walletClient.writeContract({
-          address: distributorAddr,
-          abi: rewardDistributorAbi,
-          functionName: 'claim',
-          args: [lobToken],
-        });
-        await publicClient.waitForTransactionReceipt({ hash: tx2 });
+        if (earned === 0n && claimable === 0n) {
+          spin.succeed('Nothing to claim');
+          ui.info('No pending rewards from StakingRewards or RewardDistributor.');
+          ui.info('Rewards are dormant until a funding proposal is approved.');
+          return;
+        }
 
-        spin.succeed('All rewards claimed');
-        ui.info(`StakingRewards tx: ${tx1}`);
-        ui.info(`RewardDistributor tx: ${tx2}`);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        if (earned > 0n) {
+          spin.text = `Claiming ${formatLob(earned)} from StakingRewards...`;
+          const tx1 = await walletClient.writeContract({
+            address: stakingRewardsAddr,
+            abi: stakingRewardsAbi,
+            functionName: 'claimRewards',
+            args: [lobToken],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: tx1 });
+          ui.info(`StakingRewards tx: ${tx1}`);
+        }
+
+        if (claimable > 0n) {
+          spin.text = `Claiming ${formatLob(claimable)} from RewardDistributor...`;
+          const tx2 = await walletClient.writeContract({
+            address: distributorAddr,
+            abi: rewardDistributorAbi,
+            functionName: 'claim',
+            args: [lobToken],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: tx2 });
+          ui.info(`RewardDistributor tx: ${tx2}`);
+        }
+
+        spin.succeed('Rewards claimed');
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
