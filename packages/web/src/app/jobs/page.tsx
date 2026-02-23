@@ -61,7 +61,7 @@ export default function JobsPage() {
   const TIER_NAMES = ["None", "Bronze", "Silver", "Gold", "Platinum"];
   const tierName = stakeTier !== undefined ? (TIER_NAMES[Number(stakeTier)] ?? "None") : "—";
   const formattedBalance = lobBalance !== undefined ? Number(formatEther(lobBalance)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—";
-  const stakedAmount = stakeInfo ? Number(formatEther((stakeInfo as unknown as [bigint, bigint, bigint])[0])) : 0;
+  const stakedAmount = stakeInfo ? Number(formatEther((stakeInfo as { amount: bigint }).amount)) : 0;
   const formattedStaked = stakedAmount > 0 ? stakedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0";
 
   const [dashboardView, setDashboardView] = useState<DashboardView>("jobs");
