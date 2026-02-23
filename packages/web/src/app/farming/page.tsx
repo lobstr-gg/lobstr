@@ -48,20 +48,24 @@ import { InfoButton } from "@/components/InfoButton";
 
 const BOOST_TIERS = [
   { tier: "None", multiplier: "1x", requirement: "0 LOB staked", color: "#5E6673" },
-  { tier: "Bronze", multiplier: "1.25x", requirement: "100+ LOB staked", color: "#CD7F32" },
+  { tier: "Bronze", multiplier: "1x", requirement: "100+ LOB staked", color: "#CD7F32" },
   { tier: "Silver", multiplier: "1.5x", requirement: "1,000+ LOB staked", color: "#848E9C" },
   { tier: "Gold", multiplier: "2x", requirement: "10,000+ LOB staked", color: "#F0B90B" },
   { tier: "Platinum", multiplier: "3x", requirement: "100,000+ LOB staked", color: "#58B059" },
 ];
 
-// Map on-chain boost multiplier (1e18 based) to tier name
+// Map on-chain boost multiplier (BPS) to tier name
 const BOOST_TIER_MAP: Record<string, string> = {
-  "1000000000000000000": "None",     // 1e18 = 1x
-  "1250000000000000000": "Bronze",   // 1.25e18
-  "1500000000000000000": "Silver",   // 1.5e18
-  "2000000000000000000": "Gold",     // 2e18
-  "3000000000000000000": "Platinum", // 3e18
+  "10000": "None",     // 10000 BPS = 1x
+  "15000": "Silver",   // 15000 BPS = 1.5x
+  "20000": "Gold",     // 20000 BPS = 2x
+  "30000": "Platinum", // 30000 BPS = 3x
 };
+
+/** Convert BPS boost value to a float multiplier (10000 -> 1.0, 30000 -> 3.0) */
+function bpsToFloat(bps: bigint): number {
+  return Number(bps) / 10000;
+}
 
 type Tab = "stake" | "unstake" | "rewards";
 
@@ -80,7 +84,7 @@ function fmtBig(val: bigint | undefined, decimals = 2): string {
 
 /* ──── Boost Gauge ──── */
 function BoostGauge({ boostMultiplier, tierName }: { boostMultiplier: bigint; tierName: string }) {
-  const boostFloat = parseFloat(formatEther(boostMultiplier));
+  const boostFloat = bpsToFloat(boostMultiplier);
   // Map 1x-3x to 0-100 percent
   const pct = Math.min(100, Math.max(0, ((boostFloat - 1) / 2) * 100));
   const tierColor =
@@ -142,7 +146,7 @@ function YieldProjectionChart({
     const supply = parseFloat(formatEther(totalSupply));
     const rate = parseFloat(formatEther(rewardRate));
     const bal = parseFloat(formatEther(stakedBal));
-    const boost = parseFloat(formatEther(boostMultiplier));
+    const boost = bpsToFloat(boostMultiplier);
     if (supply === 0 || bal === 0) return [];
 
     const shareBase = bal / supply;
@@ -245,7 +249,7 @@ export default function FarmingPage() {
   const earned = (earnedRaw as bigint) ?? BigInt(0);
   const stakedBal = (stakedBalRaw as bigint) ?? BigInt(0);
   const totalSupply = (totalSupplyRaw as bigint) ?? BigInt(0);
-  const boostMultiplier = (boostRaw as bigint) ?? BigInt(10) ** BigInt(18); // default 1x
+  const boostMultiplier = (boostRaw as bigint) ?? BigInt(10000); // default 1x (10000 BPS)
   const rewardRate = (rewardRateRaw as bigint) ?? BigInt(0);
   const periodFinish = (periodFinishRaw as bigint) ?? BigInt(0);
   const lpWalletBal = (lpWalletBalRaw as bigint) ?? BigInt(0);
@@ -254,7 +258,7 @@ export default function FarmingPage() {
   // Boost tier name from on-chain multiplier
   const boostStr = boostMultiplier.toString();
   const boostTierName = BOOST_TIER_MAP[boostStr] ?? "None";
-  const boostDisplay = `${parseFloat(formatEther(boostMultiplier)).toFixed(2)}x`;
+  const boostDisplay = `${bpsToFloat(boostMultiplier).toFixed(2)}x`;
 
   // Reward rate per day
   const rewardPerDay = rewardRate * BigInt(86400);
@@ -351,7 +355,7 @@ export default function FarmingPage() {
     const supply = parseFloat(formatEther(totalSupply));
     if (supply === 0) return null;
     const baseApr = yearlyRewards / supply;
-    const boostMult = parseFloat(formatEther(boostMultiplier));
+    const boostMult = bpsToFloat(boostMultiplier);
     const boostedApr = baseApr * boostMult;
     const dailyBase = (amount * baseApr) / 365;
     const dailyBoosted = (amount * boostedApr) / 365;

@@ -1592,6 +1592,20 @@ ponder.on("LiquidityMining:EmergencyWithdrawn", async ({ event, context }) => {
   });
 });
 
+ponder.on("LiquidityMining:RewardNotified", async ({ event, context }) => {
+  const { db } = context;
+  const { amount } = event.args;
+
+  await db.insert(schema.liquidityMiningEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "reward_notified",
+    user: "0x0000000000000000000000000000000000000000",
+    amount,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
 // ============================================
 // AffiliateManager Events
 // ============================================

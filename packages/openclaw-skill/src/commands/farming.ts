@@ -11,12 +11,16 @@ import * as ui from 'openclaw';
 import { formatLob } from '../lib/format';
 
 const LIQUIDITY_MINING_ABI = parseAbi([
-  'function stakeLp(uint256 amount)',
-  'function unstakeLp(uint256 amount)',
-  'function claimFarmRewards()',
+  'function stake(uint256 amount)',
+  'function withdraw(uint256 amount)',
+  'function getReward()',
+  'function exit()',
+  'function emergencyWithdraw()',
   'function earned(address account) view returns (uint256)',
-  'function getStakeInfo(address account) view returns (uint256 staked, uint256 earned, uint256 rewardRate)',
-  'function totalStaked() view returns (uint256)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function rewardRate() view returns (uint256)',
+  'function getBoostMultiplier(address account) view returns (uint256)',
 ]);
 
 export function registerFarmingCommands(program: Command): void {
@@ -42,7 +46,7 @@ export function registerFarmingCommands(program: Command): void {
         const tx = await walletClient.writeContract({
           address: farmAddr,
           abi: LIQUIDITY_MINING_ABI,
-          functionName: 'stakeLp',
+          functionName: 'stake',
           args: [parsedAmount],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -73,7 +77,7 @@ export function registerFarmingCommands(program: Command): void {
         const tx = await walletClient.writeContract({
           address: farmAddr,
           abi: LIQUIDITY_MINING_ABI,
-          functionName: 'unstakeLp',
+          functionName: 'withdraw',
           args: [parsedAmount],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -102,7 +106,7 @@ export function registerFarmingCommands(program: Command): void {
         const tx = await walletClient.writeContract({
           address: farmAddr,
           abi: LIQUIDITY_MINING_ABI,
-          functionName: 'claimFarmRewards',
+          functionName: 'getReward',
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
@@ -114,11 +118,67 @@ export function registerFarmingCommands(program: Command): void {
       }
     });
 
+  // ── exit ──────────────────────────────────────────
+
+  farming
+    .command('exit')
+    .description('Withdraw all LP tokens and claim rewards')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const farmAddr = getContractAddress(ws.config, 'liquidityMining');
+
+        const spin = ui.spinner('Exiting farm (withdraw all + claim)...');
+        const tx = await walletClient.writeContract({
+          address: farmAddr,
+          abi: LIQUIDITY_MINING_ABI,
+          functionName: 'exit',
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed('Exited farm — all LP withdrawn and rewards claimed');
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── emergency-withdraw ────────────────────────────
+
+  farming
+    .command('emergency-withdraw')
+    .description('Emergency withdraw LP tokens (forfeits unclaimed rewards)')
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+        const farmAddr = getContractAddress(ws.config, 'liquidityMining');
+
+        const spin = ui.spinner('Emergency withdrawing LP tokens...');
+        const tx = await walletClient.writeContract({
+          address: farmAddr,
+          abi: LIQUIDITY_MINING_ABI,
+          functionName: 'emergencyWithdraw',
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed('Emergency withdraw complete (unclaimed rewards forfeited)');
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
   // ── status ──────────────────────────────────────────
 
   farming
     .command('status')
-    .description('View staked amount, earned, and reward rate')
+    .description('View staked amount, earned, boost, and reward rate')
     .action(async () => {
       try {
         const ws = ensureWorkspace();
@@ -129,31 +189,45 @@ export function registerFarmingCommands(program: Command): void {
 
         const spin = ui.spinner('Fetching farming status...');
 
-        const [stakeInfoResult, totalStaked] = await Promise.all([
+        const [staked, earned, totalSupply, rewardRate, boostBps] = await Promise.all([
           publicClient.readContract({
             address: farmAddr,
             abi: LIQUIDITY_MINING_ABI,
-            functionName: 'getStakeInfo',
+            functionName: 'balanceOf',
             args: [address],
-          }) as Promise<any>,
+          }) as Promise<bigint>,
           publicClient.readContract({
             address: farmAddr,
             abi: LIQUIDITY_MINING_ABI,
-            functionName: 'totalStaked',
+            functionName: 'earned',
+            args: [address],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: farmAddr,
+            abi: LIQUIDITY_MINING_ABI,
+            functionName: 'totalSupply',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: farmAddr,
+            abi: LIQUIDITY_MINING_ABI,
+            functionName: 'rewardRate',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: farmAddr,
+            abi: LIQUIDITY_MINING_ABI,
+            functionName: 'getBoostMultiplier',
+            args: [address],
           }) as Promise<bigint>,
         ]);
 
-        const stakeInfo = {
-          staked: stakeInfoResult.staked ?? stakeInfoResult[0],
-          earned: stakeInfoResult.earned ?? stakeInfoResult[1],
-          rewardRate: stakeInfoResult.rewardRate ?? stakeInfoResult[2],
-        };
+        const boostMult = (Number(boostBps) / 10000).toFixed(2);
 
         spin.succeed('Farming Status');
-        console.log(`  Staked:       ${formatLob(stakeInfo.staked)}`);
-        console.log(`  Earned:       ${formatLob(stakeInfo.earned)}`);
-        console.log(`  Reward rate:  ${formatLob(stakeInfo.rewardRate)}/s`);
-        console.log(`  Total staked: ${formatLob(totalStaked)}`);
+        console.log(`  Staked:       ${formatLob(staked)}`);
+        console.log(`  Earned:       ${formatLob(earned)}`);
+        console.log(`  Boost:        ${boostMult}x`);
+        console.log(`  Reward rate:  ${formatLob(rewardRate)}/s`);
+        console.log(`  Total staked: ${formatLob(totalSupply)}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

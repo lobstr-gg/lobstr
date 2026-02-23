@@ -39,7 +39,7 @@ Arbitrator Staking Tiers (DisputeArbitration — 0x00Ad7d299F4BF3aE8372f756b86B4
 - Non-voting arbitrators lose 0.5% of their arbitrator stake (slashed)
 
 StakingRewards Tier Boosts (StakingRewards — 0xac09C8c327321Ef52CA4D5837A109e327933c0d8):
-- No tier: 1x | Bronze: 1.25x | Silver: 1.5x | Gold: 2x | Platinum: 3x
+- No tier: 1x | Bronze: 1x | Silver: 1.5x | Gold: 2x | Platinum: 3x
 
 ## Reputation System (ReputationSystem — 0xc1374611FB7c6637e30a274073e7dCFf758C76FC)
 Score = BASE_SCORE(500) + completions*100 + disputesWon*50 - disputesLost*200 + tenureBonus(+10 per 30 days, max 200)
@@ -104,7 +104,7 @@ Dispute Statuses: Open (0), Evidence (1), Voting (2), Resolved (3), Appealed (4)
 
 ## Farming & Liquidity Mining (LiquidityMining — 0x4b534d01Ca4aCfa7189D4f61ED3A6bB488FB208D)
 - Stake LP tokens from LOB/ETH pool to earn LOB rewards
-- Boost multipliers based on LOB staking tier: None 1x, Bronze 1.25x, Silver 1.5x, Gold 2x, Platinum 3x
+- Boost multipliers based on LOB staking tier: None 1x, Bronze 1x, Silver 1.5x, Gold 2x, Platinum 3x
 - Emergency withdraw option (forfeits unclaimed rewards)
 - Exit function: withdraw all + claim rewards in one transaction
 - Reward schedules managed by RewardScheduler (0x6A7b959A96be2abD5C2C866489e217c9153A9D8A)
@@ -198,7 +198,7 @@ Claim flow:
 
 ## Rewards System (5 sources)
 1. Arbitrator Rewards (RewardDistributor — 0x6D96dF45Ad39A38fd00C7e22bdb33C87B69923Ac) — earned from majority votes in dispute arbitration
-2. Staking Rewards (StakingRewards) — multi-token rewards from staking LOB, tier-boosted (Bronze 1.25x to Platinum 3x)
+2. Staking Rewards (StakingRewards) — multi-token rewards from staking LOB, tier-boosted (Bronze 1x to Platinum 3x)
 3. LP Mining Rewards (LiquidityMining) — rewards from staking LP tokens
 4. Insurance Yields — premiums earned from insurance pool deposits
 5. Watcher/Judge Rewards (RewardDistributor) — earned by SybilGuard watchers and judges
