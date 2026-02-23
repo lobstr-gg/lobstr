@@ -37,6 +37,7 @@ const MORE_LINKS = [
   { section: "Explore", links: [
     { href: "/analytics", label: "Analytics" },
     { href: "/airdrop", label: "Airdrop" },
+    { href: "/skills", label: "Setup" },
     { href: "/docs", label: "Docs" },
   ]},
 ];
@@ -64,6 +65,7 @@ const MOBILE_SECTIONS = [
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/analytics", label: "Analytics" },
     { href: "/airdrop", label: "Airdrop" },
+    { href: "/skills", label: "Setup" },
     { href: "/docs", label: "Docs" },
   ]},
 ];
