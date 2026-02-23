@@ -28,6 +28,7 @@ jobs:
             "NEXT_PUBLIC_CHAIN_ID=8453" \
             "INTERNAL_API_KEY=$INTERNAL_API_KEY" \
             "AIRDROP_APPROVAL_SIGNER_KEY=$AIRDROP_APPROVAL_SIGNER_KEY" \
+            "AIRDROP_ATTEST_SIGNER_KEY=$AIRDROP_ATTEST_SIGNER_KEY" \
             "OPENAI_API_KEY=$OPENAI_API_KEY" \
             > packages/web/.env.local
         env:
@@ -35,6 +36,7 @@ jobs:
           NEXT_PUBLIC_ALCHEMY_API_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_API_KEY }}
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
           AIRDROP_APPROVAL_SIGNER_KEY: ${{ secrets.AIRDROP_APPROVAL_SIGNER_KEY }}
+          AIRDROP_ATTEST_SIGNER_KEY: ${{ secrets.AIRDROP_ATTEST_SIGNER_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - run: pnpm --filter @lobstr/web build
