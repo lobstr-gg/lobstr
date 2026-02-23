@@ -6,6 +6,7 @@ import { CHAIN, RPC_URL, FACILITATOR_PRIVATE_KEY } from "../config.js";
 import { querySellerTrust } from "../trust.js";
 import { settleViaBridge, type BridgeExtension } from "../bridge.js";
 import { settleViaCredit, type CreditExtension } from "../credit.js";
+import { settleViaSkill, type SkillExtension } from "../skill.js";
 
 export function settleHandler(facilitator: x402Facilitator) {
   return async (c: Context) => {
@@ -75,6 +76,69 @@ export function settleHandler(facilitator: x402Facilitator) {
         return c.json({
           success: false,
           errorReason: err instanceof Error ? err.message : "Credit settlement failed",
+        });
+      }
+    }
+
+    // ─── Check for skill routing extension ─────────────────────────────────
+    const skillExt = paymentPayload?.extensions?.["lobstr-skill"] as SkillExtension | undefined;
+
+    if (skillExt) {
+      console.log("[settle] Skill mode detected, routing through SkillRegistry");
+
+      // 1. Verify the x402 payment signature
+      const verifyResult = await facilitator.verify(paymentPayload, paymentRequirements);
+      if (!verifyResult.isValid) {
+        return c.json({
+          success: false,
+          errorReason: verifyResult.invalidReason ?? "Payment verification failed",
+        });
+      }
+
+      // 2. Trust checks on the seller
+      const seller = paymentRequirements.payTo as `0x${string}`;
+      let trust;
+      try {
+        trust = await querySellerTrust(seller);
+      } catch (err) {
+        console.error("[settle] Trust query failed:", err);
+        return c.json({ success: false, errorReason: "Failed to query seller trust" });
+      }
+
+      // 3. Settle through the skill registry
+      try {
+        if (!FACILITATOR_PRIVATE_KEY) {
+          return c.json({ success: false, errorReason: "Facilitator key not configured" });
+        }
+
+        const account = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
+        const walletClient = createWalletClient({
+          account,
+          chain: CHAIN,
+          transport: http(RPC_URL),
+        });
+        const readClient = createPublicClient({
+          chain: CHAIN,
+          transport: http(RPC_URL),
+        });
+
+        const { accessId, txHash } = await settleViaSkill(skillExt, walletClient, readClient as any);
+
+        console.log(`[settle] Skill settlement complete: accessId=${accessId}, tx=${txHash}`);
+
+        return c.json({
+          success: true,
+          txHash,
+          extensions: {
+            "lobstr-skill": { accessId },
+            "lobstr-trust": trust,
+          },
+        });
+      } catch (err) {
+        console.error("[settle] Skill settlement failed:", err);
+        return c.json({
+          success: false,
+          errorReason: err instanceof Error ? err.message : "Skill settlement failed",
         });
       }
     }

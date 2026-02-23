@@ -23,6 +23,8 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   dm_received: "DM",
   dispute_update: "Disp",
   dispute_assigned: "Arb",
+  dispute_thread_created: "Thread",
+  dispute_evidence_deadline: "Evid",
   proposal_update: "Gov",
   mod_action: "Mod",
   system: "Sys",
@@ -35,6 +37,8 @@ const TYPE_COLORS: Record<NotificationType, string> = {
   dm_received: "text-lob-green",
   dispute_update: "text-amber-400",
   dispute_assigned: "text-red-400",
+  dispute_thread_created: "text-amber-400",
+  dispute_evidence_deadline: "text-red-400",
   proposal_update: "text-cyan-400",
   mod_action: "text-orange-400",
   system: "text-text-secondary",
@@ -159,7 +163,7 @@ export default function NotificationCenter({ pathname }: { pathname: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full sm:mt-2 w-auto sm:w-80 rounded-lg border border-border/60 bg-black/95 backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
+            className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full sm:mt-2 w-auto sm:w-80 rounded-lg border border-border/60 bg-surface-0/95 glass shadow-2xl z-[60] overflow-hidden"
           >
             <div className="px-3 py-2 border-b border-border/30 flex items-center justify-between">
               <p className="text-[10px] text-text-tertiary uppercase tracking-widest font-semibold">

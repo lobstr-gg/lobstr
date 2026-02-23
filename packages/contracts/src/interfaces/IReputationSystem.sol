@@ -10,6 +10,7 @@ interface IReputationSystem {
         uint256 disputesLost;
         uint256 disputesWon;
         uint256 firstActivityTimestamp;
+        uint256 uniqueCounterparties;
     }
 
     event ScoreUpdated(address indexed user, uint256 newScore, ReputationTier newTier);

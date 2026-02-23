@@ -8,18 +8,39 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useLOBBalance, useStakeTier, useStakeInfo } from "@/lib/hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
-import { type JobStatus, type JobRole } from "./_data/mockJobs";
+import dynamic from "next/dynamic";
+
+const EscrowFlowAnimation = dynamic(() => import("@/components/EscrowFlowAnimation"), { ssr: false });
+const DashboardWidgets = dynamic(
+  () => import("@/components/DashboardWidgets").then((m) => ({
+    default: () => {
+      const { EarningsChart, JobFunnel, ResponseTimeGauge, StreakCounter } = m;
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <EarningsChart />
+          <JobFunnel />
+          <ResponseTimeGauge />
+          <StreakCounter />
+        </div>
+      );
+    },
+  })),
+  { ssr: false }
+);
+const SellerDashboardContent = dynamic(() => import("@/app/seller-dashboard/_components/SellerContent"), { ssr: false });
+import { type JobStatus, type JobRole } from "./_data/types";
 import JobCard from "./_components/JobCard";
 import JobFilterBar, { type SortMode } from "./_components/JobFilterBar";
 import { useWalletJobs } from "@/lib/useWalletJobs";
 
+type DashboardView = "jobs" | "selling";
 type TabId = JobStatus;
 type RoleFilter = "all" | JobRole;
 
 const TABS: { id: TabId; label: string; color: string }[] = [
-  { id: "active", label: "Active", color: "rgba(0,214,114,0.8)" },
+  { id: "active", label: "Active", color: "rgba(88,176,89,0.8)" },
   { id: "delivered", label: "Pending Review", color: "rgba(240,185,11,0.8)" },
-  { id: "completed", label: "Completed", color: "rgba(0,214,114,0.5)" },
+  { id: "completed", label: "Completed", color: "rgba(88,176,89,0.5)" },
   { id: "disputed", label: "Disputed", color: "rgba(255,59,105,0.8)" },
 ];
 
@@ -42,6 +63,7 @@ export default function JobsPage() {
   const stakedAmount = stakeInfo ? Number(formatEther((stakeInfo as unknown as [bigint, bigint, bigint])[0])) : 0;
   const formattedStaked = stakedAmount > 0 ? stakedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0";
 
+  const [dashboardView, setDashboardView] = useState<DashboardView>("jobs");
   const [activeTab, setActiveTab] = useState<TabId>("active");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
@@ -107,7 +129,7 @@ export default function JobsPage() {
         <motion.div
           className="w-16 h-16 rounded-lg border border-border flex items-center justify-center"
           animate={{
-            borderColor: ["rgba(30,36,49,1)", "rgba(0,214,114,0.3)", "rgba(30,36,49,1)"],
+            borderColor: ["rgba(30,36,49,1)", "rgba(88,176,89,0.3)", "rgba(30,36,49,1)"],
           }}
           transition={{ duration: 3, repeat: Infinity }}
         >
@@ -133,12 +155,41 @@ export default function JobsPage() {
 
   return (
     <motion.div initial="hidden" animate="show" variants={stagger}>
-      <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-xl font-bold text-text-primary">Job Dashboard</h1>
-        <p className="text-xs text-text-tertiary mt-0.5">
-          Track your active jobs, deliveries, and disputes
-        </p>
+      <motion.div variants={fadeUp} className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-text-primary">Dashboard</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">
+            {dashboardView === "jobs"
+              ? "Track your active jobs, deliveries, and disputes"
+              : "Manage your skill listings, earnings, and usage"}
+          </p>
+        </div>
+        <div className="flex rounded-md border border-border overflow-hidden">
+          {(["jobs", "selling"] as const).map((view) => (
+            <button
+              key={view}
+              onClick={() => setDashboardView(view)}
+              className={`relative px-3 py-1.5 text-xs font-medium transition-colors ${
+                dashboardView === view
+                  ? "bg-lob-green-muted text-lob-green"
+                  : "bg-surface-2 text-text-tertiary hover:text-text-secondary"
+              } ${view === "selling" ? "border-l border-border" : ""}`}
+            >
+              {view === "jobs" ? "Jobs" : "Selling"}
+            </button>
+          ))}
+        </div>
       </motion.div>
+
+      {/* Selling view */}
+      {dashboardView === "selling" && address && (
+        <motion.div variants={fadeUp}>
+          <SellerDashboardContent address={address} />
+        </motion.div>
+      )}
+
+      {/* Jobs view */}
+      {dashboardView === "jobs" && <>
 
       {/* Wallet context */}
       <motion.div variants={fadeUp} className="card p-3 mb-3 flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
@@ -156,6 +207,27 @@ export default function JobsPage() {
         </span>
       </motion.div>
 
+      {/* Escrow Flow Overview */}
+      <motion.div variants={fadeUp} className="mb-4">
+        <EscrowFlowAnimation
+          status={
+            jobs.some((j) => j.status === "delivered")
+              ? "delivered"
+              : jobs.some((j) => j.status === "active")
+              ? "locked"
+              : "pending"
+          }
+          amount={
+            jobs
+              .filter((j) => j.status === "active" || j.status === "delivered")
+              .reduce((sum, j) => sum + j.budget, 0)
+              .toLocaleString() || "0"
+          }
+          token="LOB"
+          compact
+        />
+      </motion.div>
+
       {/* Stats */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {stats.map((stat, i) => (
@@ -165,7 +237,7 @@ export default function JobsPage() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 + i * 0.06, ease }}
-            whileHover={{ y: -2, borderColor: "rgba(0,214,114,0.2)" }}
+            whileHover={{ y: -2, borderColor: "rgba(88,176,89,0.2)" }}
           >
             <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-lob-green/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <p className="text-xs text-text-tertiary uppercase tracking-wider">
@@ -183,13 +255,18 @@ export default function JobsPage() {
         ))}
       </motion.div>
 
+      {/* Agent Performance Widgets */}
+      <motion.div variants={fadeUp} className="mb-6">
+        <DashboardWidgets />
+      </motion.div>
+
       {/* Tabs */}
-      <motion.div variants={fadeUp} className="flex gap-0.5 mb-6 border-b border-border">
+      <motion.div variants={fadeUp} className="flex gap-0.5 mb-6 border-b border-border overflow-x-auto scrollbar-none">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className="relative px-4 py-2 text-sm font-medium -mb-px"
+            className="relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium -mb-px whitespace-nowrap min-h-[44px]"
           >
             <motion.span
               animate={{ color: activeTab === tab.id ? "#EAECEF" : "#5E6673" }}
@@ -278,6 +355,8 @@ export default function JobsPage() {
           )}
         </motion.div>
       </AnimatePresence>
+
+      </>}
     </motion.div>
   );
 }

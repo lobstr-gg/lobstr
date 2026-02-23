@@ -274,4 +274,138 @@ contract StakingManagerTest is Test {
         emit Slashed(alice, 200 ether, bob);
         staking.slash(alice, 200 ether, bob);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  V-001: STAKE LOCKING TESTS
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_LockStake_BlocksUnstake() public {
+        address locker = makeAddr("locker");
+        vm.startPrank(admin);
+        staking.grantRole(staking.LOCKER_ROLE(), locker);
+        vm.stopPrank();
+
+        // Alice stakes 1000
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        // Lock 800
+        vm.prank(locker);
+        staking.lockStake(alice, 800 ether);
+
+        assertEq(staking.getLockedStake(alice), 800 ether);
+        assertEq(staking.getUnlockedStake(alice), 200 ether);
+
+        // Alice can only unstake up to 200 (unlocked)
+        vm.prank(alice);
+        staking.requestUnstake(200 ether);
+
+        vm.warp(block.timestamp + 7 days);
+        vm.prank(alice);
+        staking.unstake(); // complete the unstake — now 800 staked, 800 locked
+
+        // All remaining stake is locked — can't unstake anything
+        vm.prank(alice);
+        vm.expectRevert("StakingManager: stake locked");
+        staking.requestUnstake(1 ether);
+    }
+
+    function test_LockStake_FullLock_BlocksAllUnstake() public {
+        address locker = makeAddr("locker");
+        vm.startPrank(admin);
+        staking.grantRole(staking.LOCKER_ROLE(), locker);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        // Lock entire stake
+        vm.prank(locker);
+        staking.lockStake(alice, 1_000 ether);
+
+        // Alice can't unstake anything
+        vm.prank(alice);
+        vm.expectRevert("StakingManager: stake locked");
+        staking.requestUnstake(1 ether);
+    }
+
+    function test_UnlockStake_AllowsUnstake() public {
+        address locker = makeAddr("locker");
+        vm.startPrank(admin);
+        staking.grantRole(staking.LOCKER_ROLE(), locker);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        vm.prank(locker);
+        staking.lockStake(alice, 1_000 ether);
+
+        // Unlock
+        vm.prank(locker);
+        staking.unlockStake(alice, 1_000 ether);
+
+        assertEq(staking.getLockedStake(alice), 0);
+        assertEq(staking.getUnlockedStake(alice), 1_000 ether);
+
+        // Now alice can unstake
+        vm.prank(alice);
+        staking.requestUnstake(1_000 ether);
+    }
+
+    function test_SlashAutoReducesLock() public {
+        address locker = makeAddr("locker");
+        vm.startPrank(admin);
+        staking.grantRole(staking.LOCKER_ROLE(), locker);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        // Lock 800
+        vm.prank(locker);
+        staking.lockStake(alice, 800 ether);
+
+        // Slash 500 — remaining 500, lock should be capped to 500
+        vm.prank(slasher);
+        staking.slash(alice, 500 ether, bob);
+
+        assertEq(staking.getStake(alice), 500 ether);
+        assertEq(staking.getLockedStake(alice), 500 ether); // auto-reduced from 800 to 500
+    }
+
+    function test_LockStake_RevertInsufficientUnlocked() public {
+        address locker = makeAddr("locker");
+        vm.startPrank(admin);
+        staking.grantRole(staking.LOCKER_ROLE(), locker);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        vm.prank(locker);
+        vm.expectRevert("StakingManager: insufficient unlocked stake");
+        staking.lockStake(alice, 1_001 ether);
+    }
+
+    function test_LockStake_RevertNotLocker() public {
+        vm.startPrank(alice);
+        token.approve(address(staking), 1_000 ether);
+        staking.stake(1_000 ether);
+        vm.stopPrank();
+
+        vm.prank(bob);
+        vm.expectRevert();
+        staking.lockStake(alice, 500 ether);
+    }
 }

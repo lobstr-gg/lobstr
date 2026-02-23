@@ -1,9 +1,9 @@
 "use client";
 
-import type { MockListing } from "../_data/types";
+import type { MarketplaceListing } from "../_data/types";
 import ListingRow from "./ListingRow";
 
-export default function ListingTable({ listings }: { listings: MockListing[] }) {
+export default function ListingTable({ listings }: { listings: MarketplaceListing[] }) {
   return (
     <div className="card overflow-hidden">
       {/* Desktop table header — hidden on mobile */}

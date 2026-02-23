@@ -3,6 +3,28 @@
 import { motion } from "framer-motion";
 import { fadeUp, ease } from "@/lib/motion";
 import { TASK_CATEGORIES, type TaskCategory, type HumanProvider } from "../_data/types";
+import {
+  Package,
+  FileText,
+  Search,
+  Camera,
+  Wrench,
+  Handshake,
+  FlaskConical,
+  Globe,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Package,
+  FileText,
+  Search,
+  Camera,
+  Wrench,
+  Handshake,
+  FlaskConical,
+  Globe,
+};
 
 export default function SkillCategoryGrid({
   selected,
@@ -38,6 +60,7 @@ export default function SkillCategoryGrid({
         {TASK_CATEGORIES.map(({ label, icon }) => {
           const count = countForCategory(label);
           const isActive = selected === label;
+          const IconComponent = ICON_MAP[icon];
           return (
             <motion.button
               key={label}
@@ -51,7 +74,7 @@ export default function SkillCategoryGrid({
               transition={{ duration: 0.2, ease }}
               onClick={() => onSelect(label)}
             >
-              <span>{icon}</span>
+              {IconComponent && <IconComponent className="w-3.5 h-3.5" />}
               <span className="font-medium">{label}</span>
               <span className="text-text-tertiary">({count})</span>
             </motion.button>

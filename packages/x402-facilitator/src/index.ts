@@ -31,7 +31,7 @@ app.post("/settle", settleHandler(facilitator));
 
 console.log(`[x402-facilitator] Starting on port ${PORT} (${NETWORK} / ${CAIP2_NETWORK})`);
 
-const server = serve({ fetch: app.fetch, port: PORT });
+const server = serve({ fetch: app.fetch, port: PORT, hostname: "0.0.0.0" });
 
 // Graceful shutdown for Railway/Docker deploys
 function shutdown(signal: string) {

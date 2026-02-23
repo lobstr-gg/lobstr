@@ -15,3 +15,6 @@
 
 # Treasury + stake health — every 6 hours at :50 (LOW)
 50 */6 * * * /opt/cron/treasury-health.sh >> /var/log/agent/treasury-health.log 2>&1
+
+# Security audit — daily at 9:00 UTC (LOW)
+0 9 * * * /opt/cron/security-audit.sh >> /var/log/agent/security-audit.log 2>&1

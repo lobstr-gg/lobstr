@@ -5,8 +5,8 @@ import { usePublicClient } from "wagmi";
 import { formatEther, type Address } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
 import { EscrowEngineABI } from "@/config/abis";
-import type { MockJob, JobStatus, JobRole } from "@/app/jobs/_data/mockJobs";
-import { isIndexerConfigured, fetchJobsForAddress, type IndexerJob } from "./indexer";
+import type { WalletJob, JobStatus, JobRole } from "@/app/jobs/_data/types";
+import { isIndexerConfigured, fetchJobsForAddress, fetchJobsForX402Payer, type IndexerJob } from "./indexer";
 import { useQuery } from "@tanstack/react-query";
 
 // On-chain JobStatus enum: 0=Active, 1=Delivered, 2=Completed, 3=Disputed, 4=Refunded
@@ -29,13 +29,15 @@ interface OnChainJob {
   createdAt: bigint;
   disputeWindowEnd: bigint;
   deliveryMetadataURI: string;
+  escrowType?: number;
+  skillId?: bigint;
 }
 
-function mapToMockJob(
+function mapToWalletJob(
   job: OnChainJob,
   userAddress: string,
   lobToken: Address
-): MockJob {
+): WalletJob {
   const isBuyer = job.buyer.toLowerCase() === userAddress.toLowerCase();
   const role: JobRole = isBuyer ? "buyer" : "seller";
   const counterpartyAddr = isBuyer ? job.seller : job.buyer;
@@ -69,14 +71,16 @@ function mapToMockJob(
     ...(statusNum === 1 ? { deliveredAt: Date.now() } : {}),
     ...(statusNum === 2 ? { completedAt: Date.now() } : {}),
     ...(statusNum === 3 ? { disputeReason: "Under arbitration" } : {}),
+    escrowType: job.escrowType !== undefined ? Number(job.escrowType) : 0,
+    skillId: job.skillId !== undefined ? job.skillId.toString() : undefined,
   };
 }
 
-function mapIndexerToMockJob(
+function mapIndexerToWalletJob(
   job: IndexerJob,
   userAddress: string,
   lobToken: string
-): MockJob {
+): WalletJob {
   const isBuyer = job.buyer.toLowerCase() === userAddress.toLowerCase();
   const role: JobRole = isBuyer ? "buyer" : "seller";
   const counterpartyAddr = isBuyer ? job.seller : job.buyer;
@@ -110,6 +114,7 @@ function mapIndexerToMockJob(
     ...(statusNum === 1 ? { deliveredAt: Date.now() } : {}),
     ...(statusNum === 2 ? { completedAt: Date.now() } : {}),
     ...(statusNum === 3 ? { disputeReason: "Under arbitration" } : {}),
+    isX402: job.isX402 ?? false,
   };
 }
 
@@ -121,8 +126,18 @@ export function useWalletJobs(address?: string) {
   const indexerQuery = useQuery({
     queryKey: ["wallet-jobs-indexer", address],
     queryFn: async () => {
-      const raw = await fetchJobsForAddress(address!);
-      return raw.map((j) => mapIndexerToMockJob(j, address!, contracts?.lobToken ?? ""));
+      const [directJobs, payerJobs] = await Promise.all([
+        fetchJobsForAddress(address!),
+        fetchJobsForX402Payer(address!),
+      ]);
+      const map = new Map<string, IndexerJob>();
+      for (const job of [...directJobs, ...payerJobs]) {
+        map.set(job.id, job);
+      }
+      const merged = Array.from(map.values()).sort(
+        (a, b) => Number(b.createdAt) - Number(a.createdAt)
+      );
+      return merged.map((j) => mapIndexerToWalletJob(j, address!, contracts?.lobToken ?? ""));
     },
     enabled: useIndexer && !!address && !!contracts,
     refetchInterval: 30_000,
@@ -131,7 +146,7 @@ export function useWalletJobs(address?: string) {
 
   // Fallback: event-scanning path
   const publicClient = usePublicClient();
-  const [fallbackJobs, setFallbackJobs] = useState<MockJob[]>([]);
+  const [fallbackJobs, setFallbackJobs] = useState<WalletJob[]>([]);
   const [fallbackLoading, setFallbackLoading] = useState(true);
   const [fallbackError, setFallbackError] = useState(false);
 
@@ -200,11 +215,11 @@ export function useWalletJobs(address?: string) {
 
         if (cancelled) return;
 
-        const mapped: MockJob[] = [];
+        const mapped: WalletJob[] = [];
         for (const result of results) {
           if (result.status === "success" && result.result) {
             const job = result.result as unknown as OnChainJob;
-            mapped.push(mapToMockJob(job, address!, contracts!.lobToken));
+            mapped.push(mapToWalletJob(job, address!, contracts!.lobToken));
           }
         }
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
+import { getExplorerUrl } from "@/config/contracts";
 
 const FOUNDER = {
   name: "Cruz",
@@ -162,7 +163,7 @@ export default function TeamPage() {
           <div
             className="absolute inset-0 opacity-30 pointer-events-none"
             style={{
-              background: "radial-gradient(ellipse at top left, rgba(0,214,114,0.15), transparent 60%)",
+              background: "radial-gradient(ellipse at top left, rgba(88,176,89,0.15), transparent 60%)",
             }}
           />
           <div className="relative">
@@ -170,9 +171,9 @@ export default function TeamPage() {
               <Avatar
                 src={profileImages[FOUNDER.address]}
                 fallback="C"
-                color="#00D672"
-                borderColor="rgba(0, 214, 114, 0.4)"
-                bgColor="rgba(0, 214, 114, 0.1)"
+                color="#58B059"
+                borderColor="rgba(88, 176, 89, 0.4)"
+                bgColor="rgba(88, 176, 89, 0.1)"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -208,7 +209,7 @@ export default function TeamPage() {
                 </div>
                 <div className="mt-1">
                   <a
-                    href={`https://basescan.org/address/${FOUNDER.address}`}
+                    href={getExplorerUrl("address", FOUNDER.address)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] text-text-tertiary hover:text-text-secondary font-mono transition-colors"
@@ -303,7 +304,7 @@ export default function TeamPage() {
                   </div>
                   <div className="mt-0.5">
                     <a
-                      href={`https://basescan.org/address/${agent.address}`}
+                      href={getExplorerUrl("address", agent.address)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[10px] text-text-tertiary hover:text-text-secondary font-mono transition-colors"

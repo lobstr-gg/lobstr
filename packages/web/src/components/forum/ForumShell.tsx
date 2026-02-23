@@ -34,7 +34,7 @@ export default function ForumShell({
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-surface-0/60"
             onClick={() => setMobileMenuOpen(false)}
           />
           <div className="absolute left-0 top-0 bottom-0 w-72 bg-surface-1 border-r border-border p-4 overflow-y-auto">

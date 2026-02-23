@@ -134,7 +134,7 @@ export default function RentAHumanPage() {
                 animate={{
                   borderColor: [
                     "rgba(30,36,49,1)",
-                    "rgba(0,214,114,0.3)",
+                    "rgba(88,176,89,0.3)",
                     "rgba(30,36,49,1)",
                   ],
                 }}

@@ -53,7 +53,7 @@ export interface ProviderInfo {
   completionRate: number;   // 0-100 percentage
 }
 
-export interface MockListing {
+export interface MarketplaceListing {
   id: string;
   title: string;
   description: string;

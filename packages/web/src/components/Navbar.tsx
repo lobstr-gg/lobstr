@@ -12,18 +12,48 @@ import { useForum } from "@/lib/forum-context";
 import NotificationCenter from "@/components/NotificationCenter";
 import ProfileAvatar from "@/components/ProfileAvatar";
 
+// All desktop nav links — shown inline, no dropdown
 const NAV_LINKS = [
-  { href: "/marketplace", label: "Marketplace" },
+  { href: "/marketplace", label: "Market" },
   { href: "/jobs", label: "Dashboard" },
   { href: "/staking", label: "Staking" },
   { href: "/disputes", label: "Disputes" },
   { href: "/forum", label: "Forum" },
   { href: "/dao", label: "DAO" },
+  { href: "/farming", label: "Farming" },
+  { href: "/rewards", label: "Rewards" },
+  { href: "/loans", label: "Loans" },
+  { href: "/insurance", label: "Insurance" },
+  { href: "/subscriptions", label: "Subs" },
+  { href: "/leaderboard", label: "Board" },
   { href: "/analytics", label: "Analytics" },
   { href: "/docs", label: "Docs" },
-  { href: "/skills", label: "Skills" },
-  { href: "/team", label: "Team" },
   { href: "/airdrop", label: "Airdrop" },
+];
+
+// Mobile menu sections for organized display
+const MOBILE_SECTIONS = [
+  { title: "Core", links: [
+    { href: "/marketplace", label: "Market" },
+    { href: "/jobs", label: "Dashboard" },
+    { href: "/forum", label: "Forum" },
+    { href: "/dao", label: "DAO" },
+  ]},
+  { title: "Finance", links: [
+    { href: "/staking", label: "Staking" },
+    { href: "/farming", label: "Farming" },
+    { href: "/rewards", label: "Rewards" },
+    { href: "/loans", label: "Loans" },
+    { href: "/insurance", label: "Insurance" },
+    { href: "/subscriptions", label: "Subscriptions" },
+  ]},
+  { title: "More", links: [
+    { href: "/disputes", label: "Disputes" },
+    { href: "/leaderboard", label: "Leaderboard" },
+    { href: "/analytics", label: "Analytics" },
+    { href: "/docs", label: "Docs" },
+    { href: "/airdrop", label: "Airdrop" },
+  ]},
 ];
 
 function getContractAddresses() {
@@ -38,6 +68,12 @@ function getContractAddresses() {
     { label: "Escrow", address: c.escrowEngine },
     { label: "SybilGuard", address: c.sybilGuard },
     { label: "Treasury", address: c.treasuryGovernor },
+    { label: "Skills", address: c.skillRegistry },
+    { label: "Loans", address: c.loanEngine },
+    { label: "Reviews", address: c.reviewRegistry },
+    { label: "Insurance", address: c.insurancePool },
+    { label: "Staking Rewards", address: c.stakingRewards },
+    { label: "LP Mining", address: c.liquidityMining },
   ];
 }
 
@@ -90,7 +126,7 @@ function CaPopout() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full sm:mt-2 w-auto sm:w-80 rounded-lg border border-border/60 bg-black/95 backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
+            className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full sm:mt-2 w-auto sm:w-80 rounded-lg border border-border/60 bg-surface-0/95 glass backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
           >
             <div className="px-3 py-2 border-b border-border/30">
               <p className="text-[10px] text-text-tertiary uppercase tracking-widest font-semibold">
@@ -137,7 +173,7 @@ export function Navbar() {
   const { unreadDMCount } = useForum();
 
   return (
-    <nav className="border-b border-border/60 bg-black/80 backdrop-blur-xl sticky top-0 z-40">
+    <nav className="border-b border-border/60 bg-surface-0/80 glass sticky top-0 z-40">
       {!contracts && (
         <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-1.5 text-center">
           <p className="text-xs text-yellow-400">
@@ -151,17 +187,17 @@ export function Navbar() {
             <Link href="/" className="flex items-center gap-0.5 group">
               <Image
                 src="/logo.png"
-                alt="LOBSTR"
+                alt="lobstr"
                 width={28}
                 height={28}
-                className="rounded-sm"
+                className="rounded-sm w-7 h-7"
                 priority
               />
               <motion.span
-                className="text-lg font-bold tracking-tight text-lob-green"
-                whileHover={{ textShadow: "0 0 20px rgba(0, 214, 114, 0.6)" }}
+                className="text-xl font-bold tracking-tight text-lob-green leading-none"
+                whileHover={{ textShadow: "0 0 20px rgba(88, 176, 89, 0.6)" }}
               >
-                LOBSTR
+                lobstr
               </motion.span>
             </Link>
             <div className="hidden lg:flex items-center gap-0">
@@ -170,7 +206,7 @@ export function Navbar() {
                 return (
                   <Link key={link.href} href={link.href} className="relative">
                     <motion.div
-                      className={`px-2.5 py-1.5 rounded text-sm transition-colors ${
+                      className={`px-1.5 xl:px-2 py-1.5 rounded text-[11px] xl:text-xs transition-colors ${
                         isActive
                           ? "text-lob-green font-medium"
                           : "text-text-secondary hover:text-text-primary"
@@ -288,7 +324,7 @@ function ProfileMenu({ pathname }: { pathname: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-border/60 bg-black/95 backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-border/60 bg-surface-0/95 glass backdrop-blur-xl shadow-2xl z-[60] overflow-hidden"
           >
             <div className="px-3 py-2.5 border-b border-border/30">
               <p className="text-xs font-medium text-text-primary truncate">
@@ -357,7 +393,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="lg:hidden flex flex-col gap-1.5 p-2 -mr-2"
+        className="lg:hidden flex flex-col gap-1.5 p-2 -mr-2 min-h-[44px] min-w-[44px] items-center justify-center"
         aria-label="Open menu"
       >
         <span className="w-5 h-0.5 bg-text-secondary rounded-full" />
@@ -369,7 +405,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
         {open && (
           <>
             <motion.div
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] lg:hidden"
+              className="fixed inset-0 bg-surface-0/70 backdrop-blur-sm z-[100] lg:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -386,7 +422,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
                 <span className="text-sm font-bold text-lob-green">Menu</span>
                 <button
                   onClick={() => setOpen(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+                  className="w-11 h-11 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
                   aria-label="Close menu"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -395,23 +431,30 @@ function MobileMenu({ pathname }: { pathname: string }) {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto overscroll-contain py-2 -webkit-overflow-scrolling-touch">
-                {NAV_LINKS.map((link) => {
-                  const isActive = pathname === link.href;
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center px-4 py-3 text-sm transition-colors ${
-                        isActive
-                          ? "text-lob-green bg-lob-green-muted font-medium"
-                          : "text-text-primary hover:bg-surface-2"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  );
-                })}
+                {MOBILE_SECTIONS.map((section) => (
+                  <div key={section.title}>
+                    <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-text-tertiary uppercase tracking-widest">
+                      {section.title}
+                    </p>
+                    {section.links.map((link) => {
+                      const isActive = pathname === link.href;
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setOpen(false)}
+                          className={`flex items-center px-4 py-3 text-sm transition-colors ${
+                            isActive
+                              ? "text-lob-green bg-lob-green-muted font-medium"
+                              : "text-text-primary hover:bg-surface-2"
+                          }`}
+                        >
+                          {link.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
                 <div className="mx-4 my-2 h-px bg-border/30" />
 
                 {/* Notifications (mobile) */}
@@ -457,7 +500,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
                 </Link>
               </div>
               <div className="shrink-0 p-4 border-t border-border/30">
-                <p className="text-[10px] text-text-tertiary text-center">LOBSTR Protocol</p>
+                <p className="text-[10px] text-text-tertiary text-center">lobstr protocol</p>
               </div>
             </motion.div>
           </>

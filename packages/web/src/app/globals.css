@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --green: #00D672;
-  --green-rgb: 0, 214, 114;
+  --green: #58B059;
+  --green-rgb: 88, 176, 89;
   --red: #FF3B69;
-  --surface-0: #000000;
+  --surface-0: #0A0B0F;
 }
 
 * {
@@ -17,7 +17,7 @@
 body {
   font-family: var(--font-dm-sans), system-ui, sans-serif;
   color: #EAECEF;
-  background: #000000;
+  background: #0A0B0F;
 }
 
 /* Custom scrollbar */
@@ -27,7 +27,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: #2B3245; }
 
 ::selection {
-  background: rgba(0, 214, 114, 0.25);
+  background: rgba(88, 176, 89, 0.25);
   color: #fff;
 }
 
@@ -47,20 +47,20 @@ select option {
 /* === GRID BACKGROUND === */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(0, 214, 114, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 214, 114, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(88, 176, 89, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88, 176, 89, 0.025) 1px, transparent 1px);
   background-size: 64px 64px;
 }
 
-/* === GLOW EFFECTS === */
+/* === GLOW EFFECTS (inner borders + tinted shadows) === */
 .glow-green {
-  box-shadow: 0 0 20px rgba(0, 214, 114, 0.15), 0 0 60px rgba(0, 214, 114, 0.05);
+  box-shadow: inset 0 1px 0 rgba(88, 176, 89, 0.12), 0 4px 16px rgba(88, 176, 89, 0.08);
 }
 .glow-green-sm {
-  box-shadow: 0 0 10px rgba(0, 214, 114, 0.1);
+  box-shadow: inset 0 1px 0 rgba(88, 176, 89, 0.1), 0 2px 8px rgba(88, 176, 89, 0.06);
 }
 .text-glow {
-  text-shadow: 0 0 30px rgba(0, 214, 114, 0.3), 0 0 80px rgba(0, 214, 114, 0.1);
+  text-shadow: 0 2px 20px rgba(88, 176, 89, 0.2);
 }
 
 /* === ANIMATED GRADIENT BORDER === */
@@ -83,7 +83,7 @@ select option {
   background: conic-gradient(
     from var(--angle),
     transparent 40%,
-    rgba(0, 214, 114, 0.4) 50%,
+    rgba(88, 176, 89, 0.4) 50%,
     transparent 60%
   );
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -136,7 +136,7 @@ select option {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0, 214, 114, 0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgba(88, 176, 89, 0.2), transparent);
   animation: scanline-move 3s ease-in-out infinite;
   pointer-events: none;
 }
@@ -167,7 +167,7 @@ select option {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(0, 214, 114, 0.04),
+    rgba(88, 176, 89, 0.04),
     transparent
   );
   animation: shimmer 4s ease-in-out infinite;
@@ -213,13 +213,108 @@ select option {
   bottom: 0;
   left: -30%;
   width: 30%;
-  background: linear-gradient(90deg, transparent, rgba(0, 214, 114, 0.03), transparent);
+  background: linear-gradient(90deg, transparent, rgba(88, 176, 89, 0.03), transparent);
   animation: h-scan-move 6s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes h-scan-move {
   0% { left: -30%; }
   100% { left: 130%; }
+}
+
+/* === MESH GRADIENT BACKGROUND === */
+.mesh-gradient {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(88, 176, 89, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(71, 146, 72, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(110, 196, 111, 0.03) 0%, transparent 50%),
+    #0A0B0F;
+  background-size: 200% 200%;
+  animation: mesh-shift 12s ease-in-out infinite;
+}
+@keyframes mesh-shift {
+  0%, 100% { background-position: 0% 50%, 100% 0%, 50% 100%; }
+  33% { background-position: 100% 50%, 0% 100%, 50% 0%; }
+  66% { background-position: 50% 0%, 50% 50%, 100% 50%; }
+}
+
+/* === TIER GLOW BORDERS (ring only, no outer blur) === */
+.tier-glow-bronze {
+  box-shadow: 0 0 0 1px rgba(205, 127, 50, 0.2), 0 4px 12px rgba(205, 127, 50, 0.04);
+}
+.tier-glow-silver {
+  box-shadow: 0 0 0 1px rgba(192, 192, 192, 0.2), 0 4px 12px rgba(192, 192, 192, 0.04);
+}
+.tier-glow-gold {
+  box-shadow: 0 0 0 1px rgba(240, 185, 11, 0.25), 0 4px 14px rgba(240, 185, 11, 0.05);
+}
+.tier-glow-platinum {
+  box-shadow: 0 0 0 1px rgba(88, 176, 89, 0.3), 0 4px 16px rgba(88, 176, 89, 0.06);
+  animation: platinum-pulse 3s ease-in-out infinite;
+}
+@keyframes platinum-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(88, 176, 89, 0.3), 0 4px 16px rgba(88, 176, 89, 0.06); }
+  50% { box-shadow: 0 0 0 1px rgba(88, 176, 89, 0.45), 0 4px 20px rgba(88, 176, 89, 0.1); }
+}
+
+/* === CIRCUIT PATTERN (for agent cards) === */
+.circuit-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 20h15M25 20h15M20 0v15M20 25v15' stroke='rgba(88,176,89,0.04)' stroke-width='1'/%3E%3Ccircle cx='20' cy='20' r='2' fill='rgba(88,176,89,0.04)'/%3E%3C/svg%3E");
+}
+
+/* === WARM GRADIENT (for human cards) === */
+.warm-gradient {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, rgba(168, 85, 247, 0.02) 100%);
+}
+
+/* === SKELETON SHIMMER === */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #141820;
+  border-radius: 4px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { left: -150%; }
+  100% { left: 150%; }
+}
+
+/* === CONFETTI PARTICLES === */
+@keyframes confetti-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(40px) rotate(360deg); opacity: 0; }
+}
+.confetti-particle {
+  animation: confetti-fall 1s ease-out forwards;
+}
+
+/* === ODOMETER DIGIT === */
+@keyframes digit-roll {
+  0% { transform: translateY(100%); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(0); }
+}
+.digit-roll {
+  animation: digit-roll 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* === SCROLLBAR HIDE (for horizontal scroll strips) === */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 /* === REDUCED MOTION === */
@@ -235,9 +330,9 @@ select option {
   }
 }
 
-/* === FOCUS GLOW ON INPUTS === */
+/* === FOCUS RING ON INPUTS === */
 .input-field:focus {
-  box-shadow: 0 0 0 1px rgba(0, 214, 114, 0.2), 0 0 16px rgba(0, 214, 114, 0.06);
+  box-shadow: 0 0 0 2px rgba(88, 176, 89, 0.2);
 }
 
 /* === TABLE ROW HOVER === */
@@ -259,7 +354,10 @@ select option {
     @apply w-full rounded border border-border bg-surface-2 px-3 py-2.5 text-sm text-text-primary placeholder-text-tertiary focus:border-lob-green focus:outline-none transition-all duration-200;
   }
   .card {
-    @apply rounded-lg border border-border bg-surface-1 transition-all duration-200;
+    @apply rounded-lg border border-white/[0.06] bg-surface-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200;
+  }
+  .glass {
+    @apply backdrop-blur-xl border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)];
   }
   .stat-card {
     @apply rounded-lg border border-border bg-surface-1 p-4 shimmer;

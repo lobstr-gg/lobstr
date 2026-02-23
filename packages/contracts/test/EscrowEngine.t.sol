@@ -15,6 +15,14 @@ contract MockSybilGuard {
     function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
 }
 
+contract MockRewardDistributor {
+    function creditArbitratorReward(address, address, uint256) external {}
+    function creditWatcherReward(address, address, uint256) external {}
+    function creditJudgeReward(address, address, uint256) external {}
+    function deposit(address, uint256) external {}
+    function availableBudget(address) external pure returns (uint256) { return type(uint256).max; }
+}
+
 contract EscrowEngineTest is Test {
     // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
     event JobCreated(uint256 indexed jobId, uint256 indexed listingId, address indexed buyer, address seller, uint256 amount, address token, uint256 fee);
@@ -29,6 +37,7 @@ contract EscrowEngineTest is Test {
     DisputeArbitration public dispute;
     EscrowEngine public escrow;
     MockSybilGuard public mockSybilGuard;
+    MockRewardDistributor public mockRewardDist;
 
     address public admin = makeAddr("admin");
     address public distributor = makeAddr("distributor");
@@ -47,8 +56,9 @@ contract EscrowEngineTest is Test {
         reputation = new ReputationSystem();
         staking = new StakingManager(address(token));
         mockSybilGuard = new MockSybilGuard();
+        mockRewardDist = new MockRewardDistributor();
         registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
         escrow = new EscrowEngine(
             address(token),
             address(registry),
@@ -537,6 +547,11 @@ contract EscrowEngineTest is Test {
         escrow.initiateDispute(jobId, "ipfs://evidence");
 
         uint256 disputeId = escrow.getJobDisputeId(jobId);
+
+        // Two-phase panel: seal after delay (strict > requires +11)
+        vm.roll(block.number + 11);
+        dispute.sealPanel(disputeId);
+
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
 
         // Submit counter evidence
@@ -557,6 +572,10 @@ contract EscrowEngineTest is Test {
 
         dispute.executeRuling(disputeId);
 
+        // Finalize ruling after appeal window
+        vm.warp(block.timestamp + 49 hours);
+        dispute.finalizeRuling(disputeId);
+
         // LOB has 0% fee, so each gets 50 ether
         uint256 buyerGain = token.balanceOf(buyer) - buyerBalBefore;
         uint256 sellerGain = token.balanceOf(seller) - sellerBalBefore;
@@ -566,5 +585,352 @@ contract EscrowEngineTest is Test {
         // Job should be resolved
         IEscrowEngine.Job memory job = escrow.getJob(jobId);
         assertEq(uint256(job.status), uint256(IEscrowEngine.JobStatus.Resolved));
+    }
+
+    // --- Skill Escrow Tests ---
+
+    event SkillEscrowCreated(uint256 indexed jobId, uint256 indexed skillId, address indexed buyer, address seller, uint256 amount);
+
+    address public skillRegistryAddr = makeAddr("skillRegistry");
+
+    function _grantSkillRegistryRole() internal {
+        bytes32 role = escrow.SKILL_REGISTRY_ROLE();
+        vm.prank(admin);
+        escrow.grantRole(role, skillRegistryAddr);
+    }
+
+    function test_CreateSkillEscrow_HappyPath() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(skillRegistryAddr);
+        uint256 jobId = escrow.createSkillEscrow(42, buyer, seller, 50 ether, address(token));
+
+        IEscrowEngine.Job memory job = escrow.getJob(jobId);
+        assertEq(job.buyer, buyer);
+        assertEq(job.seller, seller);
+        assertEq(job.amount, 50 ether);
+        assertEq(job.fee, 0); // LOB = 0%
+        assertEq(uint256(job.status), uint256(IEscrowEngine.JobStatus.Delivered));
+        assertEq(uint256(job.escrowType), uint256(IEscrowEngine.EscrowType.SKILL_PURCHASE));
+        assertEq(job.skillId, 42);
+        assertEq(job.disputeWindowEnd, block.timestamp + 72 hours);
+    }
+
+    function test_CreateSkillEscrow_RevertNotRole() public {
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(buyer);
+        vm.expectRevert();
+        escrow.createSkillEscrow(1, buyer, seller, 50 ether, address(token));
+    }
+
+    function test_CreateSkillEscrow_LOBZeroFee() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 1000 ether);
+
+        vm.prank(skillRegistryAddr);
+        uint256 jobId = escrow.createSkillEscrow(1, buyer, seller, 1000 ether, address(token));
+
+        IEscrowEngine.Job memory job = escrow.getJob(jobId);
+        assertEq(job.fee, 0);
+    }
+
+    function test_SkillEscrow_AutoReleaseAfter72h() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(skillRegistryAddr);
+        uint256 jobId = escrow.createSkillEscrow(1, buyer, seller, 50 ether, address(token));
+
+        // Warp past 72h dispute window
+        vm.warp(block.timestamp + 73 hours);
+
+        uint256 sellerBalBefore = token.balanceOf(seller);
+        escrow.autoRelease(jobId);
+        assertEq(token.balanceOf(seller), sellerBalBefore + 50 ether);
+    }
+
+    function test_SkillEscrow_BuyerCanConfirmEarly() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(skillRegistryAddr);
+        uint256 jobId = escrow.createSkillEscrow(1, buyer, seller, 50 ether, address(token));
+
+        uint256 sellerBalBefore = token.balanceOf(seller);
+
+        vm.prank(buyer);
+        escrow.confirmDelivery(jobId);
+
+        assertEq(token.balanceOf(seller), sellerBalBefore + 50 ether);
+    }
+
+    function test_SkillEscrow_BuyerCanDisputeWithin72h() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(skillRegistryAddr);
+        uint256 jobId = escrow.createSkillEscrow(1, buyer, seller, 50 ether, address(token));
+
+        vm.prank(buyer);
+        escrow.initiateDispute(jobId, "ipfs://evidence");
+
+        IEscrowEngine.Job memory job = escrow.getJob(jobId);
+        assertEq(uint256(job.status), uint256(IEscrowEngine.JobStatus.Disputed));
+    }
+
+    function test_SubmitDelivery_RevertsOnSkillEscrow() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(skillRegistryAddr);
+        uint256 jobId = escrow.createSkillEscrow(1, buyer, seller, 50 ether, address(token));
+
+        vm.prank(seller);
+        vm.expectRevert("EscrowEngine: not service job");
+        escrow.submitDelivery(jobId, "ipfs://nope");
+    }
+
+    function test_CreateSkillEscrow_EmitEvent() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 50 ether);
+
+        vm.prank(skillRegistryAddr);
+        vm.expectEmit(true, true, true, true);
+        emit SkillEscrowCreated(1, 42, buyer, seller, 50 ether);
+        escrow.createSkillEscrow(42, buyer, seller, 50 ether, address(token));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  V-002: TOKEN ALLOWLIST
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_TokenAllowlist_LOBAutoAllowed() public view {
+        assertTrue(escrow.isTokenAllowed(address(token)));
+    }
+
+    function test_TokenAllowlist_AddAndRemove() public {
+        address fakeToken = makeAddr("fakeToken");
+
+        assertFalse(escrow.isTokenAllowed(fakeToken));
+
+        vm.prank(admin);
+        escrow.allowlistToken(fakeToken);
+        assertTrue(escrow.isTokenAllowed(fakeToken));
+
+        vm.prank(admin);
+        escrow.removeToken(fakeToken);
+        assertFalse(escrow.isTokenAllowed(fakeToken));
+    }
+
+    function test_TokenAllowlist_CannotRemoveLOB() public {
+        vm.prank(admin);
+        vm.expectRevert("EscrowEngine: cannot remove LOB");
+        escrow.removeToken(address(token));
+    }
+
+    function test_TokenAllowlist_OnlyAdmin() public {
+        address fakeToken = makeAddr("fakeToken");
+
+        vm.prank(buyer);
+        vm.expectRevert();
+        escrow.allowlistToken(fakeToken);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  GAME THEORY: MIN_ESCROW_AMOUNT
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_CreateJob_RevertBelowMinimum() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 9 ether);
+        vm.expectRevert("EscrowEngine: below minimum");
+        escrow.createJob(listingId, seller, 9 ether, address(token));
+        vm.stopPrank();
+    }
+
+    function test_CreateSkillEscrow_RevertBelowMinimum() public {
+        _grantSkillRegistryRole();
+
+        vm.prank(buyer);
+        token.approve(address(escrow), 5 ether);
+
+        vm.prank(skillRegistryAddr);
+        vm.expectRevert("EscrowEngine: below minimum");
+        escrow.createSkillEscrow(1, buyer, seller, 5 ether, address(token));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  GAME THEORY: AUTO_RELEASE_GRACE PERIOD
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_AutoRelease_SellerReleasesAtWindowEnd() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        // Warp to just past dispute window end (1hr for < 500 LOB)
+        vm.warp(block.timestamp + 1 hours + 1);
+
+        uint256 sellerBalBefore = token.balanceOf(seller);
+
+        // Seller can release immediately at window expiry
+        vm.prank(seller);
+        escrow.autoRelease(jobId);
+
+        assertEq(token.balanceOf(seller), sellerBalBefore + 50 ether);
+    }
+
+    function test_AutoRelease_NonSellerBlockedDuringGrace() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        // Warp to just past dispute window but within grace period
+        vm.warp(block.timestamp + 1 hours + 1);
+
+        vm.expectRevert("EscrowEngine: grace period active");
+        escrow.autoRelease(jobId); // called by test contract (not seller)
+    }
+
+    function test_AutoRelease_NonSellerReleasesAfterGrace() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        // Warp past dispute window + grace period
+        vm.warp(block.timestamp + 1 hours + 15 minutes + 1);
+
+        uint256 sellerBalBefore = token.balanceOf(seller);
+
+        escrow.autoRelease(jobId); // called by test contract (not seller)
+
+        assertEq(token.balanceOf(seller), sellerBalBefore + 50 ether);
+    }
+
+    function test_CreateSkillEscrow_RevertTokenNotAllowed() public {
+        _grantSkillRegistryRole();
+
+        address badToken = makeAddr("badToken");
+
+        vm.prank(skillRegistryAddr);
+        vm.expectRevert("EscrowEngine: token not allowed");
+        escrow.createSkillEscrow(1, buyer, seller, 50 ether, badToken);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  V-001b: MIN_REPUTATION_VALUE GATE
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_ConfirmDelivery_SubThresholdNoReputation() public {
+        // Create a small listing (below 50 LOB threshold)
+        vm.prank(seller);
+        uint256 smallListingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.DATA_SCRAPING,
+            "Small Service",
+            "Cheap job",
+            10 ether,
+            address(token),
+            3600,
+            ""
+        );
+
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 10 ether);
+        uint256 jobId = escrow.createJob(smallListingId, seller, 10 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        // Check reputation before
+        IReputationSystem.ReputationData memory dataBefore = reputation.getReputationData(seller);
+        uint256 completionsBefore = dataBefore.completions;
+
+        vm.prank(buyer);
+        escrow.confirmDelivery(jobId);
+
+        // Reputation should NOT have been recorded (below 50 LOB threshold)
+        IReputationSystem.ReputationData memory dataAfter = reputation.getReputationData(seller);
+        assertEq(dataAfter.completions, completionsBefore, "Sub-threshold job should not record reputation");
+    }
+
+    function test_ConfirmDelivery_AboveThresholdRecordsReputation() public {
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 50 ether);
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        IReputationSystem.ReputationData memory dataBefore = reputation.getReputationData(seller);
+        uint256 completionsBefore = dataBefore.completions;
+
+        vm.prank(buyer);
+        escrow.confirmDelivery(jobId);
+
+        IReputationSystem.ReputationData memory dataAfter = reputation.getReputationData(seller);
+        assertEq(dataAfter.completions, completionsBefore + 1, "Above-threshold job should record reputation");
+    }
+
+    function test_AutoRelease_SubThresholdNoReputation() public {
+        // Create a small listing
+        vm.prank(seller);
+        uint256 smallListingId = registry.createListing(
+            IServiceRegistry.ServiceCategory.DATA_SCRAPING,
+            "Small Service",
+            "Cheap job",
+            10 ether,
+            address(token),
+            3600,
+            ""
+        );
+
+        vm.startPrank(buyer);
+        token.approve(address(escrow), 10 ether);
+        uint256 jobId = escrow.createJob(smallListingId, seller, 10 ether, address(token));
+        vm.stopPrank();
+
+        vm.prank(seller);
+        escrow.submitDelivery(jobId, "ipfs://delivery");
+
+        vm.warp(block.timestamp + 2 hours);
+
+        IReputationSystem.ReputationData memory dataBefore = reputation.getReputationData(seller);
+        uint256 completionsBefore = dataBefore.completions;
+
+        escrow.autoRelease(jobId);
+
+        IReputationSystem.ReputationData memory dataAfter = reputation.getReputationData(seller);
+        assertEq(dataAfter.completions, completionsBefore, "Sub-threshold auto-release should not record reputation");
     }
 }

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
+import { Star } from "lucide-react";
 import type { HumanProvider } from "../_data/types";
 
 const TIER_COLORS: Record<string, string> = {
@@ -40,7 +41,7 @@ export default function HumanCard({ human, onHire }: { human: HumanProvider; onH
   return (
     <motion.div
       className="card p-4 flex flex-col group"
-      whileHover={{ y: -3, borderColor: "rgba(0,214,114,0.15)" }}
+      whileHover={{ y: -3, borderColor: "rgba(88,176,89,0.15)" }}
       transition={{ duration: 0.2, ease }}
     >
       {/* Provider row */}
@@ -68,9 +69,17 @@ export default function HumanCard({ human, onHire }: { human: HumanProvider; onH
           </p>
         </div>
         <div className="flex items-center gap-1.5">
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${AVAILABILITY_DOT[human.availability]}`}
-          />
+          {human.availability === "available" ? (
+            <motion.span
+              className={`w-1.5 h-1.5 rounded-full ${AVAILABILITY_DOT[human.availability]}`}
+              animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
+          ) : (
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${AVAILABILITY_DOT[human.availability]}`}
+            />
+          )}
           <span className="text-[10px] text-text-tertiary capitalize">
             {human.availability}
           </span>
@@ -124,8 +133,8 @@ export default function HumanCard({ human, onHire }: { human: HumanProvider; onH
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-text-tertiary">
-          <span>
-            {human.rating.toFixed(1)} ★
+          <span className="inline-flex items-center gap-0.5">
+            {human.rating.toFixed(1)} <Star className="w-3 h-3 fill-current" />
           </span>
           <span>{human.completions} jobs</span>
           <span>{human.responseTime}</span>

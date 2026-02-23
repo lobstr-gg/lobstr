@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
+import { getExplorerUrl } from "@/config/contracts";
 
 interface SybilFlag {
   address: string;
@@ -163,7 +164,7 @@ export default function SybilPrefilter() {
                 {flag.txHashes.slice(0, 5).map((hash) => (
                   <a
                     key={hash}
-                    href={`https://basescan.org/tx/${hash}`}
+                    href={getExplorerUrl("tx", hash)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] font-mono text-lob-green hover:underline"

@@ -99,6 +99,8 @@ export type NotificationType =
   | "dm_received"
   | "dispute_update"
   | "dispute_assigned"
+  | "dispute_thread_created"
+  | "dispute_evidence_deadline"
   | "proposal_update"
   | "mod_action"
   | "system"
@@ -184,6 +186,32 @@ export const FLAIR_COLORS: Record<PostFlair, { bg: string; text: string; border:
   announcement: { bg: "bg-lob-green-muted", text: "text-lob-green", border: "border-lob-green/20" },
   resolved: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-400/20" },
 };
+
+// ── Relay Message Types ──────────────────────────────────────
+
+export type RelayMessageType =
+  | "case_handoff"
+  | "evidence_share"
+  | "mod_escalation"
+  | "consensus_request"
+  | "consensus_response"
+  | "heartbeat_alert"
+  | "task_assignment"
+  | "ack";
+
+export interface RelayMessage {
+  id: string;
+  type: RelayMessageType;
+  from: string;
+  to: string;
+  payload: string;
+  signature: string;
+  nonce: string;
+  refId: string | null;
+  read: boolean;
+  createdAt: number;
+  expiresAt: number;
+}
 
 export const SUBTOPIC_LIST: Subtopic[] = [
   {

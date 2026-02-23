@@ -12,7 +12,7 @@ import {
   useDelegatee,
   useDelegatorCount,
 } from "@/lib/hooks";
-import { getContracts, CHAIN } from "@/config/contracts";
+import { getContracts, CHAIN, getExplorerUrl } from "@/config/contracts";
 import {
   type ProposalType,
   type ProposalStatus,
@@ -23,6 +23,16 @@ import {
   formatNumber,
 } from "./_data/dao-utils";
 import { useAccount } from "wagmi";
+import {
+  FileText,
+  Vote,
+  CheckCircle2,
+  Rocket,
+  Shield,
+  Landmark,
+  Users,
+  ArrowRight,
+} from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -121,7 +131,7 @@ function GovernanceStats() {
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.1 + i * 0.06, ease }}
-          whileHover={{ y: -2, borderColor: "rgba(0,214,114,0.2)" }}
+          whileHover={{ y: -2, borderColor: "rgba(88,176,89,0.2)" }}
         >
           <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-lob-green/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <p className="text-[10px] text-text-tertiary uppercase tracking-wider">
@@ -194,13 +204,210 @@ function TreasuryOverview() {
       {/* TODO: Add ETH and USDC balance reads when treasury holds multiple tokens */}
 
       <a
-        href="https://basescan.org/address/0x9576dcf9909ec192FC136A12De293Efab911517f"
+        href={getExplorerUrl("address", contracts?.treasuryGovernor ?? "")}
         target="_blank"
         rel="noopener noreferrer"
         className="block text-center text-[10px] text-lob-green hover:underline mt-3"
       >
         View on Basescan
       </a>
+    </div>
+  );
+}
+
+/* ── Governance Process Flow ──────────────────────────────────── */
+
+const GOV_STEPS = [
+  { icon: FileText, label: "Draft Proposal", desc: "Write and submit on-chain" },
+  { icon: Vote, label: "Voting Period", desc: "veLOB holders cast votes" },
+  { icon: CheckCircle2, label: "Quorum Check", desc: "Meets threshold to pass" },
+  { icon: Rocket, label: "Execution", desc: "Multisig executes on-chain" },
+];
+
+function GovernanceFlow() {
+  return (
+    <div className="card p-5 overflow-hidden">
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="w-4 h-4 text-lob-green" />
+        <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
+          Governance Process
+        </h3>
+      </div>
+      <div className="flex items-start justify-between gap-2">
+        {GOV_STEPS.map((step, i) => (
+          <div key={step.label} className="flex items-start flex-1 min-w-0">
+            <motion.div
+              className="flex flex-col items-center text-center flex-1"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 + i * 0.1, ease }}
+            >
+              <motion.div
+                className="w-10 h-10 rounded-lg bg-lob-green-muted border border-lob-green/20 flex items-center justify-center mb-2"
+                whileHover={{ scale: 1.1, borderColor: "rgba(88,176,89,0.4)" }}
+              >
+                <step.icon className="w-4.5 h-4.5 text-lob-green" />
+              </motion.div>
+              <p className="text-[11px] font-semibold text-text-primary leading-tight">
+                {step.label}
+              </p>
+              <p className="text-[9px] text-text-tertiary mt-0.5 leading-tight">
+                {step.desc}
+              </p>
+            </motion.div>
+            {i < GOV_STEPS.length - 1 && (
+              <div className="flex items-center pt-4 px-1 shrink-0">
+                <div className="w-4 sm:w-6 border-t border-dashed border-lob-green/30 relative">
+                  <motion.div
+                    className="absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-lob-green/60"
+                    initial={{ left: "0%" }}
+                    animate={{ left: "100%" }}
+                    transition={{
+                      duration: 1,
+                      delay: 0.5 + i * 0.3,
+                      repeat: Infinity,
+                      repeatDelay: 3,
+                      ease: "easeInOut",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Treasury Donut (SVG, no library) ────────────────────────── */
+
+function TreasuryDonut({ lobBalance, isLoading }: { lobBalance: number; isLoading: boolean }) {
+  const contracts = getContracts(CHAIN.id);
+  const TOTAL_SUPPLY = 1_000_000_000;
+  const treasuryPct = TOTAL_SUPPLY > 0 ? (lobBalance / TOTAL_SUPPLY) * 100 : 0;
+  const circumference = 2 * Math.PI * 45;
+  const treasuryDash = (treasuryPct / 100) * circumference;
+  const remainDash = circumference - treasuryDash;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Landmark className="w-4 h-4 text-lob-green" />
+        <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
+          Treasury Allocation
+        </h3>
+      </div>
+      <div className="flex items-center gap-6">
+        <div className="relative w-28 h-28 shrink-0">
+          <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+            {/* Background ring */}
+            <circle
+              cx="50" cy="50" r="45"
+              fill="none"
+              stroke="#1E2431"
+              strokeWidth="8"
+            />
+            {/* Treasury slice */}
+            {!isLoading && (
+              <motion.circle
+                cx="50" cy="50" r="45"
+                fill="none"
+                stroke="#58B059"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${treasuryDash} ${remainDash}`}
+                initial={{ strokeDashoffset: circumference }}
+                animate={{ strokeDashoffset: 0 }}
+                transition={{ duration: 1.2, delay: 0.3, ease }}
+              />
+            )}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-sm font-bold text-text-primary tabular-nums">
+              {isLoading ? "..." : `${treasuryPct.toFixed(1)}%`}
+            </span>
+            <span className="text-[8px] text-text-tertiary uppercase">of supply</span>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-lob-green shrink-0" />
+            <span className="text-[11px] text-text-secondary">Treasury</span>
+            <span className="text-[11px] font-bold text-text-primary tabular-nums ml-auto">
+              {isLoading ? "..." : formatNumber(lobBalance)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-surface-4 shrink-0" />
+            <span className="text-[11px] text-text-secondary">Other</span>
+            <span className="text-[11px] font-bold text-text-primary tabular-nums ml-auto">
+              {isLoading ? "..." : formatNumber(TOTAL_SUPPLY - lobBalance)}
+            </span>
+          </div>
+          <a
+            href={getExplorerUrl("address", contracts?.treasuryGovernor ?? "")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[10px] text-lob-green hover:underline mt-1"
+          >
+            View on Basescan <ArrowRight className="w-2.5 h-2.5" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Multisig Signers Visual ─────────────────────────────────── */
+
+function SignersVisual({ signerCount, requiredApprovals }: { signerCount: number; requiredApprovals: number }) {
+  const signers = Array.from({ length: signerCount }, (_, i) => i);
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Users className="w-4 h-4 text-lob-green" />
+        <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
+          Multisig Security
+        </h3>
+      </div>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex -space-x-2">
+          {signers.map((i) => (
+            <motion.div
+              key={i}
+              className={`w-8 h-8 rounded-full border-2 border-surface-1 flex items-center justify-center text-[9px] font-bold ${
+                i < requiredApprovals
+                  ? "bg-lob-green/20 text-lob-green"
+                  : "bg-surface-3 text-text-tertiary"
+              }`}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.1 + i * 0.08 }}
+            >
+              S{i + 1}
+            </motion.div>
+          ))}
+        </div>
+        <div className="text-xs text-text-secondary">
+          <span className="font-bold text-lob-green">{requiredApprovals}</span>
+          <span className="text-text-tertiary"> of </span>
+          <span className="font-bold text-text-primary">{signerCount}</span>
+          <span className="text-text-tertiary"> required</span>
+        </div>
+      </div>
+      <div className="h-2 rounded-full bg-surface-3 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full bg-lob-green"
+          initial={{ width: 0 }}
+          animate={{ width: `${(requiredApprovals / Math.max(signerCount, 1)) * 100}%` }}
+          transition={{ duration: 0.8, delay: 0.5, ease }}
+        />
+      </div>
+      <p className="text-[10px] text-text-tertiary mt-2">
+        {requiredApprovals}-of-{signerCount} multisig protects treasury funds
+      </p>
     </div>
   );
 }
@@ -247,10 +454,16 @@ export default function DaoPage() {
   const { address } = useAccount();
 
   /* ── Contract data ───────────────────────────────────────── */
+  const contracts = getContracts(CHAIN.id);
+  const { data: lobBalance, isLoading: lobLoading } = useTreasuryBalance(contracts?.lobToken);
   const { data: signerCount } = useTreasurySignerCount();
   const { data: requiredApprovals } = useTreasuryRequiredApprovals();
   const { data: delegatee } = useDelegatee(address);
   const { data: delegatorCount } = useDelegatorCount(address);
+
+  const lobBalanceNum = lobBalance ? Number(formatEther(lobBalance as bigint)) : 0;
+  const signerCountNum = signerCount !== undefined ? Number(signerCount) : 0;
+  const requiredApprovalsNum = requiredApprovals !== undefined ? Number(requiredApprovals) : 0;
 
   /* ── Tab state ────────────────────────────────────────────── */
   const [activeTab, setActiveTab] = useState<TabId>("proposals");
@@ -308,7 +521,7 @@ export default function DaoPage() {
           <motion.span
             className="btn-primary inline-flex items-center gap-1.5"
             whileHover={{
-              boxShadow: "0 0 20px rgba(0,214,114,0.2)",
+              boxShadow: "inset 0 1px 0 rgba(88,176,89,0.12), 0 4px 16px rgba(88,176,89,0.08)",
             }}
             whileTap={{ scale: 0.97 }}
           >
@@ -325,7 +538,7 @@ export default function DaoPage() {
       {/* ── Layout: Main + Sidebar ──────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Main content area */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 card p-5">
           {/* ── Tabs ────────────────────────────────────────── */}
           <motion.div
             variants={fadeUp}
@@ -674,7 +887,7 @@ export default function DaoPage() {
                         className="btn-primary text-xs"
                         whileHover={{
                           boxShadow:
-                            "0 0 20px rgba(0,214,114,0.2)",
+                            "0 0 20px rgba(88,176,89,0.2)",
                         }}
                         whileTap={{ scale: 0.97 }}
                       >
@@ -739,13 +952,16 @@ export default function DaoPage() {
           </AnimatePresence>
         </div>
 
-        {/* ── Treasury Sidebar ──────────────────────────────── */}
+        {/* ── Sidebar ─────────────────────────────────────────── */}
         <motion.div
           variants={fadeUp}
           className="w-full lg:w-72 flex-shrink-0"
         >
-          <div className="lg:sticky lg:top-4 space-y-3">
-            <TreasuryOverview />
+          <div className="lg:sticky lg:top-20 space-y-3">
+            <TreasuryDonut lobBalance={lobBalanceNum} isLoading={lobLoading} />
+            {signerCountNum > 0 && (
+              <SignersVisual signerCount={signerCountNum} requiredApprovals={requiredApprovalsNum} />
+            )}
 
             {/* Quick links */}
             <div className="card p-4">
@@ -754,14 +970,9 @@ export default function DaoPage() {
               </h3>
               <div className="space-y-2">
                 {[
-                  {
-                    label: "Governance Docs",
-                    href: "/docs",
-                  },
-                  {
-                    label: "Forum: Governance",
-                    href: "/forum/governance",
-                  },
+                  { label: "Governance Docs", href: "/docs" },
+                  { label: "Forum: Governance", href: "/forum/governance" },
+                  { label: "Analytics", href: "/analytics" },
                 ].map((link) => (
                   <Link
                     key={link.href}
@@ -769,19 +980,7 @@ export default function DaoPage() {
                     className="flex items-center justify-between text-xs text-text-secondary hover:text-lob-green transition-colors py-1"
                   >
                     <span>{link.label}</span>
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
+                    <ArrowRight className="w-3 h-3" />
                   </Link>
                 ))}
               </div>
@@ -789,6 +988,11 @@ export default function DaoPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* ── Governance Flow — full-width at bottom ───────────── */}
+      <motion.div variants={fadeUp} className="mt-6">
+        <GovernanceFlow />
+      </motion.div>
     </motion.div>
   );
 }
@@ -803,7 +1007,7 @@ function EmptyState({
   action: React.ReactNode;
 }) {
   return (
-    <div className="card text-center py-16 px-4">
+    <div className="text-center py-16 px-4 border border-border/30 rounded-lg bg-surface-1/30">
       <motion.div
         className="w-10 h-10 rounded-full border border-border mx-auto mb-4 flex items-center justify-center"
         animate={{ rotate: [0, 360] }}

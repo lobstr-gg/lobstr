@@ -7,6 +7,7 @@ import { useAccount } from "wagmi";
 import { useForum } from "@/lib/forum-context";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import Spinner from "@/components/Spinner";
+import { getSoundEnabled, setSoundEnabled } from "@/lib/sounds";
 
 const ALLOWED_FLAIRS = [
   { value: null, label: "None" },
@@ -416,6 +417,36 @@ export default function SettingsPage() {
         >
           {saving ? "Saving..." : "Save Changes"}
         </motion.button>
+      </motion.div>
+
+      {/* Sound Settings */}
+      <motion.div variants={fadeUp} className="mt-4 card p-5">
+        <h2 className="text-sm font-semibold text-text-primary mb-3">Sound</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-text-primary">UI Sounds</p>
+            <p className="text-[10px] text-text-tertiary">
+              Subtle audio cues for escrow, payments, and tier changes
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const current = getSoundEnabled();
+              setSoundEnabled(!current);
+              // Force re-render
+              setSuccess(false);
+            }}
+            className={`relative w-10 h-5 rounded-full transition-colors ${
+              getSoundEnabled() ? "bg-lob-green" : "bg-surface-4"
+            }`}
+          >
+            <motion.div
+              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
+              animate={{ left: getSoundEnabled() ? 22 : 2 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            />
+          </button>
+        </div>
       </motion.div>
 
       {/* Account Info */}

@@ -12,6 +12,7 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
     using SafeERC20 for IERC20;
 
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
+    bytes32 public constant LOCKER_ROLE = keccak256("LOCKER_ROLE");
 
     uint256 public constant UNSTAKE_COOLDOWN = 7 days;
 
@@ -23,6 +24,9 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
     IERC20 public immutable lobToken;
 
     mapping(address => StakeInfo) private _stakes;
+
+    // V-001: Stake locking — prevents unstake while loans/credit lines are active
+    mapping(address => uint256) private _lockedStake;
 
     constructor(address _lobToken) {
         require(_lobToken != address(0), "StakingManager: zero token");
@@ -51,6 +55,9 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
         require(amount > 0, "StakingManager: zero amount");
         require(info.amount >= amount, "StakingManager: insufficient stake");
         require(info.unstakeRequestAmount == 0, "StakingManager: pending unstake");
+
+        // V-001: Cannot unstake locked stake
+        require(info.amount - _lockedStake[msg.sender] >= amount, "StakingManager: stake locked");
 
         info.unstakeRequestAmount = amount;
         info.unstakeRequestTime = block.timestamp;
@@ -106,6 +113,11 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
 
         info.amount -= amount;
 
+        // V-001: Auto-reduce locked stake if slash drops below lock
+        if (_lockedStake[user] > info.amount) {
+            _lockedStake[user] = info.amount;
+        }
+
         lobToken.safeTransfer(beneficiary, amount);
 
         emit Slashed(user, amount, beneficiary);
@@ -114,6 +126,37 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
         if (oldTier != newTier) {
             emit TierChanged(user, oldTier, newTier);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  V-001: STAKE LOCKING
+    // ═══════════════════════════════════════════════════════════════
+
+    function lockStake(address user, uint256 amount) external onlyRole(LOCKER_ROLE) {
+        require(amount > 0, "StakingManager: zero amount");
+        uint256 unlocked = _stakes[user].amount - _lockedStake[user];
+        require(amount <= unlocked, "StakingManager: insufficient unlocked stake");
+        _lockedStake[user] += amount;
+        emit StakeLocked(user, amount, _lockedStake[user]);
+    }
+
+    function unlockStake(address user, uint256 amount) external onlyRole(LOCKER_ROLE) {
+        require(amount > 0, "StakingManager: zero amount");
+        if (amount > _lockedStake[user]) {
+            amount = _lockedStake[user];
+        }
+        _lockedStake[user] -= amount;
+        emit StakeUnlocked(user, amount, _lockedStake[user]);
+    }
+
+    function getLockedStake(address user) external view returns (uint256) {
+        return _lockedStake[user];
+    }
+
+    function getUnlockedStake(address user) external view returns (uint256) {
+        uint256 total = _stakes[user].amount;
+        uint256 locked = _lockedStake[user];
+        return total > locked ? total - locked : 0;
     }
 
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {

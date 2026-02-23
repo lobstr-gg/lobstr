@@ -1,7 +1,7 @@
 export type JobStatus = "active" | "delivered" | "completed" | "disputed";
 export type JobRole = "buyer" | "seller";
 
-export interface MockJob {
+export interface WalletJob {
   id: string;
   title: string;
   description: string;
@@ -26,7 +26,9 @@ export interface MockJob {
   milestonesPaid: number;
   milestonesTotal: number;
   disputeReason?: string;
+  isX402?: boolean;
+  /** EscrowType enum: 0 = SERVICE_JOB, 1 = SKILL_PURCHASE */
+  escrowType?: number;
+  /** Skill ID for SKILL_PURCHASE escrow type */
+  skillId?: string;
 }
-
-// TODO: Fetch jobs for connected wallet from indexer/contract
-export const MOCK_JOBS: MockJob[] = [];

@@ -13,17 +13,17 @@ const config: Config = {
       },
       colors: {
         lob: {
-          green: "#00D672",
-          "green-light": "#00FF88",
-          "green-dark": "#00A858",
-          "green-dim": "#0A3D2A",
-          "green-muted": "rgba(0, 214, 114, 0.12)",
+          green: "#58B059",
+          "green-light": "#6EC46F",
+          "green-dark": "#479248",
+          "green-dim": "#1A3A1B",
+          "green-muted": "rgba(88, 176, 89, 0.12)",
           red: "#FF3B69",
           "red-dim": "rgba(255, 59, 105, 0.12)",
           yellow: "#F0B90B",
         },
         surface: {
-          0: "#000000",
+          0: "#0A0B0F",
           1: "#0E1217",
           2: "#141820",
           3: "#1A1F2A",

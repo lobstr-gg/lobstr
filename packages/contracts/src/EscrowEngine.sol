@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IEscrowEngine.sol";
 import "./interfaces/IServiceRegistry.sol";
@@ -16,10 +17,16 @@ import "./interfaces/ISybilGuard.sol";
 contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
+    bytes32 public constant SKILL_REGISTRY_ROLE = keccak256("SKILL_REGISTRY_ROLE");
+
     uint256 public constant USDC_FEE_BPS = 150; // 1.5%
     uint256 public constant LOW_VALUE_DISPUTE_WINDOW = 1 hours;
     uint256 public constant HIGH_VALUE_DISPUTE_WINDOW = 24 hours;
     uint256 public constant HIGH_VALUE_THRESHOLD = 500 ether; // 500 LOB equivalent
+    uint256 public constant SKILL_ESCROW_DISPUTE_WINDOW = 72 hours;
+    uint256 public constant MIN_ESCROW_AMOUNT = 10 ether; // 10 LOB minimum
+    uint256 public constant MIN_REPUTATION_VALUE = 50 ether; // 50 LOB minimum for reputation recording
+    uint256 public constant AUTO_RELEASE_GRACE = 15 minutes;
 
     IERC20 public immutable lobToken;
     IServiceRegistry public immutable serviceRegistry;
@@ -34,6 +41,10 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
 
     mapping(uint256 => Job) private _jobs;
     mapping(uint256 => uint256) private _jobDisputeIds;
+
+    // V-002: Token allowlist — only approved tokens can be used in escrows.
+    // Prevents worthless tokens from inflating arbitrator rewards.
+    mapping(address => bool) private _allowedTokens;
 
     constructor(
         address _lobToken,
@@ -61,6 +72,29 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
         sybilGuard = ISybilGuard(_sybilGuard);
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        // LOB is always allowlisted
+        _allowedTokens[_lobToken] = true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  TOKEN ALLOWLIST (V-002)
+    // ═══════════════════════════════════════════════════════════════
+
+    function allowlistToken(address token) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(token != address(0), "EscrowEngine: zero token");
+        _allowedTokens[token] = true;
+        emit TokenAllowlisted(token);
+    }
+
+    function removeToken(address token) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(token != address(lobToken), "EscrowEngine: cannot remove LOB");
+        _allowedTokens[token] = false;
+        emit TokenRemoved(token);
+    }
+
+    function isTokenAllowed(address token) external view returns (bool) {
+        return _allowedTokens[token];
     }
 
     function createJob(
@@ -72,6 +106,7 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
         require(seller != address(0), "EscrowEngine: zero seller");
         require(seller != msg.sender, "EscrowEngine: self-hire");
         require(amount > 0, "EscrowEngine: zero amount");
+        require(amount >= MIN_ESCROW_AMOUNT, "EscrowEngine: below minimum");
 
         // H-4: Ban checks for both parties
         require(!sybilGuard.checkBanned(msg.sender), "EscrowEngine: buyer banned");
@@ -84,6 +119,9 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
 
         // C-2: Validate token matches listing's settlement token
         require(token == listing.settlementToken, "EscrowEngine: token mismatch");
+
+        // V-002: Only allowlisted tokens can be used in escrows
+        require(_allowedTokens[token], "EscrowEngine: token not allowed");
 
         // Calculate fee: 0% for LOB, 1.5% for anything else
         uint256 fee = 0;
@@ -118,23 +156,95 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
             status: JobStatus.Active,
             createdAt: block.timestamp,
             disputeWindowEnd: 0, // Set when delivery is submitted
-            deliveryMetadataURI: ""
+            deliveryMetadataURI: "",
+            escrowType: EscrowType.SERVICE_JOB,
+            skillId: 0
         });
 
         emit JobCreated(jobId, listingId, msg.sender, seller, received, token, fee);
     }
 
+    function createSkillEscrow(
+        uint256 skillId,
+        address buyer,
+        address seller,
+        uint256 amount,
+        address token
+    ) external onlyRole(SKILL_REGISTRY_ROLE) nonReentrant whenNotPaused returns (uint256 jobId) {
+        require(buyer != address(0), "EscrowEngine: zero buyer");
+        require(seller != address(0), "EscrowEngine: zero seller");
+        require(buyer != seller, "EscrowEngine: self-purchase");
+        require(amount > 0, "EscrowEngine: zero amount");
+        require(amount >= MIN_ESCROW_AMOUNT, "EscrowEngine: below minimum");
+
+        // Ban checks
+        require(!sybilGuard.checkBanned(buyer), "EscrowEngine: buyer banned");
+        require(!sybilGuard.checkBanned(seller), "EscrowEngine: seller banned");
+
+        // V-002: Only allowlisted tokens
+        require(_allowedTokens[token], "EscrowEngine: token not allowed");
+
+        // Calculate fee: 0% for LOB, 1.5% for anything else
+        uint256 fee = 0;
+        if (token != address(lobToken)) {
+            fee = (amount * USDC_FEE_BPS) / 10000;
+        }
+
+        // Fee-on-transfer safe: measure actual received
+        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(buyer, address(this), amount);
+        uint256 received = IERC20(token).balanceOf(address(this)) - balanceBefore;
+        require(received > 0, "EscrowEngine: zero received");
+
+        // Recalculate fee based on actual received amount
+        if (received != amount) {
+            fee = 0;
+            if (token != address(lobToken)) {
+                fee = (received * USDC_FEE_BPS) / 10000;
+            }
+        }
+
+        jobId = _nextJobId++;
+
+        _jobs[jobId] = Job({
+            id: jobId,
+            listingId: 0, // No service listing for skill escrows
+            buyer: buyer,
+            seller: seller,
+            amount: received,
+            token: token,
+            fee: fee,
+            status: JobStatus.Delivered, // Skip delivery step
+            createdAt: block.timestamp,
+            disputeWindowEnd: block.timestamp + SKILL_ESCROW_DISPUTE_WINDOW,
+            deliveryMetadataURI: "",
+            escrowType: EscrowType.SKILL_PURCHASE,
+            skillId: skillId
+        });
+
+        emit SkillEscrowCreated(jobId, skillId, buyer, seller, received);
+    }
+
     function submitDelivery(uint256 jobId, string calldata metadataURI) external nonReentrant whenNotPaused {
         Job storage job = _jobs[jobId];
         require(job.id != 0, "EscrowEngine: job not found");
+        require(job.escrowType == EscrowType.SERVICE_JOB, "EscrowEngine: not service job");
         require(msg.sender == job.seller, "EscrowEngine: not seller");
         require(job.status == JobStatus.Active, "EscrowEngine: wrong status");
 
         job.status = JobStatus.Delivered;
         job.deliveryMetadataURI = metadataURI;
 
-        // Start dispute window
-        uint256 disputeWindow = job.amount >= HIGH_VALUE_THRESHOLD
+        // Start dispute window — normalize to 18 decimals for cross-token comparison
+        uint256 normalizedAmount = job.amount;
+        try IERC20Metadata(job.token).decimals() returns (uint8 dec) {
+            if (dec < 18) {
+                normalizedAmount = job.amount * (10 ** (18 - dec));
+            }
+        } catch {
+            // If decimals() reverts, assume 18 (LOB default)
+        }
+        uint256 disputeWindow = normalizedAmount >= HIGH_VALUE_THRESHOLD
             ? HIGH_VALUE_DISPUTE_WINDOW
             : LOW_VALUE_DISPUTE_WINDOW;
         job.disputeWindowEnd = block.timestamp + disputeWindow;
@@ -152,8 +262,10 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
 
         _releaseFunds(job);
 
-        // Record completion for reputation
-        reputationSystem.recordCompletion(job.seller, job.buyer);
+        // Record completion for reputation only if value meets threshold
+        if (_normalizeJobAmount(job) >= MIN_REPUTATION_VALUE) {
+            reputationSystem.recordCompletion(job.seller, job.buyer);
+        }
 
         emit DeliveryConfirmed(jobId, msg.sender);
     }
@@ -189,12 +301,22 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
         require(job.status == JobStatus.Delivered, "EscrowEngine: wrong status");
         require(block.timestamp > job.disputeWindowEnd, "EscrowEngine: window not expired");
 
+        // Non-seller callers must wait an additional grace period
+        if (msg.sender != job.seller) {
+            require(
+                block.timestamp > job.disputeWindowEnd + AUTO_RELEASE_GRACE,
+                "EscrowEngine: grace period active"
+            );
+        }
+
         job.status = JobStatus.Released;
 
         _releaseFunds(job);
 
-        // Record completion for reputation
-        reputationSystem.recordCompletion(job.seller, job.buyer);
+        // Record completion for reputation only if value meets threshold
+        if (_normalizeJobAmount(job) >= MIN_REPUTATION_VALUE) {
+            reputationSystem.recordCompletion(job.seller, job.buyer);
+        }
 
         emit AutoReleased(jobId, msg.sender);
     }
@@ -268,6 +390,23 @@ contract EscrowEngine is IEscrowEngine, AccessControl, ReentrancyGuard, Pausable
     }
 
     // --- Internal ---
+
+    /// @dev Normalize job amount to 18 decimals for cross-token comparison.
+    function _normalizeJobAmount(Job storage job) internal view returns (uint256) {
+        uint256 normalized = job.amount;
+        if (job.token != address(lobToken)) {
+            try IERC20Metadata(job.token).decimals() returns (uint8 dec) {
+                if (dec < 18) {
+                    normalized = job.amount * (10 ** (18 - dec));
+                } else if (dec > 18) {
+                    normalized = job.amount / (10 ** (dec - 18));
+                }
+            } catch {
+                // If decimals() reverts, assume 18
+            }
+        }
+        return normalized;
+    }
 
     function _releaseFunds(Job storage job) internal {
         uint256 sellerPayout = job.amount - job.fee;

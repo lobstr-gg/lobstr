@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
-import { getUserByAddress, timeAgo } from "@/lib/forum-data";
+import { timeAgo } from "@/lib/forum-data";
 import type { Conversation, DirectMessage } from "@/lib/forum-types";
 import ProfileAvatar from "@/components/ProfileAvatar";
 
@@ -23,8 +23,7 @@ export default function DMThread({
   const otherAddress = conversation.participants.find(
     (p) => p !== currentUserAddress
   ) ?? conversation.participants[0];
-  const otherUser = getUserByAddress(otherAddress);
-  const currentUserData = getUserByAddress(currentUserAddress);
+  const shortOther = `${otherAddress.slice(0, 6)}...${otherAddress.slice(-4)}`;
 
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
@@ -71,7 +70,7 @@ export default function DMThread({
         });
         setIsBlocked(false);
       } else {
-        if (!confirm(`Block ${otherUser?.displayName ?? otherAddress}?`)) {
+        if (!confirm(`Block ${shortOther}?`)) {
           setBlockLoading(false);
           return;
         }
@@ -93,20 +92,15 @@ export default function DMThread({
       {/* Header */}
       <div className="flex items-center gap-3 p-3 border-b border-border/30 mb-3">
         <Link href={`/forum/u/${otherAddress}`}>
-          <ProfileAvatar user={otherUser} size="sm" />
+          <ProfileAvatar user={null} size="sm" />
         </Link>
         <div className="flex-1">
           <Link
             href={`/forum/u/${otherAddress}`}
-            className="text-sm font-medium text-text-primary hover:text-lob-green transition-colors"
+            className="text-sm font-medium text-text-primary hover:text-lob-green transition-colors font-mono"
           >
-            {otherUser?.displayName ?? otherAddress}
+            {shortOther}
           </Link>
-          {otherUser?.username && (
-            <p className="text-[10px] text-text-secondary">
-              @{otherUser.username}
-            </p>
-          )}
           <p className="text-[10px] text-text-tertiary font-mono">
             {otherAddress}
           </p>
@@ -128,7 +122,7 @@ export default function DMThread({
       <div className="flex-1 overflow-y-auto space-y-3 px-3">
         {messages.map((msg, i) => {
           const isSelf = msg.sender === currentUserAddress;
-          const senderUser = isSelf ? currentUserData : otherUser;
+          const senderUser = null;
 
           return (
             <motion.div

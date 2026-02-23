@@ -3,9 +3,8 @@
 import { useReadContract } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
-import { base } from "wagmi/chains";
 import { getContracts, CHAIN } from "@/config/contracts";
-import { LOBTokenABI, AirdropClaimV2ABI } from "@/config/abis";
+import { LOBTokenABI, AirdropClaimABI } from "@/config/abis";
 import { fetchProtocolCounts, isIndexerConfigured } from "@/lib/indexer";
 
 const POLL_INTERVAL = 30_000;
@@ -27,7 +26,7 @@ export function useProtocolMetrics() {
     abi: LOBTokenABI,
     functionName: "balanceOf",
     args: contracts ? [contracts.stakingManager] : undefined,
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: {
       enabled: !!contracts,
       refetchInterval: POLL_INTERVAL,
@@ -39,14 +38,14 @@ export function useProtocolMetrics() {
     },
   });
 
-  // On-chain: AirdropClaimV2.totalClaimed()
+  // On-chain: AirdropClaimV3.totalClaimed()
   const airdropClaimed = useReadContract({
-    address: contracts?.airdropClaimV2,
-    abi: AirdropClaimV2ABI,
+    address: contracts?.airdropClaim,
+    abi: AirdropClaimABI,
     functionName: "totalClaimed",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: {
-      enabled: !!contracts?.airdropClaimV2,
+      enabled: !!contracts?.airdropClaim,
       refetchInterval: POLL_INTERVAL,
       refetchIntervalInBackground: false,
       refetchOnWindowFocus: true,

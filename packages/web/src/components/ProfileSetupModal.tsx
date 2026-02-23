@@ -1,25 +1,66 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAccount, useReadContract } from "wagmi";
 import { scaleIn } from "@/lib/motion";
 import { useForum } from "@/lib/forum-context";
+import { getContracts, CHAIN } from "@/config/contracts";
+import { DisputeArbitrationABI } from "@/config/abis";
+import { fetchAccount } from "@/lib/indexer";
 
-const ALLOWED_FLAIRS = [
+const PUBLIC_FLAIRS = [
   { value: null, label: "None" },
   { value: "Builder", label: "Builder" },
-  { value: "Contributor", label: "Contributor" },
   { value: "Early Adopter", label: "Early Adopter" },
   { value: "Agent Provider", label: "Agent Provider" },
+];
+
+const ARBITRATOR_FLAIRS = [
   { value: "Arbitrator", label: "Arbitrator" },
   { value: "Senior Arbitrator", label: "Senior Arbitrator" },
+];
+
+const MODERATOR_FLAIRS = [
   { value: "Moderator", label: "Moderator" },
   { value: "Senior Moderator", label: "Senior Moderator" },
 ];
 
 export default function ProfileSetupModal() {
-  const { needsProfileSetup, dismissProfileSetup, updateCurrentUser } =
+  const { needsProfileSetup, dismissProfileSetup, updateCurrentUser, currentUser } =
     useForum();
+  const { address } = useAccount();
+  const contracts = getContracts(CHAIN.id);
+
+  // Check on-chain arbitrator status
+  const { data: arbInfo } = useReadContract({
+    address: contracts?.disputeArbitration,
+    abi: DisputeArbitrationABI,
+    functionName: "getArbitratorInfo",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!contracts?.disputeArbitration },
+  });
+
+  // Fetch indexer account for completions count
+  const [completions, setCompletions] = useState(0);
+  useEffect(() => {
+    if (!address) return;
+    fetchAccount(address).then((acc) => {
+      if (acc) setCompletions(acc.completions);
+    });
+  }, [address]);
+
+  const isArbitrator = !!(arbInfo as { active?: boolean })?.active;
+  const isMod = !!currentUser?.modTier;
+  const isContributor = completions > 0 || (currentUser?.karma ?? 0) >= 50;
+
+  const allowedFlairs = useMemo(() => [
+    ...PUBLIC_FLAIRS,
+    ...(isContributor ? [{ value: "Contributor", label: "Contributor" }] : []),
+    ...(isArbitrator ? ARBITRATOR_FLAIRS : []),
+    ...(isMod ? MODERATOR_FLAIRS : []),
+  ], [isContributor, isArbitrator, isMod]);
+
   const [step, setStep] = useState<"form" | "done">("form");
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -127,12 +168,12 @@ export default function ProfileSetupModal() {
           exit={{ opacity: 0 }}
         >
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-surface-0/70 backdrop-blur-sm"
             onClick={dismissProfileSetup}
           />
 
           <motion.div
-            className="relative w-full max-w-md card p-6 bg-surface-1 border border-border max-h-[85vh] overflow-y-auto"
+            className="relative w-full max-w-md card p-4 sm:p-6 bg-surface-1 border border-border max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto"
             variants={scaleIn}
             initial="hidden"
             animate="show"
@@ -172,7 +213,7 @@ export default function ProfileSetupModal() {
                   </div>
                   <button
                     onClick={dismissProfileSetup}
-                    className="text-text-tertiary hover:text-text-primary text-sm"
+                    className="min-h-[44px] px-3 inline-flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-2 text-sm"
                   >
                     Skip
                   </button>
@@ -283,7 +324,7 @@ export default function ProfileSetupModal() {
                       Flair <span className="text-text-tertiary">(optional)</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5">
-                      {ALLOWED_FLAIRS.map((f) => (
+                      {allowedFlairs.map((f) => (
                         <button
                           key={f.value ?? "none"}
                           type="button"

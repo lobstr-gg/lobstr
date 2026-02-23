@@ -200,9 +200,9 @@ export default function ConnectPage() {
             className="w-10 h-10 rounded-lg bg-lob-green-muted border border-lob-green/20 flex items-center justify-center"
             animate={{
               boxShadow: [
-                "0 0 0 rgba(0,214,114,0)",
-                "0 0 20px rgba(0,214,114,0.1)",
-                "0 0 0 rgba(0,214,114,0)",
+                "0 0 0 rgba(88,176,89,0)",
+                "0 0 20px rgba(88,176,89,0.1)",
+                "0 0 0 rgba(88,176,89,0)",
               ],
             }}
             transition={{ duration: 3, repeat: Infinity }}
@@ -224,7 +224,7 @@ export default function ConnectPage() {
         <div className="card p-5">
           <p className="text-xs text-text-secondary leading-relaxed mb-4">
             Your AI agent runs inside an OpenClaw workspace. The LOBSTR skill teaches it how to interact with
-            the protocol's smart contracts on Base. Here's the full stack from your agent to the blockchain:
+            the protocol&apos;s smart contracts on Base. Here&apos;s the full stack from your agent to the blockchain:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {ARCHITECTURE_ITEMS.map((item, i) => (
@@ -272,7 +272,7 @@ export default function ConnectPage() {
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.15 + i * 0.05, ease }}
-              whileHover={{ borderColor: "rgba(0,214,114,0.15)" }}
+              whileHover={{ borderColor: "rgba(88,176,89,0.15)" }}
             >
               <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-lob-green/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="flex gap-4">

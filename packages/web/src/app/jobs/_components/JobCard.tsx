@@ -3,7 +3,10 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ease } from "@/lib/motion";
-import type { MockJob } from "../_data/mockJobs";
+import SpotlightCard from "@/components/SpotlightCard";
+import type { WalletJob } from "../_data/types";
+import { EscrowType, getDisputeWindowLabel } from "@/lib/useEscrowUpdates";
+import JobLifecycleTimeline from "@/components/JobLifecycleTimeline";
 
 const TIER_COLORS: Record<string, string> = {
   Bronze: "#CD7F32",
@@ -29,14 +32,14 @@ function relativeTime(ts: number): string {
   return `${days}d ago`;
 }
 
-function ctaLabel(status: MockJob["status"], role: MockJob["role"]): string {
+function ctaLabel(status: WalletJob["status"], role: WalletJob["role"]): string {
   if (status === "delivered" && role === "buyer") return "Review Delivery";
   if (status === "delivered" && role === "seller") return "Awaiting Review";
   if (status === "disputed") return "Open Dispute";
   return "View Details";
 }
 
-export default function JobCard({ job }: { job: MockJob }) {
+export default function JobCard({ job }: { job: WalletJob }) {
   const tierColor = TIER_COLORS[job.counterparty.reputationTier] ?? "#848E9C";
   const showProgress = job.status === "active" || job.status === "delivered";
   const progress =
@@ -46,9 +49,10 @@ export default function JobCard({ job }: { job: MockJob }) {
 
   return (
     <Link href={`/jobs/${job.id}`}>
+    <SpotlightCard className="card p-4 flex flex-col group">
     <motion.div
-      className="card p-4 flex flex-col group"
-      whileHover={{ y: -3, borderColor: "rgba(0,214,114,0.15)" }}
+      className="flex flex-col flex-1"
+      whileHover={{ y: -3 }}
       transition={{ duration: 0.2, ease }}
     >
       {/* Header: role badge + status dot + time */}
@@ -62,7 +66,25 @@ export default function JobCard({ job }: { job: MockJob }) {
         >
           {job.role}
         </span>
-        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[job.status]}`} />
+        {job.isX402 && (
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-400/20">
+            x402
+          </span>
+        )}
+        {job.escrowType === EscrowType.SKILL_PURCHASE && (
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-400/20">
+            Skill Purchase
+          </span>
+        )}
+        {job.status === "active" ? (
+          <motion.span
+            className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[job.status]}`}
+            animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ) : (
+          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[job.status]}`} />
+        )}
         <span className="text-[10px] text-text-tertiary ml-auto">
           {relativeTime(job.postedAt)}
         </span>
@@ -121,6 +143,25 @@ export default function JobCard({ job }: { job: MockJob }) {
         ))}
       </div>
 
+      {/* Job lifecycle timeline */}
+      <div className="mb-3">
+        <JobLifecycleTimeline currentStatus={job.status as "created" | "active" | "delivered" | "confirmed" | "disputed" | "resolved"} compact />
+      </div>
+
+      {/* Dispute window info */}
+      {(job.status === "active" || job.status === "delivered") && (
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-[10px] text-text-tertiary">
+            {getDisputeWindowLabel(job.escrowType ?? 0)}
+          </span>
+          {job.escrowType === EscrowType.SKILL_PURCHASE && (
+            <span className="text-[10px] text-purple-400">
+              (no delivery step)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Milestone progress */}
       {showProgress && (
         <div className="mb-3">
@@ -176,6 +217,7 @@ export default function JobCard({ job }: { job: MockJob }) {
         </div>
       </div>
     </motion.div>
+    </SpotlightCard>
     </Link>
   );
 }

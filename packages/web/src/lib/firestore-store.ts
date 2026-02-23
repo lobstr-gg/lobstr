@@ -75,7 +75,7 @@ export function generateId(): string {
 export function sanitizeUserForPublic(
   user: ForumUser
 ): Omit<ForumUser, "warningCount"> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const { warningCount, ...publicUser } = user;
   return publicUser;
 }
@@ -882,7 +882,7 @@ export async function getReviewSummaryForUser(
 
 // ── Notifications ─────────────────────────────────────────────
 
-import type { Notification, NotificationType, FriendRequest } from "./forum-types";
+import type { Notification, NotificationType, FriendRequest, RelayMessage } from "./forum-types";
 
 export async function getNotificationsForUser(
   address: string
@@ -1197,4 +1197,165 @@ export async function updateReportStatus(
   status: "pending" | "reviewed" | "actioned" | "dismissed"
 ): Promise<void> {
   await col("reports").doc(id).update({ status });
+}
+
+// ── Airdrop V3 Attestations ─────────────────────────────────
+
+export interface AirdropV3AttestationEntry {
+  address: string;
+  tier: number;
+  nonce: string;
+  signature: string;
+  signer: string;
+  createdAt: number;
+}
+
+export async function getAirdropV3Attestation(
+  address: string
+): Promise<AirdropV3AttestationEntry | undefined> {
+  const snap = await col("airdropV3Attestations").doc(address).get();
+  return snap.exists ? (snap.data() as AirdropV3AttestationEntry) : undefined;
+}
+
+export async function setAirdropV3Attestation(
+  address: string,
+  entry: AirdropV3AttestationEntry
+): Promise<void> {
+  await col("airdropV3Attestations").doc(address).set(entry);
+}
+
+// ── Airdrop V3 Approvals (IP-gated) ─────────────────────────
+
+export interface AirdropV3ApprovalEntry {
+  address: string;
+  nonce: string;
+  approvedAt: number;
+}
+
+export async function atomicAirdropV3Approval(
+  ip: string,
+  entry: AirdropV3ApprovalEntry
+): Promise<{ success: boolean; existingApproval?: AirdropV3ApprovalEntry }> {
+  const db = getDb();
+  const ref = col("airdropV3Approvals").doc(ip);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      return { success: false, existingApproval: snap.data() as AirdropV3ApprovalEntry };
+    }
+    tx.set(ref, entry);
+    return { success: true };
+  });
+}
+
+// ── Dispute Threads ──────────────────────────────────────────
+
+export interface DisputeThread {
+  disputeId: string;
+  postId: string;
+  createdAt: number;
+  participants: string[];
+}
+
+export async function createDisputeThread(
+  disputeId: string,
+  postId: string,
+  participants: string[]
+): Promise<void> {
+  await col("dispute_threads").doc(disputeId).set({
+    disputeId,
+    postId,
+    createdAt: Date.now(),
+    participants,
+  });
+}
+
+export async function getDisputeThread(
+  disputeId: string
+): Promise<{ postId: string; participants: string[] } | null> {
+  const snap = await col("dispute_threads").doc(disputeId).get();
+  if (!snap.exists) return null;
+  const data = snap.data() as DisputeThread;
+  return { postId: data.postId, participants: data.participants };
+}
+
+export async function updateDisputeThreadParticipants(
+  disputeId: string,
+  participants: string[]
+): Promise<void> {
+  await col("dispute_threads").doc(disputeId).update({ participants });
+}
+
+// ── Relay Messages ───────────────────────────────────────────
+
+export async function createRelayMessage(
+  msg: Omit<RelayMessage, "id">
+): Promise<string> {
+  const id = generateId();
+  await col("relay_messages").doc(id).set({ id, ...msg });
+  return id;
+}
+
+export async function getRelayInbox(
+  address: string,
+  opts: { type?: string; unread?: boolean; since?: number; limit?: number }
+): Promise<RelayMessage[]> {
+  const limit = opts.limit || 50;
+
+  // Query messages addressed to this address
+  let query = col("relay_messages")
+    .where("to", "in", [address.toLowerCase(), "broadcast"])
+    .orderBy("createdAt", "desc")
+    .limit(limit);
+
+  const snap = await query.get();
+  let messages = snap.docs.map((d) => d.data() as RelayMessage);
+
+  // Apply filters in memory (Firestore limitations on compound queries)
+  if (opts.type) {
+    messages = messages.filter((m) => m.type === opts.type);
+  }
+  if (opts.unread) {
+    messages = messages.filter((m) => !m.read);
+  }
+  if (opts.since) {
+    messages = messages.filter((m) => m.createdAt >= opts.since!);
+  }
+
+  return messages;
+}
+
+export async function markRelayMessagesRead(
+  address: string,
+  messageIds: string[]
+): Promise<void> {
+  const batch = getDb().batch();
+  for (const id of messageIds) {
+    const ref = col("relay_messages").doc(id);
+    const snap = await ref.get();
+    if (snap.exists) {
+      const msg = snap.data() as RelayMessage;
+      if (msg.to === address.toLowerCase() || msg.to === "broadcast") {
+        batch.update(ref, { read: true });
+      }
+    }
+  }
+  await batch.commit();
+}
+
+export async function cleanExpiredRelayMessages(): Promise<number> {
+  const now = Date.now();
+  const snap = await col("relay_messages")
+    .where("expiresAt", ">", 0)
+    .where("expiresAt", "<=", now)
+    .limit(100)
+    .get();
+
+  if (snap.empty) return 0;
+
+  const batch = getDb().batch();
+  snap.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+  return snap.size;
 }

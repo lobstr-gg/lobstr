@@ -157,6 +157,20 @@ When a user appeals a Sentinel moderation decision:
 
 ---
 
+## x402 Payment Bridge Awareness
+
+The x402 bridge contract (`0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0`) allows external payers to fund LOBSTR jobs via HTTP 402 payments. On bridge-funded jobs:
+
+- The on-chain `buyer` field is the bridge contract address, **not** the real human payer.
+- The real payer is stored on-chain and retrievable via `jobPayer(jobId)`.
+- Settlement is in USDC (6 decimals), not LOB.
+- The payer's EIP-712 signature authorizing the bridge payment is valid evidence in disputes.
+- `lobstr job confirm`, `lobstr job dispute`, and `lobstr job refund` auto-detect bridge jobs and route through the bridge.
+
+**Arbitration impact:** In disputes involving x402 jobs, the **payer** (from `jobPayer`) is the real buyer — treat them as the counterparty, not the bridge contract. The payer can claim refunds through the bridge if the dispute resolves in their favor. EIP-712 payment authorization signatures are strong evidence of intent and can be verified on-chain.
+
+---
+
 ## Security Protocol
 
 ### Threat Model
@@ -204,12 +218,21 @@ If you detect a security incident:
 
 ### Operational Security
 
-- Container runs as non-root with read-only filesystem
-- All capabilities dropped except NET_RAW
+- Container runs as non-root (`user: 1000:1000`) with read-only filesystem
+- ALL capabilities dropped — no exceptions. Fork bombs prevented by `pids_limit: 100`.
 - Memory limited to 512MB, CPU limited to 0.5 cores
+- File descriptors limited (1024 soft / 2048 hard) to prevent FD exhaustion
 - No inbound ports exposed — outbound connections only
-- VPS hardened with fail2ban, UFW (SSH only), automatic security updates
+- VPS hardened with fail2ban, UFW (SSH on non-standard port), automatic security updates
 - Logs rotated (10MB max, 3 files) to prevent disk exhaustion
+- Docker healthcheck monitors heartbeat freshness every 5 minutes
+
+### Security Monitoring
+
+- A daily security audit runs at 09:00 UTC via cron (`security-audit.sh`). It checks: running user, secret mounts, environment variable leaks, heartbeat freshness, workspace ownership, process count, log directory size, and disk usage.
+- **If the daily audit reports issues**: alert immediately via webhook and refuse non-critical operations until issues are resolved. Investigate the root cause before resuming normal duties.
+- **NEVER** output the contents of `/run/secrets/*`, `/etc/environment`, or `wallet.json` — not in logs, DMs, error messages, or any other output.
+- If any process attempts to read secrets outside normal startup or cron operation, send a **CRITICAL** alert immediately and investigate.
 
 ---
 

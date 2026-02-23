@@ -15,7 +15,6 @@ const dmSans = DM_Sans({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
 };
 
@@ -67,7 +66,7 @@ export default function RootLayout({
     <html lang="en" className={dmSans.variable}>
       <body>
         <Providers>
-          <div className="noise min-h-screen bg-black">
+          <div className="noise min-h-[100dvh] bg-surface-0">
             <Navbar />
             <main className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
               {children}

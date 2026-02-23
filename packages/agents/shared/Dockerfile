@@ -28,13 +28,13 @@ RUN apt-get update && \
 RUN groupadd -g 1000 agent && \
     useradd -u 1000 -g agent -m -s /bin/bash agent
 
-# Copy built application
-COPY --from=builder /build /opt/lobstr/app
+# Copy built application (owned by agent, not root)
+COPY --from=builder --chown=agent:agent /build /opt/lobstr/app
 
 # Copy shared scripts and cron templates
-COPY packages/agents/shared/scripts/ /opt/scripts/
-COPY packages/agents/shared/cron/ /opt/cron/
-COPY packages/agents/shared/docker-entrypoint.sh /opt/docker-entrypoint.sh
+COPY --chown=agent:agent packages/agents/shared/scripts/ /opt/scripts/
+COPY --chown=agent:agent packages/agents/shared/cron/ /opt/cron/
+COPY --chown=agent:agent packages/agents/shared/docker-entrypoint.sh /opt/docker-entrypoint.sh
 
 RUN chmod +x /opt/docker-entrypoint.sh /opt/scripts/*.sh /opt/cron/*.sh
 

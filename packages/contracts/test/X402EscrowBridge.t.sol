@@ -15,6 +15,12 @@ contract MockSybilGuard {
     function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
 }
 
+contract MockRewardDistributor {
+    function creditArbitratorReward(address, address, uint256) external {}
+    function deposit(address, uint256) external {}
+    function availableBudget(address) external pure returns (uint256) { return type(uint256).max; }
+}
+
 /// @dev Mock ERC-20 that implements EIP-3009 transferWithAuthorization + receiveWithAuthorization.
 ///      Skips signature verification — just transfers tokens directly.
 contract MockERC3009 is LOBToken {
@@ -59,6 +65,7 @@ contract X402EscrowBridgeTest is Test {
     EscrowEngine public escrow;
     X402EscrowBridge public bridge;
     MockSybilGuard public mockSybilGuard;
+    MockRewardDistributor public mockRewardDist;
 
     address public admin = makeAddr("admin");
     address public distributor = makeAddr("distributor");
@@ -94,8 +101,9 @@ contract X402EscrowBridgeTest is Test {
         reputation = new ReputationSystem();
         staking = new StakingManager(address(token));
         mockSybilGuard = new MockSybilGuard();
+        mockRewardDist = new MockRewardDistributor();
         registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
         escrow = new EscrowEngine(
             address(token),
             address(registry),
@@ -221,6 +229,9 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 disputeId = escrow.getJobDisputeId(jobId);
 
+        vm.roll(block.number + 11);
+        dispute.sealPanel(disputeId);
+
         vm.warp(block.timestamp + 25 hours);
         dispute.advanceToVoting(disputeId);
 
@@ -233,6 +244,10 @@ contract X402EscrowBridgeTest is Test {
 
         vm.prank(arb1);
         dispute.executeRuling(disputeId);
+
+        // Finalize after appeal window
+        vm.warp(block.timestamp + 49 hours);
+        dispute.finalizeRuling(disputeId);
     }
 
     function _disputeAndResolveSellerWins(uint256 jobId) internal {
@@ -244,6 +259,9 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 disputeId = escrow.getJobDisputeId(jobId);
 
+        vm.roll(block.number + 11);
+        dispute.sealPanel(disputeId);
+
         vm.warp(block.timestamp + 25 hours);
         dispute.advanceToVoting(disputeId);
 
@@ -256,6 +274,10 @@ contract X402EscrowBridgeTest is Test {
 
         vm.prank(arb1);
         dispute.executeRuling(disputeId);
+
+        // Finalize after appeal window
+        vm.warp(block.timestamp + 49 hours);
+        dispute.finalizeRuling(disputeId);
     }
 
     function _disputeAndResolveDraw(uint256 jobId) internal {
@@ -266,6 +288,9 @@ contract X402EscrowBridgeTest is Test {
         bridge.initiateDispute(jobId, "ipfs://evidence");
 
         uint256 disputeId = escrow.getJobDisputeId(jobId);
+
+        vm.roll(block.number + 11);
+        dispute.sealPanel(disputeId);
 
         vm.warp(block.timestamp + 25 hours);
         dispute.advanceToVoting(disputeId);
@@ -278,6 +303,10 @@ contract X402EscrowBridgeTest is Test {
         vm.warp(block.timestamp + 4 days);
         vm.prank(arb1);
         dispute.executeRuling(disputeId);
+
+        // Finalize after appeal window
+        vm.warp(block.timestamp + 49 hours);
+        dispute.finalizeRuling(disputeId);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -487,6 +516,7 @@ contract X402EscrowBridgeTest is Test {
         vm.startPrank(admin);
         MockERC3009 erc3009 = new MockERC3009(admin);
         bridge.setTokenAllowed(address(erc3009), true);
+        escrow.allowlistToken(address(erc3009)); // V-002: EscrowEngine also needs allowlist
         vm.stopPrank();
 
         // Create a listing that accepts ERC3009 token

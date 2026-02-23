@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
-import type { MockListing } from "../_data/types";
+import type { MarketplaceListing } from "../_data/types";
 
 const TIER_DOTS: Record<string, string> = {
   Bronze: "#CD7F32",
@@ -12,7 +12,7 @@ const TIER_DOTS: Record<string, string> = {
   Platinum: "#E5E4E2",
 };
 
-export default function ListingRow({ listing, index }: { listing: MockListing; index: number }) {
+export default function ListingRow({ listing, index }: { listing: MarketplaceListing; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}

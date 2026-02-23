@@ -9,6 +9,8 @@ import { stagger, fadeUp, ease } from "@/lib/motion";
 import { useListing, useReputationScore, useStakeTier } from "@/lib/hooks";
 import { formatEther } from "viem";
 import dynamic from "next/dynamic";
+import ReputationRadar from "@/components/ReputationRadar";
+import EscrowFlowAnimation from "@/components/EscrowFlowAnimation";
 
 const HireModal = dynamic(() => import("./_components/HireModal"), {
   ssr: false,
@@ -153,9 +155,9 @@ export default function ListingDetailPage() {
           className="inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-lob-green-muted text-lob-green border border-lob-green/20 mb-2"
           animate={{
             borderColor: [
-              "rgba(0,214,114,0.2)",
-              "rgba(0,214,114,0.4)",
-              "rgba(0,214,114,0.2)",
+              "rgba(88,176,89,0.2)",
+              "rgba(88,176,89,0.4)",
+              "rgba(88,176,89,0.2)",
             ],
           }}
           transition={{ duration: 3, repeat: Infinity }}
@@ -203,7 +205,7 @@ export default function ListingDetailPage() {
               <motion.button
                 className="btn-primary w-full"
                 whileHover={{
-                  boxShadow: "0 0 24px rgba(0,214,114,0.2)",
+                  boxShadow: "inset 0 1px 0 rgba(88,176,89,0.12), 0 4px 16px rgba(88,176,89,0.08)",
                 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setShowHireModal(true)}
@@ -272,6 +274,33 @@ export default function ListingDetailPage() {
             </motion.div>
           ))}
         </div>
+      </motion.div>
+
+      {/* Reputation Radar */}
+      <motion.div variants={fadeUp} className="card p-5 mt-4">
+        <h2 className="text-sm font-semibold text-text-primary mb-4">Provider Analytics</h2>
+        <div className="flex justify-center">
+          <ReputationRadar
+            data={{
+              deliverySpeed: Math.min(100, Math.max(10, reputationScore ? Number(reputationScore) / 80 : 50)),
+              completionRate: Math.min(100, Math.max(20, reputationScore ? Number(reputationScore) / 60 : 60)),
+              disputeWinRate: Math.min(100, Math.max(10, reputationScore ? Number(reputationScore) / 100 : 40)),
+              responseTime: Math.min(100, Math.max(15, reputationScore ? Number(reputationScore) / 70 : 55)),
+              jobVolume: Math.min(100, Math.max(5, reputationScore ? Number(reputationScore) / 90 : 30)),
+              stakeAmount: stakeTier !== undefined ? Math.min(100, Number(stakeTier) * 25) : 10,
+            }}
+            size={200}
+          />
+        </div>
+      </motion.div>
+
+      {/* Escrow Flow Preview */}
+      <motion.div variants={fadeUp} className="mt-4">
+        <EscrowFlowAnimation
+          status="pending"
+          amount={displayPrice.toLocaleString()}
+          token={displayToken}
+        />
       </motion.div>
     </motion.div>
   );

@@ -6,14 +6,19 @@ import { fadeUp } from "@/lib/motion";
 export default function IntegrationSection() {
   return (
     <motion.div variants={fadeUp} className="mt-12 mb-8">
-      <h2 className="text-lg font-bold text-text-primary mb-1">
-        Integrate with Your AI Agent
-      </h2>
+      <div className="flex items-center gap-2 mb-1">
+        <h2 className="text-lg font-bold text-text-primary">
+          Integrate with Your AI Agent
+        </h2>
+        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400">
+          Coming Soon
+        </span>
+      </div>
       <p className="text-xs text-text-tertiary mb-4">
         Two ways to connect your agent to the human marketplace.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 opacity-60 pointer-events-none select-none">
         {/* MCP Server */}
         <div className="card p-4 bg-surface-1">
           <div className="flex items-center gap-2 mb-2">

@@ -8,6 +8,7 @@ import { stagger, fadeUp, ease } from "@/lib/motion";
 import { useJob, useJobPayer } from "@/lib/hooks";
 import { formatEther } from "viem";
 import dynamic from "next/dynamic";
+import { getExplorerUrl } from "@/config/contracts";
 
 const DeliverySubmission = dynamic(
   () => import("./_components/DeliverySubmission"),
@@ -339,7 +340,7 @@ export default function JobDetailPage() {
       {/* Transaction link */}
       <motion.div variants={fadeUp} className="mt-4 text-center">
         <a
-          href={`https://basescan.org/address/${job.buyer}`}
+          href={getExplorerUrl("address", job.buyer)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-[10px] text-text-tertiary hover:text-lob-green transition-colors"

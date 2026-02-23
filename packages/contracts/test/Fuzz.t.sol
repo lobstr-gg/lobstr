@@ -14,6 +14,12 @@ contract MockSybilGuardFuzz {
     function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
 }
 
+contract MockRewardDistributorFuzz {
+    function creditArbitratorReward(address, address, uint256) external {}
+    function deposit(address, uint256) external {}
+    function availableBudget(address) external pure returns (uint256) { return type(uint256).max; }
+}
+
 contract FuzzTest is Test {
     LOBToken public token;
     StakingManager public staking;
@@ -22,6 +28,7 @@ contract FuzzTest is Test {
     DisputeArbitration public dispute;
     EscrowEngine public escrow;
     MockSybilGuardFuzz public mockSybilGuard;
+    MockRewardDistributorFuzz public mockRewardDist;
 
     address public admin = makeAddr("admin");
     address public distributor = makeAddr("distributor");
@@ -36,8 +43,9 @@ contract FuzzTest is Test {
         reputation = new ReputationSystem();
         staking = new StakingManager(address(token));
         mockSybilGuard = new MockSybilGuardFuzz();
+        mockRewardDist = new MockRewardDistributorFuzz();
         registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
         escrow = new EscrowEngine(
             address(token),
             address(registry),
@@ -82,7 +90,8 @@ contract FuzzTest is Test {
 
         vm.startPrank(recorder);
         for (uint256 i = 0; i < completions; i++) {
-            reputation.recordCompletion(provider, client);
+            // Use unique counterparties to avoid per-pair cap (MAX_PAIR_COMPLETIONS = 3)
+            reputation.recordCompletion(provider, address(uint160(0x4000 + i)));
         }
         vm.stopPrank();
 
@@ -138,6 +147,53 @@ contract FuzzTest is Test {
         } else {
             assertEq(uint256(tier), uint256(IStakingManager.Tier.None));
         }
+    }
+
+    // --- Skill fee calculation fuzz ---
+
+    function testFuzz_SkillFeeCalculation_NeverExceedsAmount(uint256 amount) public pure {
+        amount = bound(amount, 1, 1e30);
+
+        uint256 fee = (amount * 150) / 10000;
+        assertLe(fee, amount, "skill fee must not exceed amount");
+
+        uint256 sellerPayout = amount - fee;
+        assertEq(sellerPayout + fee, amount, "must conserve total");
+    }
+
+    function testFuzz_MarketplaceTier_MinOfBoth(uint8 stakeRaw, uint8 repRaw) public pure {
+        // stakeTier: 0-4, repTier: 0-3
+        uint256 stakeTier = bound(stakeRaw, 0, 4);
+        uint256 repTier = bound(repRaw, 0, 3);
+
+        if (stakeTier == 0) {
+            // StakeTier.None → always MarketplaceTier.None
+            return;
+        }
+
+        uint256 repTierAligned = repTier + 1;
+        uint256 result = stakeTier < repTierAligned ? stakeTier : repTierAligned;
+
+        assertGe(result, 1, "result must be at least Bronze when staked");
+        assertLe(result, 4, "result must not exceed Platinum");
+        assertLe(result, stakeTier, "result must not exceed stake tier");
+        assertLe(result, repTierAligned, "result must not exceed aligned rep tier");
+    }
+
+    function testFuzz_CreditConservation(uint256 deposits, uint256 calls, uint256 pricePerCall) public pure {
+        pricePerCall = bound(pricePerCall, 1, 1e24);
+        deposits = bound(deposits, pricePerCall, 1e30); // ensure at least 1 call is affordable
+        calls = bound(calls, 1, deposits / pricePerCall);
+
+        uint256 cost = calls * pricePerCall;
+        uint256 fee = (cost * 150) / 10000;
+        uint256 sellerEarnings = cost - fee;
+
+        // Credits remaining = deposits - cost
+        uint256 remaining = deposits - cost;
+
+        // Total = remaining credits + seller earnings + fee = deposits
+        assertEq(remaining + sellerEarnings + fee, deposits, "credits must be conserved");
     }
 
     // --- Draw split math fuzz ---

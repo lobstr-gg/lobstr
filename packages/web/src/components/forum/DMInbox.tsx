@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ease } from "@/lib/motion";
-import { getUserByAddress, timeAgo } from "@/lib/forum-data";
+import { timeAgo } from "@/lib/forum-data";
 import type { Conversation } from "@/lib/forum-types";
 import ProfileAvatar from "@/components/ProfileAvatar";
 
@@ -33,8 +33,8 @@ export default function DMInbox({
           const otherAddress = conv.participants.find(
             (p) => p !== currentUserAddress
           )!;
-          const otherUser = getUserByAddress(otherAddress);
           const lastMsg = conv.messages[conv.messages.length - 1];
+          const shortAddr = `${otherAddress.slice(0, 6)}...${otherAddress.slice(-4)}`;
 
           return (
             <motion.div
@@ -51,16 +51,11 @@ export default function DMInbox({
                     : "border-border/30"
                 }`}
               >
-                <ProfileAvatar user={otherUser} size="md" />
+                <ProfileAvatar user={null} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-text-primary">
-                      {otherUser?.displayName ?? otherAddress}
-                      {otherUser?.username && (
-                        <span className="text-[10px] text-text-tertiary font-normal ml-1.5">
-                          @{otherUser.username}
-                        </span>
-                      )}
+                    <span className="text-sm font-medium text-text-primary font-mono">
+                      {shortAddr}
                     </span>
                     <span className="text-[10px] text-text-tertiary">
                       {timeAgo(conv.lastMessageAt)}

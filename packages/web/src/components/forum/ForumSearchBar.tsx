@@ -96,9 +96,9 @@ export default function ForumSearchBar() {
       <motion.div
         className="absolute inset-0 rounded border pointer-events-none"
         animate={{
-          borderColor: focused ? "rgba(0,214,114,0.4)" : "transparent",
+          borderColor: focused ? "rgba(88,176,89,0.4)" : "transparent",
           boxShadow: focused
-            ? "0 0 20px rgba(0,214,114,0.08)"
+            ? "0 0 20px rgba(88,176,89,0.08)"
             : "0 0 0px transparent",
         }}
         transition={{ duration: 0.3 }}

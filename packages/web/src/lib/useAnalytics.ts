@@ -3,11 +3,10 @@
 import { useReadContract } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
-import { base } from "wagmi/chains";
 import { getContracts, CHAIN } from "@/config/contracts";
 import {
   LOBTokenABI,
-  AirdropClaimV2ABI,
+  AirdropClaimABI,
   SybilGuardABI,
   TreasuryGovernorABI,
 } from "@/config/abis";
@@ -25,7 +24,6 @@ export interface AnalyticsData {
   // Airdrop
   airdropClaimed: number | null;
   airdropMaxPool: number | null;
-  claimWindowStart: number | null;
   claimWindowEnd: number | null;
   // SybilGuard
   totalBans: number | null;
@@ -57,41 +55,33 @@ export function useAnalytics() {
     abi: LOBTokenABI,
     functionName: "balanceOf",
     args: contracts ? [contracts.stakingManager] : undefined,
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: queryOpts,
   });
 
   // ── Airdrop ──
   const airdropClaimed = useReadContract({
-    address: contracts?.airdropClaimV2,
-    abi: AirdropClaimV2ABI,
+    address: contracts?.airdropClaim,
+    abi: AirdropClaimABI,
     functionName: "totalClaimed",
-    chainId: base.id,
-    query: { ...queryOpts, enabled: !!contracts?.airdropClaimV2 },
+    chainId: CHAIN.id,
+    query: { ...queryOpts, enabled: !!contracts?.airdropClaim },
   });
 
   const maxPool = useReadContract({
-    address: contracts?.airdropClaimV2,
-    abi: AirdropClaimV2ABI,
+    address: contracts?.airdropClaim,
+    abi: AirdropClaimABI,
     functionName: "maxAirdropPool",
-    chainId: base.id,
-    query: { ...queryOpts, enabled: !!contracts?.airdropClaimV2 },
-  });
-
-  const windowStart = useReadContract({
-    address: contracts?.airdropClaimV2,
-    abi: AirdropClaimV2ABI,
-    functionName: "claimWindowStart",
-    chainId: base.id,
-    query: { ...queryOpts, enabled: !!contracts?.airdropClaimV2 },
+    chainId: CHAIN.id,
+    query: { ...queryOpts, enabled: !!contracts?.airdropClaim },
   });
 
   const windowEnd = useReadContract({
-    address: contracts?.airdropClaimV2,
-    abi: AirdropClaimV2ABI,
+    address: contracts?.airdropClaim,
+    abi: AirdropClaimABI,
     functionName: "claimWindowEnd",
-    chainId: base.id,
-    query: { ...queryOpts, enabled: !!contracts?.airdropClaimV2 },
+    chainId: CHAIN.id,
+    query: { ...queryOpts, enabled: !!contracts?.airdropClaim },
   });
 
   // ── SybilGuard ──
@@ -99,7 +89,7 @@ export function useAnalytics() {
     address: contracts?.sybilGuard,
     abi: SybilGuardABI,
     functionName: "totalBans",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.sybilGuard },
   });
 
@@ -107,7 +97,7 @@ export function useAnalytics() {
     address: contracts?.sybilGuard,
     abi: SybilGuardABI,
     functionName: "totalReports",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.sybilGuard },
   });
 
@@ -115,7 +105,7 @@ export function useAnalytics() {
     address: contracts?.sybilGuard,
     abi: SybilGuardABI,
     functionName: "totalSeized",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.sybilGuard },
   });
 
@@ -125,7 +115,7 @@ export function useAnalytics() {
     abi: LOBTokenABI,
     functionName: "balanceOf",
     args: contracts ? [contracts.treasuryGovernor] : undefined,
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.treasuryGovernor },
   });
 
@@ -133,7 +123,7 @@ export function useAnalytics() {
     address: contracts?.treasuryGovernor,
     abi: TreasuryGovernorABI,
     functionName: "totalSeizedLOB",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.treasuryGovernor },
   });
 
@@ -141,7 +131,7 @@ export function useAnalytics() {
     address: contracts?.treasuryGovernor,
     abi: TreasuryGovernorABI,
     functionName: "totalSeizedUSDC",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.treasuryGovernor },
   });
 
@@ -149,7 +139,7 @@ export function useAnalytics() {
     address: contracts?.treasuryGovernor,
     abi: TreasuryGovernorABI,
     functionName: "nextBountyId",
-    chainId: base.id,
+    chainId: CHAIN.id,
     query: { ...queryOpts, enabled: !!contracts?.treasuryGovernor },
   });
 
@@ -183,7 +173,6 @@ export function useAnalytics() {
     // Airdrop
     airdropClaimed: toBigIntNum(airdropClaimed.data),
     airdropMaxPool: toBigIntNum(maxPool.data),
-    claimWindowStart: toNum(windowStart.data),
     claimWindowEnd: toNum(windowEnd.data),
     // SybilGuard
     totalBans: toNum(totalBans.data),
@@ -204,7 +193,6 @@ export function useAnalytics() {
     lobStaked.isLoading ||
     airdropClaimed.isLoading ||
     maxPool.isLoading ||
-    windowStart.isLoading ||
     windowEnd.isLoading ||
     totalBans.isLoading ||
     totalReports.isLoading ||

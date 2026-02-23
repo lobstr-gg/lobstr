@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
   .container { text-align: center; max-width: 480px; padding: 2rem; }
   h1 { color: #ff4444; font-size: 1.25rem; margin-bottom: 0.5rem; }
   p { font-size: 0.875rem; line-height: 1.6; color: #666; }
-  a { color: #00D672; text-decoration: none; }
+  a { color: #58B059; text-decoration: none; }
   a:hover { text-decoration: underline; }
   .code { font-family: monospace; color: #444; font-size: 0.75rem; margin-top: 1.5rem; }
 </style>

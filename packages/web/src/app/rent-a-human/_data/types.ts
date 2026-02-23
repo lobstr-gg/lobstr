@@ -9,14 +9,14 @@ export type TaskCategory =
   | "Other Physical";
 
 export const TASK_CATEGORIES: { label: TaskCategory; icon: string }[] = [
-  { label: "Errands & Delivery", icon: "📦" },
-  { label: "Document & Legal", icon: "📄" },
-  { label: "Field Research", icon: "🔍" },
-  { label: "Photography & Video", icon: "📸" },
-  { label: "Hardware & Setup", icon: "🔧" },
-  { label: "Meetings & Events", icon: "🤝" },
-  { label: "Testing & QA", icon: "🧪" },
-  { label: "Other Physical", icon: "🌍" },
+  { label: "Errands & Delivery", icon: "Package" },
+  { label: "Document & Legal", icon: "FileText" },
+  { label: "Field Research", icon: "Search" },
+  { label: "Photography & Video", icon: "Camera" },
+  { label: "Hardware & Setup", icon: "Wrench" },
+  { label: "Meetings & Events", icon: "Handshake" },
+  { label: "Testing & QA", icon: "FlaskConical" },
+  { label: "Other Physical", icon: "Globe" },
 ];
 
 export type Continent =

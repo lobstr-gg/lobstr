@@ -9,6 +9,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 LOBSTR_USER="lobstr"
+SSH_PORT="${SSH_PORT:-2222}"
 
 echo "=== LOBSTR VPS Setup ==="
 echo ""
@@ -49,9 +50,12 @@ else
 fi
 
 # ── 4. SSH hardening ──────────────────────────────────────────────────
-echo "[4/8] Hardening SSH..."
+echo "[4/8] Hardening SSH (port ${SSH_PORT})..."
 SSHD_CONFIG="/etc/ssh/sshd_config"
 cp "${SSHD_CONFIG}" "${SSHD_CONFIG}.bak"
+
+# Non-standard port to reduce automated scanning
+sed -i "s/^#\?Port .*/Port ${SSH_PORT}/" "${SSHD_CONFIG}"
 
 # Key-only auth, no root login, max 3 retries
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' "${SSHD_CONFIG}"
@@ -74,15 +78,15 @@ systemctl restart sshd
 echo "[5/8] Configuring UFW..."
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow ssh
+ufw allow "${SSH_PORT}/tcp"
 ufw --force enable
 
 # ── 6. fail2ban ───────────────────────────────────────────────────────
 echo "[6/8] Configuring fail2ban..."
-cat > /etc/fail2ban/jail.local << 'JAILEOF'
+cat > /etc/fail2ban/jail.local << JAILEOF
 [sshd]
 enabled = true
-port = ssh
+port = ${SSH_PORT}
 filter = sshd
 logpath = /var/log/auth.log
 maxretry = 3
@@ -127,6 +131,8 @@ chown -R ${LOBSTR_USER}:${LOBSTR_USER} /opt/lobstr
 
 echo ""
 echo "=== Setup Complete ==="
+echo ""
+echo "WARNING: SSH port is now ${SSH_PORT}. Test with 'ssh -p ${SSH_PORT}' before closing this terminal!"
 echo ""
 echo "Next steps:"
 echo "  1. Add your SSH public key to /home/${LOBSTR_USER}/.ssh/authorized_keys"

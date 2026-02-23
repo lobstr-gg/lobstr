@@ -8,9 +8,23 @@ CRONTAB_FILE="${CRONTAB_FILE:-/etc/agent/crontab}"
 echo "[entrypoint] Starting agent: ${AGENT_NAME}"
 
 # ── 1. Read secrets from Docker secret mounts ──────────────────────────
+# Validate secret permissions — must not be world-readable
+for SECRET_FILE in /run/secrets/*; do
+  if [ -f "${SECRET_FILE}" ]; then
+    PERMS=$(stat -c %a "${SECRET_FILE}" 2>/dev/null || stat -f %Lp "${SECRET_FILE}" 2>/dev/null || echo "unknown")
+    if [ "${PERMS}" != "unknown" ] && [ "${PERMS: -1}" != "0" ] 2>/dev/null; then
+      echo "[entrypoint] WARNING: ${SECRET_FILE} is world-readable (perms: ${PERMS})"
+    fi
+  fi
+done
+
 if [ -f /run/secrets/wallet_password ]; then
-  export OPENCLAW_PASSWORD
   OPENCLAW_PASSWORD="$(cat /run/secrets/wallet_password)"
+  if [ -z "${OPENCLAW_PASSWORD}" ]; then
+    echo "[entrypoint] ERROR: wallet_password secret is empty"
+    exit 1
+  fi
+  export OPENCLAW_PASSWORD
   echo "[entrypoint] Wallet password loaded from secret"
 else
   echo "[entrypoint] WARNING: No wallet_password secret mounted"
@@ -44,7 +58,10 @@ fi
 echo "[entrypoint] Workspace verified at ${WORKSPACE_DIR}"
 
 # ── 3. Export env vars for cron jobs (cron doesn't inherit env) ────────
-printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|PATH=)' > /etc/environment 2>/dev/null || true
+# Exclude secrets (PASSWORD, SECRET, KEY) — cron jobs read those from /run/secrets
+printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|PATH=)' \
+  | grep -viE '(PASSWORD|SECRET|PRIVATE_KEY)' \
+  > /etc/environment 2>/dev/null || true
 
 # ── 4. Start heartbeat daemon ──────────────────────────────────────────
 echo "[entrypoint] Starting heartbeat daemon..."

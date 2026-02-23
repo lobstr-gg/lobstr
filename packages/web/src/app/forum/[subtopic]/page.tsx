@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { stagger, fadeUp } from "@/lib/motion";
@@ -15,6 +15,7 @@ import Spinner from "@/components/Spinner";
 
 export default function SubtopicPage() {
   const params = useParams();
+  const router = useRouter();
   const subtopicId = params.subtopic as SubtopicId;
   const subtopic = SUBTOPIC_LIST.find((s) => s.id === subtopicId);
   const { isConnected } = useForum();
@@ -108,7 +109,9 @@ export default function SubtopicPage() {
         {posts.length === 0 ? (
           <EmptyState
             title="No posts yet"
-            subtitle="Be the first to post in this subtopic"
+            subtitle="This subtopic is waiting for its first discussion. Start a conversation and get the ball rolling."
+            actionLabel="Create Post"
+            onAction={() => router.push(`/forum/${subtopicId}/submit`)}
           />
         ) : (
           posts.map((post) => <PostCard key={post.id} post={post} />)

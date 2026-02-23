@@ -5,7 +5,7 @@ import { usePublicClient } from "wagmi";
 import { formatEther, type Address } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
 import { ServiceRegistryABI } from "@/config/abis";
-import { SERVICE_CATEGORY_MAP, type MockListing, type ServiceCategory } from "@/app/marketplace/_data/types";
+import { SERVICE_CATEGORY_MAP, type MarketplaceListing, type ServiceCategory } from "@/app/marketplace/_data/types";
 import { isIndexerConfigured, fetchListings as fetchIndexerListings, type IndexerListing } from "./indexer";
 import { useQuery } from "@tanstack/react-query";
 
@@ -23,7 +23,7 @@ interface OnChainListing {
   createdAt: bigint;
 }
 
-function mapToMockListing(listing: OnChainListing, lobTokenAddress: Address): MockListing {
+function mapToMarketplaceListing(listing: OnChainListing, lobTokenAddress: Address): MarketplaceListing {
   const price = Number(formatEther(listing.pricePerUnit));
   const category: ServiceCategory = SERVICE_CATEGORY_MAP[listing.category] ?? "Other";
   const isLob = listing.settlementToken.toLowerCase() === lobTokenAddress.toLowerCase();
@@ -55,7 +55,7 @@ function mapToMockListing(listing: OnChainListing, lobTokenAddress: Address): Mo
   };
 }
 
-function mapIndexerToMockListing(listing: IndexerListing, lobTokenAddress: string): MockListing {
+function mapIndexerToMarketplaceListing(listing: IndexerListing, lobTokenAddress: string): MarketplaceListing {
   const price = Number(formatEther(BigInt(listing.pricePerUnit)));
   const category: ServiceCategory = SERVICE_CATEGORY_MAP[listing.category] ?? "Other";
   const isLob = listing.settlementToken.toLowerCase() === lobTokenAddress.toLowerCase();
@@ -96,7 +96,7 @@ export function useMarketplaceListings() {
     queryKey: ["marketplace-listings-indexer"],
     queryFn: async () => {
       const raw = await fetchIndexerListings();
-      return raw.map((l) => mapIndexerToMockListing(l, contracts?.lobToken ?? ""));
+      return raw.map((l) => mapIndexerToMarketplaceListing(l, contracts?.lobToken ?? ""));
     },
     enabled: useIndexer && !!contracts,
     refetchInterval: 30_000,
@@ -105,7 +105,7 @@ export function useMarketplaceListings() {
 
   // Fallback: event-scanning path
   const publicClient = usePublicClient();
-  const [fallbackListings, setFallbackListings] = useState<MockListing[]>([]);
+  const [fallbackListings, setFallbackListings] = useState<MarketplaceListing[]>([]);
   const [fallbackLoading, setFallbackLoading] = useState(true);
   const [fallbackError, setFallbackError] = useState(false);
 
@@ -152,11 +152,11 @@ export function useMarketplaceListings() {
 
         if (cancelled) return;
 
-        const mapped: MockListing[] = [];
+        const mapped: MarketplaceListing[] = [];
         for (const result of results) {
           if (result.status === "success" && result.result) {
             const listing = result.result as unknown as OnChainListing;
-            mapped.push(mapToMockListing(listing, contracts!.lobToken));
+            mapped.push(mapToMarketplaceListing(listing, contracts!.lobToken));
           }
         }
 

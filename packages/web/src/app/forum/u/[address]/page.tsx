@@ -7,7 +7,6 @@ import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { timeAgo } from "@/lib/forum-data";
 import { useForum } from "@/lib/forum-context";
-import { FORUM_POSTS, FORUM_COMMENTS } from "@/lib/forum-data";
 import type { ForumUser, Post, Review, ReviewSummary as ReviewSummaryType } from "@/lib/forum-types";
 import ModBadge from "@/components/forum/ModBadge";
 import PostCard from "@/components/forum/PostCard";
@@ -138,7 +137,7 @@ export default function UserProfilePage() {
     }
   }, [address, currentUser]);
 
-  const userComments = FORUM_COMMENTS.filter((c) => c.author === address);
+  const [userComments, setUserComments] = useState<import("@/lib/forum-types").Comment[]>([]);
 
   // Fetch user profile (supports @username params)
   useEffect(() => {
@@ -152,7 +151,8 @@ export default function UserProfilePage() {
         setUser(data.user);
         setFriendCount(data.friendCount ?? 0);
         const resolvedAddr = data.user?.address;
-        setUserPosts(data.posts ?? FORUM_POSTS.filter((p) => p.author === resolvedAddr));
+        setUserPosts(data.posts ?? []);
+        setUserComments(data.comments ?? []);
         if (data.reviewSummary) setReviewSummary(data.reviewSummary);
       })
       .catch((err) => setError(err.message))

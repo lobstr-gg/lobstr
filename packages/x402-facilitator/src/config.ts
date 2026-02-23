@@ -18,14 +18,15 @@ export const RPC_URL = process.env.RPC_URL ?? (
 // ─── Contract Addresses ──────────────────────────────────────────────────────
 
 const MAINNET_CONTRACTS = {
-  lobToken: "0x7FaeC2536E2Afee56AcA568C475927F1E2521B37" as Address,
-  stakingManager: "0x0c5bC27a3C3Eb7a836302320755f6B1645C49291" as Address,
-  reputationSystem: "0xc1374611FB7c6637e30a274073e7dCFf758C76FC" as Address,
-  serviceRegistry: "0xa127B684935f1D24C7236ba1FbB3FF140F4eD3C3" as Address,
-  disputeArbitration: "0x00Ad7d299F4BF3aE8372f756b86B4dAf63eC3FAa" as Address,
-  escrowEngine: "0xBB57d0D0aB24122A87c9a28acdc242927e6189E0" as Address,
-  x402EscrowBridge: "0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0" as Address,
-  x402CreditFacility: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy and update
+  lobToken: "0xD84Ace4eA3F111F8c5606e9F0A200506A5b714d1" as Address,
+  stakingManager: "0xCB7790D3f9b5bfe171eb30C253Ab3007d43C441b" as Address,
+  reputationSystem: "0xd41a40145811915075F6935A4755f8688e53c8dB" as Address,
+  serviceRegistry: "0x5426e673b58674B41B8a3B6Ff14cC01D97d69e3c" as Address,
+  disputeArbitration: "0xFfBded2DbA5e27Ad5A56c6d4C401124e942Ada04" as Address,
+  escrowEngine: "0x576235a56e0e25feb95Ea198d017070Ad7f78360" as Address,
+  x402EscrowBridge: "0x0000000000000000000000000000000000000000" as Address, // V1 bridge deprecated in V3
+  x402CreditFacility: "0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C" as Address,
+  skillRegistry: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy and update
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address,
 } as const;
 
@@ -38,6 +39,7 @@ const TESTNET_CONTRACTS = {
   escrowEngine: "0x072EdB0526027A48f6A2aC5CeE3A5375142Bedc0" as Address,
   x402EscrowBridge: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy on testnet
   x402CreditFacility: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy on testnet
+  skillRegistry: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy on testnet
   usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as Address,
 } as const;
 

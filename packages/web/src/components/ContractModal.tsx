@@ -27,7 +27,7 @@ export default function ContractModal({ name, fileName, source, isOpen, onClose 
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-surface-0/80 backdrop-blur-sm z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -36,7 +36,7 @@ export default function ContractModal({ name, fileName, source, isOpen, onClose 
 
           {/* Modal */}
           <motion.div
-            className="fixed inset-4 md:inset-8 lg:inset-12 z-50 flex flex-col rounded-xl border border-border/60 bg-black/95 backdrop-blur-xl overflow-hidden shadow-2xl"
+            className="fixed inset-2 sm:inset-4 md:inset-8 lg:inset-12 z-50 flex flex-col rounded-xl border border-border/60 bg-surface-0/95 glass overflow-hidden shadow-2xl"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -57,13 +57,13 @@ export default function ContractModal({ name, fileName, source, isOpen, onClose 
                 </span>
                 <button
                   onClick={copy}
-                  className="px-2.5 py-1 rounded text-[10px] font-medium text-text-secondary border border-border/40 hover:text-text-primary hover:border-border transition-colors"
+                  className="min-h-[44px] px-3 py-2 rounded text-xs font-medium text-text-secondary border border-border/40 hover:text-text-primary hover:border-border transition-colors"
                 >
                   {copied ? "Copied!" : "Copy"}
                 </button>
                 <button
                   onClick={onClose}
-                  className="px-2.5 py-1 rounded text-[10px] font-medium text-text-secondary border border-border/40 hover:text-lob-red hover:border-lob-red/30 transition-colors"
+                  className="min-h-[44px] px-3 py-2 rounded text-xs font-medium text-text-secondary border border-border/40 hover:text-lob-red hover:border-lob-red/30 transition-colors"
                 >
                   Close
                 </button>

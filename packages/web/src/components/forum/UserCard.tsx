@@ -3,12 +3,19 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { getUserByAddress } from "@/lib/forum-data";
+import type { ForumUser } from "@/lib/forum-types";
 import ModBadge from "./ModBadge";
 import ProfileAvatar from "@/components/ProfileAvatar";
 
 export default function UserCard({ address }: { address: string }) {
-  const user = getUserByAddress(address);
+  const [user, setUser] = useState<ForumUser | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/forum/users/${address}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setUser(data); })
+      .catch(() => {});
+  }, [address]);
   const [showCard, setShowCard] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLSpanElement>(null);

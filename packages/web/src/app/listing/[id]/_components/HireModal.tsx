@@ -14,7 +14,8 @@ import {
   useUSDCAllowance,
   useX402Settle,
 } from "@/lib/hooks";
-import { getContracts, CHAIN, USDC } from "@/config/contracts";
+import { getContracts, CHAIN, USDC, getExplorerUrl } from "@/config/contracts";
+import { useIsTokenAllowed } from "@/lib/useEscrowUpdates";
 import Link from "next/link";
 
 type Step = "approve" | "create" | "success";
@@ -68,6 +69,11 @@ export default function HireModal({
     bridgeAddress
   );
   const x402Settle = useX402Settle();
+
+  // Token allowlist check — payment token must be on escrow allowlist
+  const paymentToken = useX402 ? usdcAddress : token;
+  const { data: tokenAllowed, isLoading: tokenAllowedLoading } = useIsTokenAllowed(paymentToken);
+  const tokenNotAllowed = !tokenAllowedLoading && tokenAllowed === false && !!paymentToken;
 
   const hasInsufficientBalance = useX402
     ? usdcBalance !== undefined && usdcBalance < usdcAmount
@@ -196,14 +202,14 @@ export default function HireModal({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0/60 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="card p-6 w-full max-w-md mx-4"
+          className="card p-4 sm:p-6 w-full max-w-md mx-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -224,7 +230,7 @@ export default function HireModal({
             <div className="flex rounded-md border border-border overflow-hidden">
               <motion.button
                 onClick={() => handleToggleX402(false)}
-                className={`relative flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                className={`relative flex-1 min-h-[44px] px-3 py-2 text-xs font-medium transition-colors ${
                   !useX402
                     ? "text-lob-green"
                     : "bg-surface-2 text-text-tertiary hover:text-text-secondary"
@@ -242,7 +248,7 @@ export default function HireModal({
               </motion.button>
               <motion.button
                 onClick={() => handleToggleX402(true)}
-                className={`relative flex-1 px-3 py-2 text-xs font-medium transition-colors border-l border-border ${
+                className={`relative flex-1 min-h-[44px] px-3 py-2 text-xs font-medium transition-colors border-l border-border ${
                   useX402
                     ? "text-lob-green"
                     : "bg-surface-2 text-text-tertiary hover:text-text-secondary"
@@ -323,6 +329,14 @@ export default function HireModal({
               </p>
             </div>
           )}
+          {tokenNotAllowed && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 mb-4">
+              <p className="text-xs text-red-400">
+                This payment token is not supported for escrow. Only allowlisted tokens can be
+                used. Contact the team if you believe this is an error.
+              </p>
+            </div>
+          )}
 
           {/* Steps */}
           <div className="flex items-center gap-2 mb-4">
@@ -384,7 +398,7 @@ export default function HireModal({
               </p>
               {jobTxHash && (
                 <a
-                  href={`https://basescan.org/tx/${jobTxHash}`}
+                  href={getExplorerUrl("tx", jobTxHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-lob-green hover:underline"
@@ -420,10 +434,10 @@ export default function HireModal({
               </button>
               {step === "approve" && needsApproval && (
                 <motion.button
-                  className="btn-primary text-xs px-4 py-2"
-                  whileTap={{ scale: 0.97 }}
+                  className="btn-primary text-xs px-4 py-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                  whileTap={!tokenNotAllowed ? { scale: 0.97 } : {}}
                   onClick={handleApprove}
-                  disabled={loading || waitingApproval}
+                  disabled={loading || waitingApproval || tokenNotAllowed}
                 >
                   {loading || waitingApproval
                     ? "Approving..."
@@ -434,10 +448,10 @@ export default function HireModal({
               )}
               {(step === "create" || (step === "approve" && !needsApproval)) && (
                 <motion.button
-                  className="btn-primary text-xs px-4 py-2"
-                  whileTap={{ scale: 0.97 }}
+                  className="btn-primary text-xs px-4 py-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                  whileTap={!tokenNotAllowed ? { scale: 0.97 } : {}}
                   onClick={step === "approve" ? handleStart : handleCreateJob}
-                  disabled={loading}
+                  disabled={loading || tokenNotAllowed}
                 >
                   {loading
                     ? useX402 ? "Settling..." : "Creating Job..."

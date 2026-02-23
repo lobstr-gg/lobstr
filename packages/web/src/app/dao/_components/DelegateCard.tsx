@@ -18,7 +18,7 @@ export default function DelegateCard({ delegate }: { delegate: Delegate }) {
   return (
     <motion.div
       className="card group p-4 flex flex-col"
-      whileHover={{ y: -3, borderColor: "rgba(0,214,114,0.15)" }}
+      whileHover={{ y: -3, borderColor: "rgba(88,176,89,0.15)" }}
       transition={{ duration: 0.2, ease }}
     >
       {/* Header: Name + Tier */}

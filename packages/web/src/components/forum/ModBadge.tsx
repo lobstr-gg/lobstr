@@ -17,7 +17,7 @@ export default function ModBadge({ tier }: { tier: ModTier }) {
       <motion.span
         className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded border ${styles.border}`}
         style={{
-          background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(0,214,114,0.15))",
+          background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(88,176,89,0.15))",
         }}
         animate={{
           backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],

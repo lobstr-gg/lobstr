@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
 import { useForum } from "@/lib/forum-context";
-import { MOD_LOG, getUserByAddress, timeAgo } from "@/lib/forum-data";
+import { timeAgo } from "@/lib/forum-data";
 import ModBadge from "@/components/forum/ModBadge";
 import ForumBreadcrumb from "@/components/forum/ForumBreadcrumb";
 import EmptyState from "@/components/forum/EmptyState";
 import dynamic from "next/dynamic";
+import { getExplorerUrl } from "@/config/contracts";
 
 const SybilPrefilter = dynamic(() => import("@/components/forum/SybilPrefilter"), {
   ssr: false,
@@ -147,7 +148,7 @@ function ReviewQueue({ isAuthenticated }: { isAuthenticated: boolean }) {
               {report.evidence.txHashes.map((hash) => (
                 <a
                   key={hash}
-                  href={`https://basescan.org/tx/${hash}`}
+                  href={getExplorerUrl("tx", hash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[10px] font-mono text-lob-green hover:underline"
@@ -208,6 +209,10 @@ export default function ModDashboardPage() {
   const { currentUser, isConnected, isAuthenticated } = useForum();
   const [activeTab, setActiveTab] = useState<"queue" | "log" | "ip_bans" | "sybil" | "apply">("log");
 
+  // Mod log from API
+  const [modLog, setModLog] = useState<Array<{ id: string; action: string; moderator: string; target: string; reason: string; createdAt: number }>>([]);
+  const [modLogLoading, setModLogLoading] = useState(false);
+
   // IP bans state
   const [bannedIps, setBannedIps] = useState<BannedIpRow[]>([]);
   const [ipLoading, setIpLoading] = useState(false);
@@ -247,6 +252,16 @@ export default function ModDashboardPage() {
       fetchBannedIps();
     }
   }, [activeTab, isAuthenticated, fetchBannedIps]);
+
+  useEffect(() => {
+    if (activeTab !== "log" || !isAuthenticated) return;
+    setModLogLoading(true);
+    fetch("/api/forum/mod/log", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.log) setModLog(d.log); })
+      .catch(() => {})
+      .finally(() => setModLogLoading(false));
+  }, [activeTab, isAuthenticated]);
 
   const handleBanIp = async () => {
     if (!banIp.trim() || !isAuthenticated) return;
@@ -396,9 +411,19 @@ export default function ModDashboardPage() {
       {/* Mod Log */}
       {activeTab === "log" && (
         <motion.div variants={fadeUp} className="space-y-2">
-          {MOD_LOG.map((entry, i) => {
-            const mod = getUserByAddress(entry.moderator);
-            return (
+          {modLogLoading ? (
+            <div className="card p-8 text-center">
+              <p className="text-xs text-text-tertiary">Loading mod log...</p>
+            </div>
+          ) : modLog.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-sm text-text-secondary">No moderation actions yet</p>
+              <p className="text-xs text-text-tertiary mt-1">
+                Actions taken by moderators will appear here
+              </p>
+            </div>
+          ) : (
+            modLog.map((entry, i) => (
               <motion.div
                 key={entry.id}
                 className="p-3 rounded border border-border/30 flex items-start gap-3"
@@ -419,13 +444,13 @@ export default function ModDashboardPage() {
                     {entry.reason}
                   </p>
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-text-tertiary">
-                    <span>by {mod?.displayName ?? entry.moderator}</span>
+                    <span>by {entry.moderator.slice(0, 6)}...{entry.moderator.slice(-4)}</span>
                     <span>{timeAgo(entry.createdAt)}</span>
                   </div>
                 </div>
               </motion.div>
-            );
-          })}
+            ))
+          )}
         </motion.div>
       )}
 

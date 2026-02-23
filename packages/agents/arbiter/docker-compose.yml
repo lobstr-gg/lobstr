@@ -3,6 +3,7 @@ services:
     image: lobstr-agent:latest
     container_name: lobstr-arbiter
     restart: unless-stopped
+    user: "1000:1000"
 
     environment:
       - AGENT_NAME=arbiter
@@ -15,11 +16,14 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    cap_add:
-      - NET_RAW
     tmpfs:
       - /tmp:size=64m
       - /var/run:size=8m
+    pids_limit: 100
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 2048
 
     # Resource limits
     mem_limit: 512m
@@ -42,6 +46,13 @@ services:
 
       # Writable log directory
       - arbiter-logs:/var/log/agent
+
+    healthcheck:
+      test: ["CMD-SHELL", "test $$(find /data/workspace/heartbeats.jsonl -mmin -15 2>/dev/null | wc -l) -gt 0"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
     logging:
       driver: json-file

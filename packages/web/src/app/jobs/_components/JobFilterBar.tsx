@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { JobRole } from "../_data/mockJobs";
+import type { JobRole } from "../_data/types";
 
 type RoleFilter = "all" | JobRole;
 export type SortMode = "newest" | "budget" | "deadline";

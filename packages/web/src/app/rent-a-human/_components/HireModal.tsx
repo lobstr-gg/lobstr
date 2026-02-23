@@ -113,12 +113,12 @@ export default function HireModal({
           exit={{ opacity: 0 }}
         >
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-surface-0/60 backdrop-blur-sm"
             onClick={handleClose}
           />
 
           <motion.div
-            className="relative w-full max-w-lg card p-6 bg-surface-1 border border-border max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-lg card p-4 sm:p-6 bg-surface-1 border border-border max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-y-auto"
             variants={scaleIn}
             initial="hidden"
             animate="show"
@@ -151,7 +151,8 @@ export default function HireModal({
               </div>
               <button
                 onClick={handleClose}
-                className="text-text-tertiary hover:text-text-primary text-lg"
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-2 text-lg"
+                aria-label="Close hire modal"
               >
                 &times;
               </button>

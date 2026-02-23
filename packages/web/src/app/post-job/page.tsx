@@ -10,19 +10,39 @@ import { formatEther, parseEther } from "viem";
 import type { Variants } from "framer-motion";
 import { ServiceRegistryABI } from "@/config/abis";
 import { getContracts, CHAIN, USDC } from "@/config/contracts";
+import { useIsTokenAllowed } from "@/lib/useEscrowUpdates";
+import dynamic from "next/dynamic";
+import {
+  Search,
+  Globe,
+  PenLine,
+  Code,
+  Microscope,
+  Palette,
+  Megaphone,
+  Scale,
+  DollarSign,
+  HardHat,
+  Package,
+  X,
+  ChevronDown,
+  type LucideIcon,
+} from "lucide-react";
 
-const CATEGORIES = [
-  { value: 0, label: "🔍 Data Scraping" },
-  { value: 1, label: "🌐 Translation" },
-  { value: 2, label: "✍️ Writing" },
-  { value: 3, label: "💻 Coding" },
-  { value: 4, label: "🔬 Research" },
-  { value: 5, label: "🎨 Design" },
-  { value: 6, label: "📣 Marketing" },
-  { value: 7, label: "⚖️ Legal" },
-  { value: 8, label: "💰 Finance" },
-  { value: 9, label: "🏗️ Physical Task" },
-  { value: 10, label: "📦 Other" },
+const EscrowFlowAnimation = dynamic(() => import("@/components/EscrowFlowAnimation"), { ssr: false });
+
+const CATEGORIES: readonly { value: number; label: string; icon: LucideIcon }[] = [
+  { value: 0, label: "Data Scraping", icon: Search },
+  { value: 1, label: "Translation", icon: Globe },
+  { value: 2, label: "Writing", icon: PenLine },
+  { value: 3, label: "Coding", icon: Code },
+  { value: 4, label: "Research", icon: Microscope },
+  { value: 5, label: "Design", icon: Palette },
+  { value: 6, label: "Marketing", icon: Megaphone },
+  { value: 7, label: "Legal", icon: Scale },
+  { value: 8, label: "Finance", icon: DollarSign },
+  { value: 9, label: "Physical Task", icon: HardHat },
+  { value: 10, label: "Other", icon: Package },
 ] as const;
 
 const TIMELINES = [
@@ -123,6 +143,13 @@ export default function PostJobPage() {
   const [confidential, setConfidential] = useState(false);
   const [autoRelease, setAutoRelease] = useState(false);
 
+  // Token allowlist check — selected token must be on the escrow allowlist
+  const selectedToken = payInLOB
+    ? contracts?.lobToken
+    : USDC[CHAIN.id];
+  const { data: tokenAllowed, isLoading: tokenAllowedLoading } = useIsTokenAllowed(selectedToken);
+  const tokenNotAllowed = !tokenAllowedLoading && tokenAllowed === false && !!selectedToken;
+
   // Tag handling
   const addTag = useCallback(
     (raw: string) => {
@@ -169,7 +196,7 @@ export default function PostJobPage() {
     0
   );
 
-  const isValid = title.trim() && (budgetType === "milestone" ? milestoneTotal > 0 : !!budget);
+  const isValid = title.trim() && (budgetType === "milestone" ? milestoneTotal > 0 : !!budget) && !tokenNotAllowed;
 
   if (!isConnected) {
     return (
@@ -184,13 +211,13 @@ export default function PostJobPage() {
           animate={{
             borderColor: [
               "rgba(30,36,49,1)",
-              "rgba(0,214,114,0.4)",
+              "rgba(88,176,89,0.4)",
               "rgba(30,36,49,1)",
             ],
             boxShadow: [
-              "0 0 0px rgba(0,214,114,0)",
-              "0 0 20px rgba(0,214,114,0.1)",
-              "0 0 0px rgba(0,214,114,0)",
+              "0 0 0px rgba(88,176,89,0)",
+              "0 0 20px rgba(88,176,89,0.1)",
+              "0 0 0px rgba(88,176,89,0)",
             ],
           }}
           transition={{ duration: 3, repeat: Infinity }}
@@ -264,7 +291,7 @@ export default function PostJobPage() {
               animate={{
                 color:
                   description.length > 900
-                    ? "rgba(0,214,114,0.8)"
+                    ? "rgba(88,176,89,0.8)"
                     : "rgba(94,102,115,1)",
               }}
             >
@@ -308,7 +335,7 @@ export default function PostJobPage() {
                   onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
                   className="text-text-tertiary hover:text-text-primary ml-0.5"
                 >
-                  ×
+                  <X className="w-3 h-3" />
                 </button>
               </span>
             ))}
@@ -637,9 +664,17 @@ export default function PostJobPage() {
         </AnimatePresence>
 
         <p className="text-[10px] text-text-tertiary">
-          LOB payments have 0% protocol fee. USDC payments incur a 1.5% fee.
+          LOB payments have 0% protocol fee. USDC payments incur a 1.5% fee. Minimum escrow: 10 LOB.
         </p>
-        {!payInLOB && (
+        {tokenNotAllowed && (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 mt-3">
+            <p className="text-[10px] text-amber-400">
+              This token is not supported for escrow. Only allowlisted tokens can be used
+              for job payments. Contact the team if you believe this is an error.
+            </p>
+          </div>
+        )}
+        {!payInLOB && !tokenNotAllowed && (
           <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 mt-3">
             <p className="text-[10px] text-blue-400">
               <span className="font-semibold">x402 Compatible</span> — USDC listings
@@ -649,6 +684,22 @@ export default function PostJobPage() {
           </div>
         )}
       </motion.div>
+
+      {/* ── Escrow Flow Preview ── */}
+      {(budget || milestoneTotal > 0) && (
+        <motion.div className="mb-4" variants={fadeUp} custom={3.5}>
+          <EscrowFlowAnimation
+            status="pending"
+            amount={
+              budgetType === "milestone"
+                ? milestoneTotal.toLocaleString()
+                : parseFloat(budget || "0").toLocaleString()
+            }
+            token={payInLOB ? "LOB" : "USDC"}
+            compact
+          />
+        </motion.div>
+      )}
 
       {/* ── Section 4: Advanced Settings ── */}
       <motion.div className="card overflow-hidden mb-6" variants={fadeUp} custom={4}>
@@ -661,9 +712,8 @@ export default function PostJobPage() {
           <motion.span
             animate={{ rotate: advancedOpen ? 180 : 0 }}
             transition={{ duration: 0.2 }}
-            className="text-[10px]"
           >
-            ▾
+            <ChevronDown className="w-4 h-4" />
           </motion.span>
         </button>
 
@@ -809,7 +859,7 @@ export default function PostJobPage() {
           disabled={!isValid || submitting || submitted}
           whileHover={
             isValid && !submitting && !submitted
-              ? { boxShadow: "0 0 24px rgba(0,214,114,0.25)" }
+              ? { boxShadow: "inset 0 1px 0 rgba(88,176,89,0.12), 0 4px 16px rgba(88,176,89,0.08)" }
               : {}
           }
           whileTap={isValid && !submitting ? { scale: 0.97 } : {}}

@@ -42,7 +42,7 @@ export default async function Image() {
             width: 600,
             height: 400,
             background:
-              "radial-gradient(ellipse, rgba(0, 214, 114, 0.08) 0%, transparent 70%)",
+              "radial-gradient(ellipse, rgba(88, 176, 89, 0.08) 0%, transparent 70%)",
             borderRadius: "50%",
           }}
         />
@@ -70,9 +70,9 @@ export default async function Image() {
               style={{
                 fontSize: 64,
                 fontWeight: 800,
-                color: "#00D672",
+                color: "#58B059",
                 letterSpacing: "-1.5px",
-                textShadow: "0 0 60px rgba(0, 214, 114, 0.3)",
+                textShadow: "0 0 60px rgba(88, 176, 89, 0.3)",
               }}
             >
               LOBSTR
@@ -122,7 +122,7 @@ export default async function Image() {
                   style={{
                     fontSize: 24,
                     fontWeight: 700,
-                    color: stat.value === "Live" ? "#00D672" : "#EAECEF",
+                    color: stat.value === "Live" ? "#58B059" : "#EAECEF",
                   }}
                 >
                   {stat.value}
@@ -151,7 +151,7 @@ export default async function Image() {
             right: 0,
             height: 3,
             background:
-              "linear-gradient(90deg, transparent, #00D672, transparent)",
+              "linear-gradient(90deg, transparent, #58B059, transparent)",
           }}
         />
       </div>
