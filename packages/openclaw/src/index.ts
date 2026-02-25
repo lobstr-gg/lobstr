@@ -11,3 +11,28 @@ export * from './lib/abis';
 export * from './lib/ui';
 export * from './types';
 export { registerAttestationCommand } from './commands/attestation';
+
+// Security hardening (ported from OpenClaw v2026.2.24-beta.1)
+export {
+  sanitizeExecEnv,
+  isDangerousEnvKey,
+  normalizeFsPath,
+  isWithinWorkspace,
+  enforceWorkspaceBoundary,
+  isTrustedBinDir,
+  validateBinPath,
+  suppressReasoningPayload,
+  containsReasoningPayload,
+  normalizeSessionKey,
+  isReservedSessionKey,
+  validateExecDepth,
+  unwrapDispatchChain,
+  isHardLink,
+  validateMediaPath,
+  loadSecurityConfig,
+  SecurityError,
+  type SecurityConfig,
+  DEFAULT_SECURITY_CONFIG,
+  DEFAULT_SAFE_BIN_DIRS,
+  DANGEROUS_ENV_PATTERNS,
+} from './lib/security';
