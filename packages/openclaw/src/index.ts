@@ -12,6 +12,25 @@ export * from './lib/ui';
 export * from './types';
 export { registerAttestationCommand } from './commands/attestation';
 
+// Discord integration
+export {
+  getDiscordClient,
+  isDiscordConnected,
+  connectDiscord,
+  disconnectDiscord,
+  getDiscordStatus,
+  onMessage,
+  onInteraction,
+  sendMessage,
+} from './lib/discord-client';
+
+// Cron scheduler
+export {
+  runCronJobs,
+  stopCronJobs,
+  getCronStatus,
+} from './lib/cron-runner';
+
 // Security hardening (ported from OpenClaw v2026.2.24-beta.1)
 export {
   sanitizeExecEnv,

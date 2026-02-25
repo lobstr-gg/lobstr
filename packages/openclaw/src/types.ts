@@ -7,6 +7,68 @@ export interface WorkspaceConfig {
   workspaceId: string; // bigint as string
   salt: string; // bigint as string
   createdAt: string;
+  // Discord integration
+  discord?: DiscordConfig;
+  // Agent config
+  agent?: AgentConfig;
+}
+
+export interface DiscordConfig {
+  botToken: string;
+  applicationId: string;
+  guildId?: string;
+  // Channel IDs
+  textChannelId?: string;
+  voiceChannelId?: string;
+  forumChannelId?: string;
+  // Behavior
+  autoRespond?: boolean;
+  respondToMentions?: boolean;
+  respondToDms?: boolean;
+  // Status
+  status?: 'online' | 'idle' | 'dnd';
+  activity?: string;
+}
+
+export interface AgentConfig {
+  // LLM configuration
+  llm?: {
+    provider?: 'openai' | 'anthropic' | 'ollama' | 'custom';
+    model?: string;
+    apiKey?: string;
+    baseUrl?: string;
+    maxTokens?: number;
+    temperature?: number;
+  };
+  // Cron settings
+  cron?: {
+    enabled?: boolean;
+    maxConcurrent?: number;
+  };
+  // Heartbeat settings
+  heartbeat?: {
+    enabled?: boolean;
+    intervalMinutes?: number;
+    delivery?: 'none' | 'announce' | 'last';
+  };
+  // Security
+  security?: {
+    sandboxMode?: 'all' | 'docker' | 'none';
+    allowExec?: boolean;
+    allowedPaths?: string[];
+  };
+}
+
+export interface DiscordStatus {
+  connected: boolean;
+  guilds: string[];
+  channels: {
+    text: number;
+    voice: number;
+    forums: number;
+  };
+  latency?: number;
+  uptime?: number;
 }
 
 export interface ContractAddresses {

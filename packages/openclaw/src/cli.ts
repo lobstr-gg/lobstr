@@ -5,6 +5,8 @@ import { registerInitCommand } from './commands/init';
 import { registerSkillCommand } from './commands/skill';
 import { registerHeartbeatCommand } from './commands/heartbeat';
 import { registerAttestationCommand } from './commands/attestation';
+import { registerDiscordCommand } from './commands/discord';
+import { registerAgentCommand } from './commands/agent';
 import { getActiveWorkspace, getWorkspacePath } from './lib/workspace';
 import { loadSkillCommands } from './lib/skill-loader';
 
@@ -20,6 +22,8 @@ registerInitCommand(program);
 registerSkillCommand(program);
 registerHeartbeatCommand(program);
 registerAttestationCommand(program);
+registerDiscordCommand(program);
+registerAgentCommand(program);
 
 // Load skill commands from active workspace
 const activeWs = getActiveWorkspace();

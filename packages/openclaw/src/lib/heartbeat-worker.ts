@@ -15,6 +15,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { spawn } from 'child_process';
 
 const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const LOCK_STALE_MS = 10 * 60 * 1000; // 10 min = stale lock
@@ -175,6 +176,44 @@ async function emitRoleHeartbeat(workspacePath: string): Promise<void> {
     fs.appendFileSync(roleHeartbeatsPath, JSON.stringify(entry) + '\n');
   } catch {
     // RPC failure — silently skip, daemon must not crash
+  }
+}
+
+// ── Child process management ─────────────────────────────────────────
+
+let heartbeatProcess: ReturnType<typeof spawn> | null = null;
+
+export async function startHeartbeatWorker(): Promise<void> {
+  const { spawn } = await import('child_process');
+  const { getWorkspacePath, getActiveWorkspace } = await import('./workspace');
+
+  const wsName = getActiveWorkspace();
+  if (!wsName) {
+    throw new Error('No active workspace');
+  }
+
+  const wsPath = getWorkspacePath(wsName);
+
+  // Spawn heartbeat worker
+  heartbeatProcess = spawn('node', [__filename, wsPath], {
+    detached: false,
+    stdio: 'ignore',
+  });
+
+  heartbeatProcess.on('exit', (code) => {
+    if (code !== 0) {
+      console.error(`Heartbeat worker exited with code ${code}`);
+    }
+  });
+
+  console.log('Heartbeat worker started');
+}
+
+export async function stopHeartbeatWorker(): Promise<void> {
+  if (heartbeatProcess) {
+    heartbeatProcess.kill();
+    heartbeatProcess = null;
+    console.log('Heartbeat worker stopped');
   }
 }
 
