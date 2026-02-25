@@ -272,10 +272,9 @@ export async function POST(
         skill.apiEndpointHash as `0x${string}`,
       );
     } catch (err) {
+      console.error("[gateway] Failed to resolve seller endpoint:", err);
       return NextResponse.json(
-        {
-          error: `Failed to resolve seller endpoint: ${err instanceof Error ? err.message : "unknown"}`,
-        },
+        { error: "Failed to resolve seller endpoint" },
         { status: 502 },
       );
     }
@@ -293,10 +292,9 @@ export async function POST(
         body,
       });
     } catch (err) {
+      console.error("[gateway] Seller endpoint unreachable:", err);
       return NextResponse.json(
-        {
-          error: `Seller endpoint unreachable: ${err instanceof Error ? err.message : "unknown"}`,
-        },
+        { error: "Seller endpoint unreachable" },
         { status: 502 },
       );
     }
@@ -352,9 +350,7 @@ export async function POST(
   } catch (err) {
     console.error("[gateway] Unexpected error:", err);
     return NextResponse.json(
-      {
-        error: `Internal gateway error: ${err instanceof Error ? err.message : "unknown"}`,
-      },
+      { error: "Internal gateway error" },
       { status: 500 },
     );
   }

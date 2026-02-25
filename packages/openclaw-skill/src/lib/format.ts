@@ -185,6 +185,25 @@ export const VESTING_STATUS: Record<number, string> = {
   2: 'Revoked',
 };
 
+// RolePayroll enums
+export const ROLE_TYPE: Record<number, string> = {
+  0: 'Arbitrator',
+  1: 'Moderator',
+};
+
+export const ROLE_RANK: Record<number, string> = {
+  0: 'Junior',
+  1: 'Senior',
+  2: 'Principal',
+};
+
+export const ROLE_SLOT_STATUS: Record<number, string> = {
+  0: 'Empty',
+  1: 'Active',
+  2: 'Suspended',
+  3: 'Resigned',
+};
+
 export function formatUsdc(amount: bigint): string {
   return formatUnits(amount, 6) + ' USDC';
 }

@@ -1,0 +1,79 @@
+{
+  "title": "Web Development Dispute: Unfinished Project Delivery",
+  "description": "Alice commissioned Bob to develop a custom website under a tight deadline. Alice claims the project wasn't completed on time and that the functionalities promised were missing. Bob insists all major aspects were delivered, citing unforeseen challenges during the final stages. Alice decided to not release the full payment, triggering this dispute.",
+  "expectedRuling": "BuyerWins",
+  "evidenceSpecs": [
+    {
+      "type": "pdf",
+      "name": "contract.pdf",
+      "description": "Service agreement detailing the scope, deadlines, and payment terms.",
+      "content": "[{\"heading\":\"SCOPE\",\"body\":\"Bob agrees to deliver a fully functional custom website including user registration, payment gateway, and admin dashboard by Sept 30, 2023.\"},{\"heading\":\"PAYMENT\",\"body\":\"Total payment of 1500 LOB tokens to be issued, with an initial 500 LOB tokens upfront and remaining upon completion.\"},{\"heading\":\"TIMELINE\",\"body\":\"Final delivery expected by the end of Sept 30, 2023.\"}]"
+    },
+    {
+      "type": "image",
+      "name": "website_preview.png",
+      "description": "A screenshot of the current state of the website delivered by Bob, highlighting missing functionalities.",
+      "content": "A screenshot of an incomplete website interface focusing on an unfinished admin dashboard, missing payment gateway integration, with a partially functional user registration section. Digital illustration, clean design, professional."
+    },
+    {
+      "type": "csv",
+      "name": "payment_timeline.csv",
+      "description": "Payment and project milestone records between Alice and Bob.",
+      "content": "Date,Action,Amount\n2023-09-01,Initial Payment,500\n2023-09-30,Project Review,Pending\n2023-10-01,Second Payment,0"
+    }
+  ],
+  "mcQuestions": [
+    {
+      "question": "What functionalities were promised by Bob?",
+      "options": [
+        "User registration, payment gateway, admin dashboard",
+        "Blog post functionality, user comments",
+        "Custom graphics design, SEO optimization",
+        "Live chat support, newsletter integration"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "What was the deadline for the project delivery?",
+      "options": [
+        "September 30, 2023",
+        "October 1, 2023",
+        "October 15, 2023",
+        "September 15, 2023"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "How much was the total agreed payment?",
+      "options": [
+        "1500 LOB tokens",
+        "2000 LOB tokens",
+        "1000 LOB tokens",
+        "750 LOB tokens"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "When was the initial payment made?",
+      "options": [
+        "September 1, 2023",
+        "September 30, 2023",
+        "August 10, 2023",
+        "October 1, 2023"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "What is missing from the delivered project?",
+      "options": [
+        "Admin dashboard and payment gateway",
+        "Custom graphics",
+        "User comments",
+        "Newsletter integration"
+      ],
+      "correctIndex": 0
+    }
+  ],
+  "analysisPrompt": "Examine the provided evidence to determine whether Alice or Bob fulfill the criteria for winning this dispute.",
+  "gradingRubric": "- Identify if the functionalities listed in the contract are delivered in the screenshot.\n- Analyze the completion timeline and deadline stated in the contract.\n- Assess the payment records against agreed terms to check for discrepancies.\n- Evaluate the deliverables against the initial scope and expectations.\n- Justify why the ruling favors Alice based on incomplete delivery considering the evidence."
+}

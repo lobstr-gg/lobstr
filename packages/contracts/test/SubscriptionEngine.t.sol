@@ -86,11 +86,13 @@ contract SubscriptionEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken(distributor);
+        lobToken = new LOBToken();
+        lobToken.initialize(distributor);
         usdc = new MockUSDC();
         reputation = new MockReputationForSub();
         sybilGuard = new MockSybilGuardForSub();
-        subEngine = new SubscriptionEngine(
+        subEngine = new SubscriptionEngine();
+        subEngine.initialize(
             address(lobToken),
             address(reputation),
             address(sybilGuard),
@@ -176,14 +178,15 @@ contract SubscriptionEngineTest is Test {
         vm.prank(buyer);
         lobToken.approve(address(subEngine), amount);
 
-        // Warp to next due
-        vm.warp(block.timestamp + 1 days);
+        // Read nextDue from contract state (external call is opaque to via_ir optimizer)
+        ISubscriptionEngine.Subscription memory subBefore = subEngine.getSubscription(id);
+        vm.warp(subBefore.nextDue);
 
         subEngine.processPayment(id);
 
         ISubscriptionEngine.Subscription memory sub = subEngine.getSubscription(id);
         assertEq(sub.cyclesCompleted, 2);
-        assertEq(sub.nextDue, block.timestamp + 1 days);
+        assertEq(sub.nextDue, subBefore.nextDue + 1 days);
     }
 
     function test_revertProcessNotDue() public {
@@ -330,7 +333,8 @@ contract SubscriptionEngineTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(buyer);
             lobToken.approve(address(subEngine), amount);
-            vm.warp(block.timestamp + 1 hours);
+            ISubscriptionEngine.Subscription memory subState = subEngine.getSubscription(id);
+            vm.warp(subState.nextDue);
             subEngine.processPayment(id);
         }
 
@@ -443,7 +447,7 @@ contract SubscriptionEngineTest is Test {
 
         vm.startPrank(buyer);
         lobToken.approve(address(subEngine), 100 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         subEngine.createSubscription(seller, address(lobToken), 100 ether, 1 days, 0, 1, "");
         vm.stopPrank();
     }
@@ -453,23 +457,27 @@ contract SubscriptionEngineTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroLobToken() public {
+        SubscriptionEngine se = new SubscriptionEngine();
         vm.expectRevert("SubscriptionEngine: zero lobToken");
-        new SubscriptionEngine(address(0), address(reputation), address(sybilGuard), treasury);
+        se.initialize(address(0), address(reputation), address(sybilGuard), treasury);
     }
 
     function test_revertZeroReputation() public {
+        SubscriptionEngine se = new SubscriptionEngine();
         vm.expectRevert("SubscriptionEngine: zero reputationSystem");
-        new SubscriptionEngine(address(lobToken), address(0), address(sybilGuard), treasury);
+        se.initialize(address(lobToken), address(0), address(sybilGuard), treasury);
     }
 
     function test_revertZeroSybilGuard() public {
+        SubscriptionEngine se = new SubscriptionEngine();
         vm.expectRevert("SubscriptionEngine: zero sybilGuard");
-        new SubscriptionEngine(address(lobToken), address(reputation), address(0), treasury);
+        se.initialize(address(lobToken), address(reputation), address(0), treasury);
     }
 
     function test_revertZeroTreasury() public {
+        SubscriptionEngine se = new SubscriptionEngine();
         vm.expectRevert("SubscriptionEngine: zero treasury");
-        new SubscriptionEngine(address(lobToken), address(reputation), address(sybilGuard), address(0));
+        se.initialize(address(lobToken), address(reputation), address(sybilGuard), address(0));
     }
 
     // ═══════════════════════════════════════════════════════════════

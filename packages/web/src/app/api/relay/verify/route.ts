@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recoverMessageAddress } from "viem";
+import { rateLimit, getIPKey } from "@/lib/rate-limit";
 
 /**
  * GET /api/relay/verify?type=<type>&to=<to>&payload=<payload>&nonce=<nonce>&signature=<sig>
  * Utility to verify a relay message signature and return the recovered signer.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(`relay-verify:${getIPKey(request)}`, 60_000, 30);
+  if (limited) return limited;
+
   const params = request.nextUrl.searchParams;
   const type = params.get("type");
   const to = params.get("to");

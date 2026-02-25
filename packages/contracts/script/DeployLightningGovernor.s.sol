@@ -30,7 +30,8 @@ contract DeployLightningGovernorScript is Script {
         executors[1] = vm.envAddress("ARBITER_ADDRESS");
         executors[2] = vm.envAddress("STEWARD_ADDRESS");
 
-        LightningGovernor gov = new LightningGovernor(
+        LightningGovernor gov = new LightningGovernor();
+        gov.initialize(
             stakingManager,
             admin,
             executors,

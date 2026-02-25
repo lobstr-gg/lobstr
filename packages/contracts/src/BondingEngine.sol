@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IBondingEngine.sol";
@@ -12,9 +15,9 @@ import "./interfaces/ISybilGuard.sol";
 
 /// @title BondingEngine
 /// @notice Protocol-owned liquidity via discounted LOB bonds.
-///         Treasury deposits LOB → users buy at discount with USDC/LP →
-///         protocol keeps quote tokens → users claim LOB over vesting period.
-contract BondingEngine is IBondingEngine, AccessControl, ReentrancyGuard, Pausable {
+///         Treasury deposits LOB -> users buy at discount with USDC/LP ->
+///         protocol keeps quote tokens -> users claim LOB over vesting period.
+contract BondingEngine is IBondingEngine, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant MARKET_ADMIN_ROLE = keccak256("MARKET_ADMIN_ROLE");
@@ -25,10 +28,10 @@ contract BondingEngine is IBondingEngine, AccessControl, ReentrancyGuard, Pausab
     uint256 public constant MIN_VESTING_PERIOD = 7 days;
     uint256 public constant MAX_DISCOUNT_BPS = 2000;
 
-    IERC20 public immutable lobToken;
-    IStakingManager public immutable stakingManager;
-    ISybilGuard public immutable sybilGuard;
-    address public immutable treasury;
+    IERC20 public lobToken;
+    IStakingManager public stakingManager;
+    ISybilGuard public sybilGuard;
+    address public treasury;
 
     uint256 private _nextMarketId = 1;
     uint256 private _nextBondId = 1;
@@ -37,22 +40,32 @@ contract BondingEngine is IBondingEngine, AccessControl, ReentrancyGuard, Pausab
     mapping(uint256 => BondPosition) private _bonds;
     mapping(address => uint256[]) private _userBonds;
     uint256 private _totalOutstandingLOB;
-    mapping(uint256 => mapping(address => uint256)) private _purchased; // marketId → buyer → total LOB purchased
+    mapping(uint256 => mapping(address => uint256)) private _purchased; // marketId -> buyer -> total LOB purchased
 
-    // ═══════════════════════════════════════════════════════════════
-    //  CONSTRUCTOR
-    // ═══════════════════════════════════════════════════════════════
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
 
-    constructor(
+    function initialize(
         address _lobToken,
         address _stakingManager,
         address _sybilGuard,
         address _treasury
-    ) {
+    ) public virtual initializer {
         require(_lobToken != address(0), "BondingEngine: zero lobToken");
         require(_stakingManager != address(0), "BondingEngine: zero stakingManager");
         require(_sybilGuard != address(0), "BondingEngine: zero sybilGuard");
         require(_treasury != address(0), "BondingEngine: zero treasury");
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _nextMarketId = 1;
+        _nextBondId = 1;
 
         lobToken = IERC20(_lobToken);
         stakingManager = IStakingManager(_stakingManager);
@@ -61,6 +74,8 @@ contract BondingEngine is IBondingEngine, AccessControl, ReentrancyGuard, Pausab
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ═══════════════════════════════════════════════════════════════
     //  ADMIN — MARKETS
@@ -160,7 +175,7 @@ contract BondingEngine is IBondingEngine, AccessControl, ReentrancyGuard, Pausab
         uint256 discount = _effectiveDiscount(marketId, msg.sender);
         uint256 discountedPrice = market.pricePer1LOB * (10000 - discount) / 10000;
 
-        // V-003: Use balance-delta to defend against fee-on-transfer tokens
+        // Use balance-delta to defend against fee-on-transfer tokens
         uint256 balBefore = IERC20(market.quoteToken).balanceOf(address(this));
         IERC20(market.quoteToken).safeTransferFrom(msg.sender, address(this), quoteAmount);
         uint256 received = IERC20(market.quoteToken).balanceOf(address(this)) - balBefore;

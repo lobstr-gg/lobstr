@@ -18,6 +18,7 @@ contract ReputationSystemTest is Test {
     function setUp() public {
         vm.startPrank(admin);
         reputation = new ReputationSystem();
+        reputation.initialize();
         reputation.grantRole(reputation.RECORDER_ROLE(), recorder);
         vm.stopPrank();
     }
@@ -153,7 +154,7 @@ contract ReputationSystemTest is Test {
         reputation.pause();
 
         vm.prank(recorder);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         reputation.recordCompletion(provider, client);
     }
 
@@ -162,7 +163,7 @@ contract ReputationSystemTest is Test {
         reputation.pause();
 
         vm.prank(recorder);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         reputation.recordDispute(provider, false);
     }
 

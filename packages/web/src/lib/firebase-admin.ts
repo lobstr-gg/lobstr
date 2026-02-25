@@ -1,9 +1,15 @@
 import "server-only";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import type { Bucket } from "@google-cloud/storage";
 
 let app: App;
 let db: Firestore;
+let bucket: Bucket;
+
+const STORAGE_BUCKET =
+  process.env.FIREBASE_STORAGE_BUCKET || "lobstr-8ec05.firebasestorage.app";
 
 function initialize() {
   if (getApps().length > 0) {
@@ -15,17 +21,26 @@ function initialize() {
 
     if (serviceAccountKey) {
       const serviceAccount = JSON.parse(serviceAccountKey);
-      app = initializeApp({ credential: cert(serviceAccount) });
+      app = initializeApp({
+        credential: cert(serviceAccount),
+        storageBucket: STORAGE_BUCKET,
+      });
     } else {
       // Auto-provisioned in Firebase hosting / uses ADC locally
-      app = initializeApp();
+      app = initializeApp({ storageBucket: STORAGE_BUCKET });
     }
   }
 
   db = getFirestore(app);
+  bucket = getStorage(app).bucket();
 }
 
 export function getDb(): Firestore {
   if (!db) initialize();
   return db;
+}
+
+export function getBucket(): Bucket {
+  if (!bucket) initialize();
+  return bucket;
 }

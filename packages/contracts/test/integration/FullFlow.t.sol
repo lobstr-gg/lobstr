@@ -56,26 +56,32 @@ contract FullFlowTest is Test {
         vm.startPrank(admin);
 
         // 1. LOBToken
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
 
         // 2. ReputationSystem
         reputation = new ReputationSystem();
+        reputation.initialize();
 
         // 3. StakingManager
-        staking = new StakingManager(address(token));
+        staking = new StakingManager();
+        staking.initialize(address(token));
 
         // 3.5. MockSybilGuard + MockRewardDistributor
         mockSybilGuard = new MockSybilGuard();
         mockRewardDist = new MockRewardDistributor();
 
         // 4. ServiceRegistry
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
 
         // 5. DisputeArbitration
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        dispute = new DisputeArbitration();
+        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
 
         // 6. EscrowEngine
-        escrow = new EscrowEngine(
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -86,7 +92,8 @@ contract FullFlowTest is Test {
         );
 
         // 7. SkillRegistry
-        skillRegistry = new SkillRegistry(
+        skillRegistry = new SkillRegistry();
+        skillRegistry.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -96,11 +103,13 @@ contract FullFlowTest is Test {
         );
 
         // 8. PipelineRouter
-        pipelineRouter = new PipelineRouter(
+        pipelineRouter = new PipelineRouter();
+        pipelineRouter.initialize(
             address(skillRegistry),
             address(staking),
             address(reputation),
-            address(mockSybilGuard)
+            address(mockSybilGuard),
+            admin
         );
 
         // 9. Post-deploy role grants
@@ -110,6 +119,7 @@ contract FullFlowTest is Test {
         reputation.grantRole(reputation.RECORDER_ROLE(), admin);
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute));
         dispute.grantRole(dispute.ESCROW_ROLE(), address(escrow));
+        dispute.grantRole(dispute.CERTIFIER_ROLE(), admin);
         dispute.setEscrowEngine(address(escrow));
         escrow.grantRole(escrow.SKILL_REGISTRY_ROLE(), address(skillRegistry));
         skillRegistry.grantRole(skillRegistry.GATEWAY_ROLE(), gateway);
@@ -137,6 +147,9 @@ contract FullFlowTest is Test {
         token.approve(address(dispute), amount);
         dispute.stakeAsArbitrator(amount);
         vm.stopPrank();
+
+        vm.prank(admin);
+        dispute.certifyArbitrator(arb);
     }
 
     /// @dev Full happy path: list → job → deliver → confirm → check reputation
@@ -164,7 +177,7 @@ contract FullFlowTest is Test {
         // 3. Agent A creates a job (locks 50 LOB in escrow)
         vm.startPrank(agentA);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, agentB, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, agentB, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         assertEq(jobId, 1);
@@ -214,7 +227,7 @@ contract FullFlowTest is Test {
         // Create job
         vm.startPrank(agentA);
         token.approve(address(escrow), 100 ether);
-        uint256 jobId = escrow.createJob(listingId, agentB, 100 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, agentB, 100 ether, address(token), 1 days);
         vm.stopPrank();
 
         // Deliver
@@ -252,7 +265,7 @@ contract FullFlowTest is Test {
         // Create job
         vm.startPrank(agentA);
         token.approve(address(escrow), 200 ether);
-        uint256 jobId = escrow.createJob(listingId, agentB, 200 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, agentB, 200 ether, address(token), 1 days);
         vm.stopPrank();
 
         // Deliver
@@ -330,7 +343,7 @@ contract FullFlowTest is Test {
         // Human creates job
         vm.startPrank(human);
         token.approve(address(escrow), 75 ether);
-        uint256 jobId = escrow.createJob(listingId, agentB, 75 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, agentB, 75 ether, address(token), 1 days);
         vm.stopPrank();
 
         // Agent delivers
@@ -366,7 +379,7 @@ contract FullFlowTest is Test {
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(agentA);
             token.approve(address(escrow), 50 ether);
-            uint256 jobId = escrow.createJob(listingId, agentB, 50 ether, address(token));
+            uint256 jobId = escrow.createJob(listingId, agentB, 50 ether, address(token), 1 days);
             vm.stopPrank();
 
             vm.prank(agentB);
@@ -724,19 +737,23 @@ contract FullFlowTest is Test {
     function test_RewardScheduler_FullFlow() public {
         // Deploy StakingRewards + LiquidityMining + RewardScheduler
         vm.startPrank(admin);
-        StakingRewards stakingRewards = new StakingRewards(address(staking), address(mockSybilGuard));
+        StakingRewards stakingRewards = new StakingRewards();
+        stakingRewards.initialize(address(staking), address(mockSybilGuard));
         stakingRewards.addRewardToken(address(token));
 
         // Use a simple mock LP token for liquidity mining
         MockLPTokenForFullFlow lpToken = new MockLPTokenForFullFlow();
-        LiquidityMining liquidityMining = new LiquidityMining(
+        LiquidityMining liquidityMining = new LiquidityMining();
+        liquidityMining.initialize(
             address(lpToken),
             address(token),
             address(staking),
-            address(mockSybilGuard)
+            address(mockSybilGuard),
+            admin
         );
 
-        RewardScheduler scheduler = new RewardScheduler(address(stakingRewards), address(liquidityMining));
+        RewardScheduler scheduler = new RewardScheduler();
+        scheduler.initialize(address(stakingRewards), address(liquidityMining));
 
         // Wire roles
         stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), address(scheduler));

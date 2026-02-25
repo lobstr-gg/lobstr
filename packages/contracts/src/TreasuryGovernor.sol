@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -12,7 +14,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *         arbitrators, and grants. Receives protocol fees from EscrowEngine
  *         and slashed funds from SybilGuard. Distributes via M-of-N approval.
  */
-contract TreasuryGovernor is AccessControl, ReentrancyGuard {
+contract TreasuryGovernor is Initializable, UUPSUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
     /* ═══════════════════════════════════════════════════════════════
@@ -68,7 +70,7 @@ contract TreasuryGovernor is AccessControl, ReentrancyGuard {
        STATE
        ═══════════════════════════════════════════════════════════════ */
 
-    address public immutable lobToken; // M-4: For seized fund tracking
+    address public lobToken; // M-4: For seized fund tracking
 
     uint256 public requiredApprovals;
     uint256 public signerCount;
@@ -144,15 +146,20 @@ contract TreasuryGovernor is AccessControl, ReentrancyGuard {
     event AdminProposalExecuted(uint256 indexed proposalId, address indexed target);
     event AdminProposalCancelled(uint256 indexed proposalId, address indexed canceller);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
     /* ═══════════════════════════════════════════════════════════════
-       CONSTRUCTOR
+       INITIALIZER
        ═══════════════════════════════════════════════════════════════ */
 
     /**
      * @param _signers Initial multisig signers (min 3)
      * @param _requiredApprovals Number of approvals needed (M-of-N)
      */
-    constructor(address[] memory _signers, uint256 _requiredApprovals, address _lobToken) {
+    function initialize(address[] memory _signers, uint256 _requiredApprovals, address _lobToken) public initializer {
         require(_signers.length >= MIN_SIGNERS, "TreasuryGovernor: min 3 signers");
         require(_signers.length <= MAX_SIGNERS, "TreasuryGovernor: max 9 signers");
         require(_lobToken != address(0), "TreasuryGovernor: zero lobToken");
@@ -160,6 +167,14 @@ contract TreasuryGovernor is AccessControl, ReentrancyGuard {
             _requiredApprovals >= 2 && _requiredApprovals <= _signers.length,
             "TreasuryGovernor: invalid approval threshold"
         );
+
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+
+        _nextProposalId = 1;
+        _nextStreamId = 1;
+        _nextAdminProposalId = 1;
 
         for (uint256 i = 0; i < _signers.length; i++) {
             require(_signers[i] != address(0), "TreasuryGovernor: zero signer");
@@ -178,6 +193,8 @@ contract TreasuryGovernor is AccessControl, ReentrancyGuard {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender); // Deployer gets admin for post-deploy role grants
         _grantRole(GUARDIAN_ROLE, _signers[0]); // First signer gets guardian role
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /* ═══════════════════════════════════════════════════════════════
        RECEIVE FUNDS

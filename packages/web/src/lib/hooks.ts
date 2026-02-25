@@ -4,6 +4,7 @@ import { useReadContract, useWriteContract, useAccount, useSignTypedData } from 
 import { type Address, keccak256, toHex, encodePacked } from "viem";
 
 import { getContracts, CHAIN, USDC, FACILITATOR_URL } from "@/config/contracts";
+import { ZERO_ADDRESS } from "@/config/contract-addresses";
 import {
   LOBTokenABI,
   StakingManagerABI,
@@ -31,6 +32,7 @@ import {
   BondingEngineABI,
   LightningGovernorABI,
   DirectiveBoardABI,
+  RolePayrollABI,
 } from "@/config/abis";
 
 function useContracts() {
@@ -46,7 +48,7 @@ export function useLOBBalance(address?: `0x${string}`) {
     abi: LOBTokenABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -70,7 +72,7 @@ export function useStakeInfo(address?: `0x${string}`) {
     abi: StakingManagerABI,
     functionName: "getStakeInfo",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -81,7 +83,7 @@ export function useStakeTier(address?: `0x${string}`) {
     abi: StakingManagerABI,
     functionName: "getTier",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -94,7 +96,7 @@ export function useReputationScore(address?: `0x${string}`) {
     abi: ReputationSystemABI,
     functionName: "getScore",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -105,7 +107,7 @@ export function useReputationData(address?: `0x${string}`) {
     abi: ReputationSystemABI,
     functionName: "getReputationData",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -129,7 +131,7 @@ export function useProviderListingCount(address?: `0x${string}`) {
     abi: ServiceRegistryABI,
     functionName: "getProviderListingCount",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -142,7 +144,7 @@ export function useJob(jobId?: bigint) {
     abi: EscrowEngineABI,
     functionName: "getJob",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -166,7 +168,7 @@ export function useArbitratorInfo(address?: `0x${string}`) {
     abi: DisputeArbitrationABI,
     functionName: "getArbitratorInfo",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -200,13 +202,13 @@ export function useCreateJobWithHash() {
   const { writeContractAsync } = useWriteContract();
   const contracts = useContracts();
 
-  return async (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`) => {
+  return async (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`, deliveryDeadline: bigint) => {
     if (!contracts) throw new Error("Contracts not loaded");
     return writeContractAsync({
       address: contracts.escrowEngine,
       abi: EscrowEngineABI,
       functionName: "createJob",
-      args: [listingId, seller, amount, token],
+      args: [listingId, seller, amount, token, deliveryDeadline],
     });
   };
 }
@@ -321,13 +323,13 @@ export function useCreateJob() {
   const { writeContract } = useWriteContract();
   const contracts = useContracts();
 
-  return (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`) => {
+  return (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`, deliveryDeadline: bigint) => {
     if (!contracts) return;
     writeContract({
       address: contracts.escrowEngine,
       abi: EscrowEngineABI,
       functionName: "createJob",
-      args: [listingId, seller, amount, token],
+      args: [listingId, seller, amount, token, deliveryDeadline],
     });
   };
 }
@@ -471,7 +473,7 @@ export function useDelegatee(address?: `0x${string}`) {
     abi: TreasuryGovernorABI,
     functionName: "getDelegatee",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -482,7 +484,7 @@ export function useDelegatorCount(address?: `0x${string}`) {
     abi: TreasuryGovernorABI,
     functionName: "delegatorCount",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -604,7 +606,7 @@ export function useSybilBanCheck(address?: `0x${string}`) {
     abi: SybilGuardABI,
     functionName: "checkBanned",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -615,7 +617,7 @@ export function useSybilBanRecord(address?: `0x${string}`) {
     abi: SybilGuardABI,
     functionName: "getBanRecord",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -806,7 +808,7 @@ export function useIsArbitratorPaused(address?: `0x${string}`) {
     abi: DisputeArbitrationABI,
     functionName: "isArbitratorPaused",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -819,7 +821,7 @@ export function useJobPayer(jobId?: bigint) {
     abi: X402EscrowBridgeABI,
     functionName: "jobPayer",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -830,7 +832,7 @@ export function useJobRefundCredit(jobId?: bigint) {
     abi: X402EscrowBridgeABI,
     functionName: "jobRefundCredit",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -841,7 +843,7 @@ export function useRefundClaimed(jobId?: bigint) {
     abi: X402EscrowBridgeABI,
     functionName: "refundClaimed",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -1041,7 +1043,7 @@ export function useBorrowerProfile(address?: `0x${string}`) {
     abi: LoanEngineABI,
     functionName: "getBorrowerProfile",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1052,7 +1054,7 @@ export function useMaxBorrow(address?: `0x${string}`) {
     abi: LoanEngineABI,
     functionName: "getMaxBorrow",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1063,7 +1065,7 @@ export function useInterestRate(address?: `0x${string}`) {
     abi: LoanEngineABI,
     functionName: "getInterestRate",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1096,7 +1098,7 @@ export function useActiveLoanIds(address?: `0x${string}`) {
     abi: LoanEngineABI,
     functionName: "getActiveLoanIds",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1183,7 +1185,7 @@ export function useReview(reviewId?: bigint) {
     abi: ReviewRegistryABI,
     functionName: "getReview",
     args: reviewId !== undefined ? [reviewId] : undefined,
-    query: { enabled: reviewId !== undefined && !!contracts },
+    query: { enabled: reviewId !== undefined && !!contracts && contracts.reviewRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1194,7 +1196,7 @@ export function useReviewByJobAndReviewer(jobId?: bigint, reviewer?: `0x${string
     abi: ReviewRegistryABI,
     functionName: "getReviewByJobAndReviewer",
     args: jobId !== undefined && reviewer ? [jobId, reviewer] : undefined,
-    query: { enabled: jobId !== undefined && !!reviewer && !!contracts },
+    query: { enabled: jobId !== undefined && !!reviewer && !!contracts && contracts.reviewRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1205,7 +1207,7 @@ export function useRatingStats(address?: `0x${string}`) {
     abi: ReviewRegistryABI,
     functionName: "getRatingStats",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1216,7 +1218,7 @@ export function useAverageRating(address?: `0x${string}`) {
     abi: ReviewRegistryABI,
     functionName: "getAverageRating",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1246,7 +1248,7 @@ export function useSkill(skillId?: bigint) {
     abi: SkillRegistryABI,
     functionName: "getSkill",
     args: skillId !== undefined ? [skillId] : undefined,
-    query: { enabled: skillId !== undefined && !!contracts },
+    query: { enabled: skillId !== undefined && !!contracts && contracts.skillRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1257,7 +1259,7 @@ export function useSkillAccess(accessId?: bigint) {
     abi: SkillRegistryABI,
     functionName: "getAccess",
     args: accessId !== undefined ? [accessId] : undefined,
-    query: { enabled: accessId !== undefined && !!contracts },
+    query: { enabled: accessId !== undefined && !!contracts && contracts.skillRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1268,7 +1270,7 @@ export function useMarketplaceTier(address?: `0x${string}`) {
     abi: SkillRegistryABI,
     functionName: "getMarketplaceTier",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1279,7 +1281,7 @@ export function useBuyerCredits(buyer?: `0x${string}`, token?: `0x${string}`) {
     abi: SkillRegistryABI,
     functionName: "getBuyerCredits",
     args: buyer && token ? [buyer, token] : undefined,
-    query: { enabled: !!buyer && !!token && !!contracts },
+    query: { enabled: !!buyer && !!token && !!contracts && contracts.skillRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1290,7 +1292,7 @@ export function useSkillDependencies(skillId?: bigint) {
     abi: SkillRegistryABI,
     functionName: "getSkillDependencies",
     args: skillId !== undefined ? [skillId] : undefined,
-    query: { enabled: skillId !== undefined && !!contracts },
+    query: { enabled: skillId !== undefined && !!contracts && contracts.skillRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1301,7 +1303,7 @@ export function useSellerListingCount(address?: `0x${string}`) {
     abi: SkillRegistryABI,
     functionName: "getSellerListingCount",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1312,7 +1314,7 @@ export function useHasActiveAccess(buyer?: `0x${string}`, skillId?: bigint) {
     abi: SkillRegistryABI,
     functionName: "hasActiveAccess",
     args: buyer && skillId !== undefined ? [buyer, skillId] : undefined,
-    query: { enabled: !!buyer && skillId !== undefined && !!contracts },
+    query: { enabled: !!buyer && skillId !== undefined && !!contracts && contracts.skillRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1462,7 +1464,7 @@ export function usePipeline(pipelineId?: bigint) {
     abi: PipelineRouterABI,
     functionName: "getPipeline",
     args: pipelineId !== undefined ? [pipelineId] : undefined,
-    query: { enabled: pipelineId !== undefined && !!contracts },
+    query: { enabled: pipelineId !== undefined && !!contracts && contracts.pipelineRouter !== ZERO_ADDRESS },
   });
 }
 
@@ -1473,7 +1475,7 @@ export function usePipelineSteps(pipelineId?: bigint) {
     abi: PipelineRouterABI,
     functionName: "getPipelineSteps",
     args: pipelineId !== undefined ? [pipelineId] : undefined,
-    query: { enabled: pipelineId !== undefined && !!contracts },
+    query: { enabled: pipelineId !== undefined && !!contracts && contracts.pipelineRouter !== ZERO_ADDRESS },
   });
 }
 
@@ -1560,7 +1562,7 @@ export function usePoolStakerInfo(address?: `0x${string}`) {
     abi: InsurancePoolABI,
     functionName: "getStakerInfo",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1571,7 +1573,7 @@ export function useCoverageCap(address?: `0x${string}`) {
     abi: InsurancePoolABI,
     functionName: "getCoverageCap",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1582,7 +1584,7 @@ export function useIsInsuredJob(jobId?: bigint) {
     abi: InsurancePoolABI,
     functionName: "isInsuredJob",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -1593,7 +1595,7 @@ export function usePoolEarned(address?: `0x${string}`) {
     abi: InsurancePoolABI,
     functionName: "poolEarned",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -1642,13 +1644,13 @@ export function useClaimPoolRewards() {
 export function useCreateInsuredJob() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
-  const fn = async (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`) => {
+  const fn = async (listingId: bigint, seller: `0x${string}`, amount: bigint, token: `0x${string}`, deliveryDeadline: bigint) => {
     if (!contracts) throw new Error("Contracts not loaded");
     return writeContractAsync({
       address: contracts.insurancePool as Address,
       abi: InsurancePoolABI,
       functionName: "createInsuredJob",
-      args: [listingId, seller, amount, token],
+      args: [listingId, seller, amount, token, deliveryDeadline],
     });
   };
   return { fn, isPending, isError, error, reset };
@@ -1708,7 +1710,7 @@ export function useMultiPartyGroup(groupId?: bigint) {
     abi: MultiPartyEscrowABI,
     functionName: "getGroup",
     args: groupId !== undefined ? [groupId] : undefined,
-    query: { enabled: groupId !== undefined && !!contracts },
+    query: { enabled: groupId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -1719,7 +1721,7 @@ export function useGroupStatus(groupId?: bigint) {
     abi: MultiPartyEscrowABI,
     functionName: "getGroupStatus",
     args: groupId !== undefined ? [groupId] : undefined,
-    query: { enabled: groupId !== undefined && !!contracts },
+    query: { enabled: groupId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -1730,7 +1732,7 @@ export function useGroupJobIds(groupId?: bigint) {
     abi: MultiPartyEscrowABI,
     functionName: "getGroupJobIds",
     args: groupId !== undefined ? [groupId] : undefined,
-    query: { enabled: groupId !== undefined && !!contracts },
+    query: { enabled: groupId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -1741,7 +1743,7 @@ export function useJobGroup(jobId?: bigint) {
     abi: MultiPartyEscrowABI,
     functionName: "getJobGroup",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
   });
 }
 
@@ -1754,6 +1756,7 @@ export function useCreateMultiJob() {
     listingIds: bigint[],
     token: `0x${string}`,
     totalAmount: bigint,
+    deliveryDeadline: bigint,
     metadataURI: string,
   ) => {
     if (!contracts) throw new Error("Contracts not loaded");
@@ -1761,7 +1764,7 @@ export function useCreateMultiJob() {
       address: contracts.multiPartyEscrow as Address,
       abi: MultiPartyEscrowABI,
       functionName: "createMultiJob",
-      args: [sellers, shares, listingIds, token, totalAmount, metadataURI],
+      args: [sellers, shares, listingIds, token, totalAmount, deliveryDeadline, metadataURI],
     });
   };
   return { fn, isPending, isError, error, reset };
@@ -1806,7 +1809,7 @@ export function useSubscription(subscriptionId?: bigint) {
     abi: SubscriptionEngineABI,
     functionName: "getSubscription",
     args: subscriptionId !== undefined ? [subscriptionId] : undefined,
-    query: { enabled: subscriptionId !== undefined && !!contracts },
+    query: { enabled: subscriptionId !== undefined && !!contracts && contracts.subscriptionEngine !== ZERO_ADDRESS },
   });
 }
 
@@ -1817,7 +1820,7 @@ export function useSubscriptionsByBuyer(address?: `0x${string}`) {
     abi: SubscriptionEngineABI,
     functionName: "getSubscriptionsByBuyer",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.subscriptionEngine !== ZERO_ADDRESS },
   });
 }
 
@@ -1828,7 +1831,7 @@ export function useSubscriptionsBySeller(address?: `0x${string}`) {
     abi: SubscriptionEngineABI,
     functionName: "getSubscriptionsBySeller",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.subscriptionEngine !== ZERO_ADDRESS },
   });
 }
 
@@ -1929,7 +1932,7 @@ export function useEffectiveBalance(address?: `0x${string}`) {
     abi: StakingRewardsABI,
     functionName: "getEffectiveBalance",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2002,7 +2005,7 @@ export function useLiquidityMiningEarned(address?: `0x${string}`) {
     abi: LiquidityMiningABI,
     functionName: "earned",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2013,7 +2016,7 @@ export function useLiquidityMiningBalance(address?: `0x${string}`) {
     abi: LiquidityMiningABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2034,7 +2037,7 @@ export function useBoostMultiplier(address?: `0x${string}`) {
     abi: LiquidityMiningABI,
     functionName: "getBoostMultiplier",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2183,7 +2186,7 @@ export function useReferralInfo(address?: `0x${string}`) {
     abi: AffiliateManagerABI,
     functionName: "getReferralInfo",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2194,7 +2197,7 @@ export function useReferrerStats(address?: `0x${string}`) {
     abi: AffiliateManagerABI,
     functionName: "getReferrerStats",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2205,7 +2208,7 @@ export function useAffiliateClaimableBalance(address?: `0x${string}`, token?: `0
     abi: AffiliateManagerABI,
     functionName: "claimableBalance",
     args: address && token ? [address, token] : undefined,
-    query: { enabled: !!address && !!token && !!contracts },
+    query: { enabled: !!address && !!token && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2316,7 +2319,7 @@ export function useCreditLine(address?: `0x${string}`) {
     abi: X402CreditFacilityABI,
     functionName: "getCreditLine",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2338,7 +2341,7 @@ export function useActiveDrawIds(address?: `0x${string}`) {
     abi: X402CreditFacilityABI,
     functionName: "getActiveDrawIds",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2349,7 +2352,7 @@ export function useAvailableCredit(address?: `0x${string}`) {
     abi: X402CreditFacilityABI,
     functionName: "getAvailableCredit",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts },
+    query: { enabled: !!address && !!contracts && contracts.affiliateManager !== ZERO_ADDRESS },
   });
 }
 
@@ -2507,5 +2510,615 @@ export function useWithdrawFromCreditPool() {
     });
   };
   return { fn, isPending, isError, error, reset };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  RolePayroll
+// ═══════════════════════════════════════════════════════════════════════
+
+export function useRoleSlot(address?: `0x${string}`) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.rolePayroll,
+    abi: RolePayrollABI,
+    functionName: "getRoleSlot",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!contracts && contracts.rolePayroll !== ZERO_ADDRESS },
+  });
+}
+
+export function useEpochClaim(address?: `0x${string}`, epoch?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.rolePayroll,
+    abi: RolePayrollABI,
+    functionName: "getEpochClaim",
+    args: address && epoch !== undefined ? [address, epoch] : undefined,
+    query: { enabled: !!address && epoch !== undefined && !!contracts && contracts.rolePayroll !== ZERO_ADDRESS },
+  });
+}
+
+export function useRoleConfig(roleType?: number, rank?: number) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.rolePayroll,
+    abi: RolePayrollABI,
+    functionName: "getRoleConfig",
+    args: roleType !== undefined && rank !== undefined ? [roleType, rank] : undefined,
+    query: { enabled: roleType !== undefined && rank !== undefined && !!contracts && contracts.rolePayroll !== ZERO_ADDRESS },
+  });
+}
+
+export function useCurrentEpoch() {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.rolePayroll,
+    abi: RolePayrollABI,
+    functionName: "currentEpoch",
+    query: { enabled: !!contracts && contracts.rolePayroll !== ZERO_ADDRESS },
+  });
+}
+
+export function useLastHeartbeat(address?: `0x${string}`) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.rolePayroll,
+    abi: RolePayrollABI,
+    functionName: "lastHeartbeatTimestamp",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!contracts && contracts.rolePayroll !== ZERO_ADDRESS },
+  });
+}
+
+export function useEnrollRole() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const fn = async (roleType: number, rank: number) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.rolePayroll as Address,
+      abi: RolePayrollABI,
+      functionName: "enroll",
+      args: [roleType, rank],
+    });
+  };
+  return { fn, isPending, isError, error, reset };
+}
+
+export function useClaimWeeklyPay() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const fn = async (
+    epoch: bigint,
+    pA: [bigint, bigint],
+    pB: [[bigint, bigint], [bigint, bigint]],
+    pC: [bigint, bigint],
+    pubSignals: [bigint, bigint, bigint, bigint]
+  ) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.rolePayroll as Address,
+      abi: RolePayrollABI,
+      functionName: "claimWeeklyPay",
+      args: [epoch, pA, pB, pC, pubSignals],
+    });
+  };
+  return { fn, isPending, isError, error, reset };
+}
+
+export function useReportHeartbeat() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const fn = async (holder: Address) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.rolePayroll as Address,
+      abi: RolePayrollABI,
+      functionName: "reportHeartbeat",
+      args: [holder],
+    });
+  };
+  return { fn, isPending, isError, error, reset };
+}
+
+export function useReportAbandonment() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const fn = async (holder: Address) => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.rolePayroll as Address,
+      abi: RolePayrollABI,
+      functionName: "reportAbandonment",
+      args: [holder],
+    });
+  };
+  return { fn, isPending, isError, error, reset };
+}
+
+export function useResignRole() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+  const fn = async () => {
+    if (!contracts) throw new Error("Contracts not loaded");
+    return writeContractAsync({
+      address: contracts.rolePayroll as Address,
+      abi: RolePayrollABI,
+      functionName: "resign",
+    });
+  };
+  return { fn, isPending, isError, error, reset };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BondingEngine
+// ═══════════════════════════════════════════════════════════════════════
+
+export function useCreateMarket() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (quoteToken: Address, pricePer1LOB: bigint, discountBps: bigint, vestingPeriod: bigint, capacity: bigint, addressCap: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.bondingEngine,
+      abi: BondingEngineABI,
+      functionName: "createMarket",
+      args: [quoteToken, pricePer1LOB, discountBps, vestingPeriod, capacity, addressCap],
+    });
+  };
+}
+
+export function usePurchaseBond() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (marketId: bigint, quoteAmount: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.bondingEngine,
+      abi: BondingEngineABI,
+      functionName: "purchase",
+      args: [marketId, quoteAmount],
+    });
+  };
+}
+
+export function useClaimBond() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (bondId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.bondingEngine,
+      abi: BondingEngineABI,
+      functionName: "claim",
+      args: [bondId],
+    });
+  };
+}
+
+export function useClaimMultipleBonds() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (bondIds: bigint[]) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.bondingEngine,
+      abi: BondingEngineABI,
+      functionName: "claimMultiple",
+      args: [bondIds],
+    });
+  };
+}
+
+export function useGetMarket(marketId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.bondingEngine,
+    abi: BondingEngineABI,
+    functionName: "getMarket",
+    args: marketId !== undefined ? [marketId] : undefined,
+    query: { enabled: marketId !== undefined && !!contracts && contracts.bondingEngine !== ZERO_ADDRESS },
+  });
+}
+
+export function useGetBond(bondId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.bondingEngine,
+    abi: BondingEngineABI,
+    functionName: "getBond",
+    args: bondId !== undefined ? [bondId] : undefined,
+    query: { enabled: bondId !== undefined && !!contracts && contracts.bondingEngine !== ZERO_ADDRESS },
+  });
+}
+
+export function useBondClaimable(bondId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.bondingEngine,
+    abi: BondingEngineABI,
+    functionName: "claimable",
+    args: bondId !== undefined ? [bondId] : undefined,
+    query: { enabled: bondId !== undefined && !!contracts && contracts.bondingEngine !== ZERO_ADDRESS },
+  });
+}
+
+export function useMarketCount() {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.bondingEngine,
+    abi: BondingEngineABI,
+    functionName: "marketCount",
+    query: { enabled: !!contracts && contracts.bondingEngine !== ZERO_ADDRESS },
+  });
+}
+
+export function useBondsByOwner(owner?: Address) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.bondingEngine,
+    abi: BondingEngineABI,
+    functionName: "getBondsByOwner",
+    args: owner ? [owner] : undefined,
+    query: { enabled: !!owner && !!contracts && contracts.bondingEngine !== ZERO_ADDRESS },
+  });
+}
+
+export function useAvailableLOB() {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.bondingEngine,
+    abi: BondingEngineABI,
+    functionName: "availableLOB",
+    query: { enabled: !!contracts && contracts.bondingEngine !== ZERO_ADDRESS },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DirectiveBoard
+// ═══════════════════════════════════════════════════════════════════════
+
+export function usePostDirective() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (directiveType: number, target: Address, contentHash: `0x${string}`, contentURI: string, expiresAt: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.directiveBoard,
+      abi: DirectiveBoardABI,
+      functionName: "postDirective",
+      args: [directiveType, target, contentHash, contentURI, expiresAt],
+    });
+  };
+}
+
+export function useMarkExecuted() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (directiveId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.directiveBoard,
+      abi: DirectiveBoardABI,
+      functionName: "markExecuted",
+      args: [directiveId],
+    });
+  };
+}
+
+export function useCancelDirective() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (directiveId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.directiveBoard,
+      abi: DirectiveBoardABI,
+      functionName: "cancelDirective",
+      args: [directiveId],
+    });
+  };
+}
+
+export function useGetDirective(directiveId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.directiveBoard,
+    abi: DirectiveBoardABI,
+    functionName: "getDirective",
+    args: directiveId !== undefined ? [directiveId] : undefined,
+    query: { enabled: directiveId !== undefined && !!contracts && contracts.directiveBoard !== ZERO_ADDRESS },
+  });
+}
+
+export function useActiveDirectives(target?: Address) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.directiveBoard,
+    abi: DirectiveBoardABI,
+    functionName: "getActiveDirectives",
+    args: target ? [target] : undefined,
+    query: { enabled: !!target && !!contracts && contracts.directiveBoard !== ZERO_ADDRESS },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LightningGovernor
+// ═══════════════════════════════════════════════════════════════════════
+
+export function useLGCreateProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (target: Address, data: `0x${string}`, description: string) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.lightningGovernor,
+      abi: LightningGovernorABI,
+      functionName: "createProposal",
+      args: [target, data, description],
+    });
+  };
+}
+
+export function useLGVote() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.lightningGovernor,
+      abi: LightningGovernorABI,
+      functionName: "vote",
+      args: [proposalId],
+    });
+  };
+}
+
+export function useLGExecute() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.lightningGovernor,
+      abi: LightningGovernorABI,
+      functionName: "execute",
+      args: [proposalId],
+    });
+  };
+}
+
+export function useLGCancel() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.lightningGovernor,
+      abi: LightningGovernorABI,
+      functionName: "cancel",
+      args: [proposalId],
+    });
+  };
+}
+
+export function useLGGetProposal(proposalId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.lightningGovernor,
+    abi: LightningGovernorABI,
+    functionName: "getProposal",
+    args: proposalId !== undefined ? [proposalId] : undefined,
+    query: { enabled: proposalId !== undefined && !!contracts && contracts.lightningGovernor !== ZERO_ADDRESS },
+  });
+}
+
+export function useLGHasVoted(proposalId?: bigint, voter?: Address) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.lightningGovernor,
+    abi: LightningGovernorABI,
+    functionName: "hasVoted",
+    args: proposalId !== undefined && voter ? [proposalId, voter] : undefined,
+    query: { enabled: proposalId !== undefined && !!voter && !!contracts && contracts.lightningGovernor !== ZERO_ADDRESS },
+  });
+}
+
+export function useLGProposalCount() {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.lightningGovernor,
+    abi: LightningGovernorABI,
+    functionName: "proposalCount",
+    query: { enabled: !!contracts && contracts.lightningGovernor !== ZERO_ADDRESS },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ServiceRegistry (write hooks)
+// ═══════════════════════════════════════════════════════════════════════
+
+export function useCreateListing() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (category: number, title: string, description: string, pricePerUnit: bigint, settlementToken: Address, estimatedDeliverySeconds: bigint, metadataURI: string) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.serviceRegistry,
+      abi: ServiceRegistryABI,
+      functionName: "createListing",
+      args: [category, title, description, pricePerUnit, settlementToken, estimatedDeliverySeconds, metadataURI],
+    });
+  };
+}
+
+export function useUpdateListing() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (listingId: bigint, title: string, description: string, pricePerUnit: bigint, settlementToken: Address, estimatedDeliverySeconds: bigint, metadataURI: string) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.serviceRegistry,
+      abi: ServiceRegistryABI,
+      functionName: "updateListing",
+      args: [listingId, title, description, pricePerUnit, settlementToken, estimatedDeliverySeconds, metadataURI],
+    });
+  };
+}
+
+export function useDeactivateListing() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (listingId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.serviceRegistry,
+      abi: ServiceRegistryABI,
+      functionName: "deactivateListing",
+      args: [listingId],
+    });
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TreasuryGovernor (additional write hooks)
+// ═══════════════════════════════════════════════════════════════════════
+
+export function useCreateTreasuryProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (token: Address, recipient: Address, amount: bigint, description: string) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "createProposal",
+      args: [token, recipient, amount, description],
+    });
+  };
+}
+
+export function useApproveTreasuryProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "approveProposal",
+      args: [proposalId],
+    });
+  };
+}
+
+export function useExecuteTreasuryProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (proposalId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "executeProposal",
+      args: [proposalId],
+    });
+  };
+}
+
+export function useCreateTreasuryStream() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (recipient: Address, token: Address, totalAmount: bigint, duration: bigint, role: string) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "createStream",
+      args: [recipient, token, totalAmount, duration, role],
+    });
+  };
+}
+
+export function useClaimTreasuryStream() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (streamId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "claimStream",
+      args: [streamId],
+    });
+  };
+}
+
+export function useCreateAdminProposal() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (target: Address, data: `0x${string}`, description: string) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.treasuryGovernor,
+      abi: TreasuryGovernorABI,
+      functionName: "createAdminProposal",
+      args: [target, data, description],
+    });
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  EscrowEngine (additional write hooks)
+// ═══════════════════════════════════════════════════════════════════════
+
+export function useCancelJob() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (jobId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.escrowEngine,
+      abi: EscrowEngineABI,
+      functionName: "cancelJob",
+      args: [jobId],
+    });
+  };
+}
+
+export function useAutoRelease() {
+  const { writeContract } = useWriteContract();
+  const contracts = useContracts();
+
+  return (jobId: bigint) => {
+    if (!contracts) return;
+    writeContract({
+      address: contracts.escrowEngine,
+      abi: EscrowEngineABI,
+      functionName: "autoRelease",
+      args: [jobId],
+    });
+  };
 }
 

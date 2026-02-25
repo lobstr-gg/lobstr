@@ -36,7 +36,8 @@ contract DeployRewardScheduler is Script {
 
         vm.startBroadcast(deployerKey);
 
-        RewardScheduler scheduler = new RewardScheduler(stakingRewards, liquidityMining);
+        RewardScheduler scheduler = new RewardScheduler();
+        scheduler.initialize(stakingRewards, liquidityMining);
 
         vm.stopBroadcast();
 

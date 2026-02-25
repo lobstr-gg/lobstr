@@ -32,7 +32,8 @@ contract DeployReviewRegistry is Script {
 
         vm.startBroadcast(deployerKey);
 
-        ReviewRegistry reviewRegistry = new ReviewRegistry(escrowEngine, sybilGuard);
+        ReviewRegistry reviewRegistry = new ReviewRegistry();
+        reviewRegistry.initialize(escrowEngine, sybilGuard);
 
         vm.stopBroadcast();
 

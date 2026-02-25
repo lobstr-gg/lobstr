@@ -19,9 +19,11 @@ contract TeamVestingTest is Test {
     uint256 public constant DURATION = 1095 days; // 3 years
 
     function setUp() public {
-        token = new LOBToken(deployer);
+        token = new LOBToken();
+        token.initialize(deployer);
 
-        vesting = new TeamVesting(
+        vesting = new TeamVesting();
+        vesting.initialize(
             address(token),
             beneficiary,
             block.timestamp,
@@ -196,7 +198,8 @@ contract TeamVestingTest is Test {
 
     function test_revert_setAllocationZero() public {
         // Deploy new vesting without setting allocation
-        TeamVesting v2 = new TeamVesting(
+        TeamVesting v2 = new TeamVesting();
+        v2.initialize(
             address(token),
             beneficiary,
             block.timestamp,
@@ -209,7 +212,8 @@ contract TeamVestingTest is Test {
     }
 
     function test_revert_releaseWithoutAllocation() public {
-        TeamVesting v2 = new TeamVesting(
+        TeamVesting v2 = new TeamVesting();
+        v2.initialize(
             address(token),
             beneficiary,
             block.timestamp,
@@ -225,8 +229,9 @@ contract TeamVestingTest is Test {
     // --- Constructor Tests ---
 
     function test_revert_cliffGreaterThanDuration() public {
+        TeamVesting v2 = new TeamVesting();
         vm.expectRevert("TeamVesting: cliff > duration");
-        new TeamVesting(
+        v2.initialize(
             address(token),
             beneficiary,
             block.timestamp,
@@ -236,8 +241,9 @@ contract TeamVestingTest is Test {
     }
 
     function test_revert_zeroDuration() public {
+        TeamVesting v2 = new TeamVesting();
         vm.expectRevert("TeamVesting: zero duration");
-        new TeamVesting(
+        v2.initialize(
             address(token),
             beneficiary,
             block.timestamp,

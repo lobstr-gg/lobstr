@@ -6,17 +6,18 @@ import {
   createWalletClient,
   getContractAddress,
   loadWallet,
-  LOB_TOKEN_ABI,
 } from 'openclaw';
 import * as ui from 'openclaw';
 import { formatLob } from '../lib/format';
 
 const CREDIT_FACILITY_ABI = parseAbi([
-  'function openCreditLine(uint256 depositAmount)',
-  'function getCreditLine(address account) view returns (uint256 limit, uint256 drawn, uint256 available, bool active)',
-  'function drawCredit(uint256 amount)',
-  'function repayCredit(uint256 amount)',
+  'function openCreditLine()',
   'function closeCreditLine()',
+  'function drawCreditAndCreateEscrow(uint256 listingId, address seller, uint256 amount) returns (uint256 drawId)',
+  'function repayDraw(uint256 drawId)',
+  'function getCreditLine(address agent) view returns (uint256 limit, uint256 outstanding, uint256 available, bool open)',
+  'function getDraw(uint256 drawId) view returns (uint256 id, address agent, uint256 amount, uint256 repaid, uint256 startTime, bool active)',
+  'function getAvailableCredit(address agent) view returns (uint256)',
 ]);
 
 export function registerCreditCommands(program: Command): void {
@@ -28,39 +29,24 @@ export function registerCreditCommands(program: Command): void {
 
   credit
     .command('open-line')
-    .description('Open a credit line (approve LOB deposit first)')
-    .requiredOption('--deposit <amount>', 'Deposit amount in LOB')
-    .action(async (opts) => {
+    .description('Open a credit line (limit determined by your stake tier)')
+    .action(async () => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
-        const tokenAbi = parseAbi(LOB_TOKEN_ABI as unknown as string[]);
         const creditAddr = getContractAddress(ws.config, 'x402CreditFacility');
-        const tokenAddr = getContractAddress(ws.config, 'lobToken');
 
-        const parsedAmount = parseUnits(opts.deposit, 18);
-
-        const spin = ui.spinner('Approving LOB deposit...');
-        const approveTx = await walletClient.writeContract({
-          address: tokenAddr,
-          abi: tokenAbi,
-          functionName: 'approve',
-          args: [creditAddr, parsedAmount],
-        });
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-
-        spin.text = 'Opening credit line...';
+        const spin = ui.spinner('Opening credit line...');
         const tx = await walletClient.writeContract({
           address: creditAddr,
           abi: CREDIT_FACILITY_ABI,
           functionName: 'openCreditLine',
-          args: [parsedAmount],
+          args: [],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
         spin.succeed('Credit line opened');
-        ui.info(`Deposit: ${opts.deposit} LOB`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -71,27 +57,32 @@ export function registerCreditCommands(program: Command): void {
   // ── draw ────────────────────────────────────────────
 
   credit
-    .command('draw <amount>')
-    .description('Draw from credit line')
-    .action(async (amount: string) => {
+    .command('draw')
+    .description('Draw credit and create an escrow job')
+    .requiredOption('--listing <id>', 'Listing ID')
+    .requiredOption('--seller <address>', 'Seller address')
+    .requiredOption('--amount <amount>', 'Amount in LOB')
+    .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
         const creditAddr = getContractAddress(ws.config, 'x402CreditFacility');
 
-        const parsedAmount = parseUnits(amount, 18);
+        const parsedAmount = parseUnits(opts.amount, 18);
 
-        const spin = ui.spinner('Drawing credit...');
+        const spin = ui.spinner('Drawing credit and creating escrow...');
         const tx = await walletClient.writeContract({
           address: creditAddr,
           abi: CREDIT_FACILITY_ABI,
-          functionName: 'drawCredit',
-          args: [parsedAmount],
+          functionName: 'drawCreditAndCreateEscrow',
+          args: [BigInt(opts.listing), opts.seller as `0x${string}`, parsedAmount],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed(`Drew ${amount} LOB from credit line`);
+        spin.succeed(`Drew ${opts.amount} LOB — escrow created`);
+        ui.info(`Listing: #${opts.listing}`);
+        ui.info(`Seller:  ${opts.seller}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -102,27 +93,25 @@ export function registerCreditCommands(program: Command): void {
   // ── repay ───────────────────────────────────────────
 
   credit
-    .command('repay <amount>')
-    .description('Repay drawn credit')
-    .action(async (amount: string) => {
+    .command('repay <drawId>')
+    .description('Repay an outstanding draw')
+    .action(async (drawId: string) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
         const creditAddr = getContractAddress(ws.config, 'x402CreditFacility');
 
-        const parsedAmount = parseUnits(amount, 18);
-
-        const spin = ui.spinner('Repaying credit...');
+        const spin = ui.spinner(`Repaying draw #${drawId}...`);
         const tx = await walletClient.writeContract({
           address: creditAddr,
           abi: CREDIT_FACILITY_ABI,
-          functionName: 'repayCredit',
-          args: [parsedAmount],
+          functionName: 'repayDraw',
+          args: [BigInt(drawId)],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed(`Repaid ${amount} LOB`);
+        spin.succeed(`Draw #${drawId} repaid`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -153,16 +142,16 @@ export function registerCreditCommands(program: Command): void {
 
         const creditLine = {
           limit: result.limit ?? result[0],
-          drawn: result.drawn ?? result[1],
+          outstanding: result.outstanding ?? result[1],
           available: result.available ?? result[2],
-          active: result.active ?? result[3],
+          open: result.open ?? result[3],
         };
 
         spin.succeed('Credit Line Status');
-        console.log(`  Active:    ${creditLine.active ? 'Yes' : 'No'}`);
-        console.log(`  Limit:     ${formatLob(creditLine.limit)}`);
-        console.log(`  Drawn:     ${formatLob(creditLine.drawn)}`);
-        console.log(`  Available: ${formatLob(creditLine.available)}`);
+        console.log(`  Open:        ${creditLine.open ? 'Yes' : 'No'}`);
+        console.log(`  Limit:       ${formatLob(creditLine.limit)}`);
+        console.log(`  Outstanding: ${formatLob(creditLine.outstanding)}`);
+        console.log(`  Available:   ${formatLob(creditLine.available)}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

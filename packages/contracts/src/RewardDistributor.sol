@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IRewardDistributor.sol";
 
 /**
@@ -18,7 +21,14 @@ import "./interfaces/IRewardDistributor.sol";
  *           - TreasuryGovernor deposits (arbitrator reward budget)
  *           - SybilGuard seizure carve-outs (watcher/judge rewards)
  */
-contract RewardDistributor is IRewardDistributor, AccessControl, ReentrancyGuard {
+contract RewardDistributor is
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IRewardDistributor
+{
     using SafeERC20 for IERC20;
 
     bytes32 public constant DISPUTE_ROLE = keccak256("DISPUTE_ROLE");
@@ -35,9 +45,22 @@ contract RewardDistributor is IRewardDistributor, AccessControl, ReentrancyGuard
     uint256 public totalDistributed;
     uint256 public totalDeposited;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize() public initializer {
+        __Ownable_init(msg.sender);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+
+        // Grant DEFAULT_ADMIN_ROLE to owner (can reassign and grant other roles)
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// @notice Credit arbitrator reward (called by DisputeArbitration after ruling)
     function creditArbitratorReward(
@@ -125,5 +148,19 @@ contract RewardDistributor is IRewardDistributor, AccessControl, ReentrancyGuard
         uint256 balance = IERC20(token).balanceOf(address(this));
         uint256 liabilities = _totalLiabilities[token];
         return balance > liabilities ? balance - liabilities : 0;
+    }
+
+    // ─── Role Management ─────────────────────────────────────────────────────
+
+    /// @notice Grant DISPUTE_ROLE to DisputeArbitration contract
+    /// @dev Called after DisputeArbitration is deployed
+    function grantDisputeRole(address disputeArbitration) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        grantRole(DISPUTE_ROLE, disputeArbitration);
+    }
+
+    /// @notice Grant SYBIL_GUARD_ROLE to SybilGuard contract
+    /// @dev Called after SybilGuard is deployed
+    function grantSybilGuardRole(address sybilGuard) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        grantRole(SYBIL_GUARD_ROLE, sybilGuard);
     }
 }

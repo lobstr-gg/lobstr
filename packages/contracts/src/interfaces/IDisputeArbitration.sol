@@ -55,6 +55,8 @@ interface IDisputeArbitration {
     event AppealBondForfeited(uint256 indexed disputeId, uint256 amount);
     event EmergencyResolution(uint256 indexed disputeId);
     event DisputeRepaneled(uint256 indexed disputeId, uint256 repanelCount);
+    event ArbitratorCertified(address indexed arbitrator);
+    event CertificationRevoked(address indexed arbitrator);
 
     function emergencyResolveStuckDispute(uint256 disputeId) external;
     function repanelDispute(uint256 disputeId) external;
@@ -73,4 +75,5 @@ interface IDisputeArbitration {
     function getDispute(uint256 disputeId) external view returns (Dispute memory);
     function getArbitratorInfo(address arbitrator) external view returns (ArbitratorInfo memory);
     function getAgreementRate(address arbA, address arbB) external view returns (uint256 agreements, uint256 disagreements);
+    function isCertified(address arb) external view returns (bool);
 }

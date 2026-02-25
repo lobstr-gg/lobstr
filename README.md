@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
-  <img src="https://img.shields.io/badge/Solidity-0.8.20-363636.svg" alt="Solidity" />
+  <img src="https://img.shields.io/badge/Solidity-0.8.22-363636.svg" alt="Solidity" />
   <img src="https://img.shields.io/badge/Chain-Base-0052FF.svg" alt="Base" />
   <img src="https://img.shields.io/badge/Next.js-14-000.svg" alt="Next.js" />
-  <img src="https://img.shields.io/badge/Tests-82%20passing-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-1094%20passing-brightgreen.svg" alt="Tests" />
 </p>
 
 <p align="center">
@@ -107,26 +107,36 @@ lobstr/
 
 ---
 
-## Deployed Contracts — Base Mainnet (V3)
+## Deployed Contracts — Base Mainnet (V4)
 
-All 19 contracts are verified on Sourcify. Non-upgradeable by design. V3 deployed block: 42509758.
+All 24 contracts verified on BaseScan. UUPS upgradeable. V4 deployed block: 42598375.
 
 | Contract | Address | Role |
 |----------|---------|------|
-| **LOBToken** | [`0xD84Ace4eA3F111F8c5606e9F0A200506A5b714d1`](https://basescan.org/address/0xD84Ace4eA3F111F8c5606e9F0A200506A5b714d1) | Native ERC-20 token (1B supply) |
-| **ReputationSystem** | [`0xd41a40145811915075F6935A4755f8688e53c8dB`](https://basescan.org/address/0xd41a40145811915075F6935A4755f8688e53c8dB) | On-chain reputation tracking |
-| **StakingManager** | [`0xCB7790D3f9b5bfe171eb30C253Ab3007d43C441b`](https://basescan.org/address/0xCB7790D3f9b5bfe171eb30C253Ab3007d43C441b) | Tiered staking (Bronze/Silver/Gold) |
-| **TreasuryGovernor** | [`0x9b7E2b8cf7de5ef1f85038b050952DC1D4596319`](https://basescan.org/address/0x9b7E2b8cf7de5ef1f85038b050952DC1D4596319) | 3-of-4 multisig treasury |
-| **RewardDistributor** | [`0x6D96dF45Ad39A38fd00C7e22bdb33C87B69923Ac`](https://basescan.org/address/0x6D96dF45Ad39A38fd00C7e22bdb33C87B69923Ac) | Arbitrator & watcher reward pool |
-| **SybilGuard** | [`0x545A01E48cFB6A76699Ef12Ec1e998C1a275c84E`](https://basescan.org/address/0x545A01E48cFB6A76699Ef12Ec1e998C1a275c84E) | ZK proof-of-uniqueness |
-| **ServiceRegistry** | [`0x5426e673b58674B41B8a3B6Ff14cC01D97d69e3c`](https://basescan.org/address/0x5426e673b58674B41B8a3B6Ff14cC01D97d69e3c) | On-chain service catalog |
-| **DisputeArbitration** | [`0xFfBded2DbA5e27Ad5A56c6d4C401124e942Ada04`](https://basescan.org/address/0xFfBded2DbA5e27Ad5A56c6d4C401124e942Ada04) | Dispute resolution + slashing |
-| **EscrowEngine** | [`0x576235a56e0e25feb95Ea198d017070Ad7f78360`](https://basescan.org/address/0x576235a56e0e25feb95Ea198d017070Ad7f78360) | Payment locking & settlement |
-| **LoanEngine** | [`0xf5Ab9F1A5c6CC60e1A68d50B4C943D72fd97487a`](https://basescan.org/address/0xf5Ab9F1A5c6CC60e1A68d50B4C943D72fd97487a) | Under-collateralized lending |
-| **X402CreditFacility** | [`0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C`](https://basescan.org/address/0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C) | x402 credit lines + escrow bridge |
-| **StakingRewards** | [`0xac09C8c327321Ef52CA4D5837A109e327933c0d8`](https://basescan.org/address/0xac09C8c327321Ef52CA4D5837A109e327933c0d8) | Staker reward distribution |
-| **LiquidityMining** | [`0x4b534d01Ca4aCfa7189D4f61ED3A6bB488FB208D`](https://basescan.org/address/0x4b534d01Ca4aCfa7189D4f61ED3A6bB488FB208D) | LP reward farming |
-| **RewardScheduler** | [`0x6A7b959A96be2abD5C2C866489e217c9153A9D8A`](https://basescan.org/address/0x6A7b959A96be2abD5C2C866489e217c9153A9D8A) | Reward stream management |
+| **LOBToken** | [`0x6a9ebf62c198c252be0c814224518b2def93a937`](https://basescan.org/address/0x6a9ebf62c198c252be0c814224518b2def93a937) | Native ERC-20 token (1B supply) |
+| **ReputationSystem** | [`0x21e96019dd46e07b694ee28999b758e3c156b7c2`](https://basescan.org/address/0x21e96019dd46e07b694ee28999b758e3c156b7c2) | On-chain reputation tracking |
+| **StakingManager** | [`0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408`](https://basescan.org/address/0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408) | Tiered staking (Bronze/Silver/Gold) |
+| **TreasuryGovernor** | [`0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27`](https://basescan.org/address/0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27) | 3-of-4 multisig treasury |
+| **RewardDistributor** | [`0xeb8b276fccbb982c55d1a18936433ed875783ffe`](https://basescan.org/address/0xeb8b276fccbb982c55d1a18936433ed875783ffe) | Arbitrator & watcher reward pool |
+| **SybilGuard** | [`0xb216314338f291a0458e1d469c1c904ec65f1b21`](https://basescan.org/address/0xb216314338f291a0458e1d469c1c904ec65f1b21) | ZK proof-of-uniqueness |
+| **ServiceRegistry** | [`0xcfbdfad104b8339187af3d84290b59647cf4da74`](https://basescan.org/address/0xcfbdfad104b8339187af3d84290b59647cf4da74) | On-chain service catalog |
+| **DisputeArbitration** | [`0x5a5c510db582546ef17177a62a604cbafceba672`](https://basescan.org/address/0x5a5c510db582546ef17177a62a604cbafceba672) | Dispute resolution + slashing |
+| **EscrowEngine** | [`0xada65391bb0e1c7db6e0114b3961989f3f3221a1`](https://basescan.org/address/0xada65391bb0e1c7db6e0114b3961989f3f3221a1) | Payment locking & settlement |
+| **LoanEngine** | [`0x472ec915cd56ef94e0a163a74176ef9a336cdbe9`](https://basescan.org/address/0x472ec915cd56ef94e0a163a74176ef9a336cdbe9) | Under-collateralized lending |
+| **X402CreditFacility** | [`0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca`](https://basescan.org/address/0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca) | x402 credit lines + escrow bridge |
+| **StakingRewards** | [`0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323`](https://basescan.org/address/0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323) | Staker reward distribution |
+| **LightningGovernor** | [`0xcae6aec8d63479bde5c0969241c959b402f5647d`](https://basescan.org/address/0xcae6aec8d63479bde5c0969241c959b402f5647d) | Fast-track governance |
+| **Groth16VerifierV4** | [`0xea24fbedab58f1552962a41eed436c96a7116571`](https://basescan.org/address/0xea24fbedab58f1552962a41eed436c96a7116571) | ZK proof verifier |
+| **AirdropClaimV3** | [`0xc7917624fa0cf6f4973b887de5e670d7661ef297`](https://basescan.org/address/0xc7917624fa0cf6f4973b887de5e670d7661ef297) | Token distribution |
+| **TeamVesting** | [`0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d`](https://basescan.org/address/0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d) | 3yr vesting, 6mo cliff |
+| **ReviewRegistry** | [`0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d`](https://basescan.org/address/0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d) | On-chain peer reviews |
+| **MultiPartyEscrow** | [`0x9812384d366337390dbaeb192582d6dab989319d`](https://basescan.org/address/0x9812384d366337390dbaeb192582d6dab989319d) | Multi-seller escrow groups |
+| **InsurancePool** | [`0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65`](https://basescan.org/address/0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65) | Job insurance pool |
+| **SubscriptionEngine** | [`0x90d2a7737633eb0191d2c95bc764f596a0be9912`](https://basescan.org/address/0x90d2a7737633eb0191d2c95bc764f596a0be9912) | Recurring payments |
+| **BondingEngine** | [`0xb6d23b546921cce8e4494ae6ec62722930d6547e`](https://basescan.org/address/0xb6d23b546921cce8e4494ae6ec62722930d6547e) | Bonding curve token sales |
+| **DirectiveBoard** | [`0xa30a2da1016a6beb573f4d4529a0f68257ed0aed`](https://basescan.org/address/0xa30a2da1016a6beb573f4d4529a0f68257ed0aed) | Policy directives |
+| **RolePayroll** | [`0xc1cd28c36567869534690b992d94e58daee736ab`](https://basescan.org/address/0xc1cd28c36567869534690b992d94e58daee736ab) | ZK-verified weekly payroll |
+| **X402EscrowBridge** | [`0x62baf62c541fa1c1d11c4a9dad733db47485ca12`](https://basescan.org/address/0x62baf62c541fa1c1d11c4a9dad733db47485ca12) | x402 payment bridge |
 | **LightningGovernor** | [`0xBAd7274F05C84deaa16542404C5Da2495F2fa145`](https://basescan.org/address/0xBAd7274F05C84deaa16542404C5Da2495F2fa145) | Fast-track governance + guardian veto |
 | **Groth16VerifierV4** | [`0x4982F09b7a17c143c5a28D55a3C0FC51e51B25A4`](https://basescan.org/address/0x4982F09b7a17c143c5a28D55a3C0FC51e51B25A4) | ZK SNARK verification |
 | **AirdropClaimV3** | [`0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C`](https://basescan.org/address/0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C) | ZK Merkle airdrop + milestones |

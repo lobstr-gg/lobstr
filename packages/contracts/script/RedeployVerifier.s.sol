@@ -24,7 +24,8 @@ contract RedeployVerifierScript is Script {
         address approvalSigner = vm.envAddress("APPROVAL_SIGNER_ADDRESS");
         // >> 26 ≈ ~67M iterations ≈ 5 min on mid-level Mac
         uint256 difficultyTarget = type(uint256).max >> 26;
-        AirdropClaimV2 airdropV2 = new AirdropClaimV2(
+        AirdropClaimV2 airdropV2 = new AirdropClaimV2();
+        airdropV2.initialize(
             lobToken,
             address(zkVerifier),
             block.timestamp,

@@ -35,7 +35,8 @@ contract DeployStakingRewards is Script {
 
         vm.startBroadcast(deployerKey);
 
-        StakingRewards stakingRewards = new StakingRewards(stakingManager, sybilGuard);
+        StakingRewards stakingRewards = new StakingRewards();
+        stakingRewards.initialize(stakingManager, sybilGuard);
 
         vm.stopBroadcast();
 

@@ -1,0 +1,79 @@
+{
+  "title": "Data Scraping — Delivery Format & Coverage Shortfall",
+  "description": "Buyer (Riya Nand) hired Seller (Caleb Hart) to scrape February 2026 product listings from two competitor sites and deliver a deduplicated CSV plus a short methodology note. Buyer claims the delivery is missing one entire site’s data and was delivered in JSON instead of the required CSV, so the final milestone should be refunded. Seller argues the Buyer changed scope by asking for additional fields and that the delivered dataset is “equivalent,” so payment is still due.",
+  "expectedRuling": "BuyerWins",
+  "evidenceSpecs": [
+    {
+      "type": "pdf",
+      "name": "LOBSTR_DataScrape_Agreement_Nand_Hart_2026-02.pdf",
+      "description": "Signed agreement defining scrape targets, required CSV schema, acceptance criteria, and payment milestones.",
+      "content": "[{\"heading\":\"PARTIES\",\"body\":\"This Data Scraping Services Agreement (the \\\"Agreement\\\") is entered into on 2026-02-02 between:\\n- Buyer/Client: Riya Nand (\\\"Client\\\")\\n- Seller/Provider: Caleb Hart (\\\"Provider\\\")\\nBoth parties transact on LOBSTR and agree that LOB token payments are final except as provided in the Dispute & Remedies clause.\"},{\"heading\":\"SCOPE OF WORK\",\"body\":\"Provider will collect publicly accessible product listing data for the period 2026-02-01 through 2026-02-14 from the following sources:\\nA) competitor-a.example (\\\"Site A\\\")\\nB) competitor-b.example (\\\"Site B\\\")\\nDeliverables:\\n1) One (1) consolidated, deduplicated dataset in CSV format containing only listings observed during the stated period.\\n2) A short methodology note (max 1 page) describing collection approach, deduping logic, and limitations.\\nRequired fields/columns (exact headers): source_site, listing_id, title, price, currency, category, product_url, image_url, scraped_at (ISO 8601), in_stock (true/false).\\nProvider will not scrape behind logins, paywalls, or CAPTCHAs; if blocked, Provider must notify Client within 24 hours.\"},{\"heading\":\"COMPENSATION\",\"body\":\"Total fee: 1,200 LOB.\\nPayment schedule:\\n- 400 LOB due at signing (milestone M1).\\n- 400 LOB due upon delivery of a preliminary sample of at least 200 total rows across both sites (milestone M2).\\n- 400 LOB due upon Final Delivery and Acceptance (milestone M3).\\nIf Final Delivery fails Acceptance Criteria, Client may withhold M3 until cure or pursue remedies under Dispute & Remedies.\"},{\"heading\":\"TIMELINE\",\"body\":\"- 2026-02-02: Agreement effective; M1 due.\\n- 2026-02-05: Provider delivers preliminary sample for M2.\\n- 2026-02-14 23:59 UTC: End of collection window.\\n- 2026-02-16 18:00 UTC: Final Delivery due (dataset + methodology note).\\n- Client review period: 48 hours after Final Delivery; Provider has 72 hours to cure any Acceptance failures after notice.\"},{\"heading\":\"ACCEPTANCE CRITERIA / DELIVERY REQUIREMENTS\",\"body\":\"Final Delivery is accepted only if ALL conditions are met:\\n1) Format: A single CSV file (comma-separated), UTF-8, with the exact required headers, and no nested structures.\\n2) Coverage: Dataset must include data from both Site A and Site B. Each source must contribute at least 500 unique listings (post-deduplication), unless Provider provided written notice of blocking within 24 hours of occurrence.\\n3) Freshness: All rows must have scraped_at timestamps within 2026-02-01 to 2026-02-14 inclusive.\\n4) Dedupe: No more than 2% duplicate product_url across the entire file.\\n5) Methodology note delivered as PDF or plain text.\\nFailure of any item is a non-acceptance event.\"},{\"heading\":\"QUALITY, SCOPE CHANGES, & DISPUTE / REMEDIES\",\"body\":\"Quality Standard: Provider must use commercially reasonable efforts to meet the Scope and Acceptance Criteria.\\nScope Changes: Any request to add new fields, additional sources, or change formats must be agreed in writing via LOBSTR chat and may require a change order; absent a signed change order, Provider must still deliver the originally agreed format and fields.\\nLate/Nonconforming Delivery: If Provider misses the Final Delivery due time by more than 24 hours OR delivers nonconforming work and fails to cure within the cure period, Client may terminate and seek a refund of M3 (if paid) and/or withhold M3 if unpaid.\\nSubcontracting: Provider may not subcontract without Client’s written consent.\\nGoverning Evidence: LOBSTR escrow ledger and message timestamps control for payment and delivery timing.\"}]"
+    },
+    {
+      "type": "image",
+      "name": "LOBSTR_Chat_Delivery_Dispute_2026-02-17.png",
+      "description": "A realistic chat screenshot showing delivery of a JSON file link, Buyer requesting CSV and pointing out missing Site B coverage, and Seller insisting the JSON is equivalent and blaming scope creep.",
+      "content": "Realistic screenshot, high detail, sharp text, modern UI design. A dark-mode marketplace chat interface titled with a transaction name at the top and two participant avatars on left/right. Visible elements: a message timeline with timestamp pills around Feb 16–17, 2026; a file attachment card showing a downloadable dataset with a JSON icon and file size; a second attachment card showing a short note document; a highlighted message bubble from the buyer pointing to missing coverage (mentions one competitor site not present) and asking for a CSV with specific columns; seller reply bubble stating the dataset is delivered and that requests for extra fields/format changes are out of scope; a small status bar on the right showing “Milestone M3: Pending” and an escrow indicator. Include subtle UI details: message read checkmarks, a scroll bar, a “Report dispute” button, and a link preview card. No legible exact wording required—focus on the recognizable structure of the conversation, attachments, and timestamps."
+    },
+    {
+      "type": "csv",
+      "name": "LOBSTR_Escrow_and_Delivery_Log_2026-02.csv",
+      "description": "Platform ledger entries for milestones, delivery events, and dispute status changes with dates and transaction hashes.",
+      "content": "date,event_type,description,party,lob_amount,status,tx_hash\n2026-02-02,payment,M1 escrow funded (signing payment),Riya Nand,400,confirmed,0x8b21c4f19a7d2e33b6f0a9c1d5e6f708a9b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5\n2026-02-05,delivery,Preliminary sample delivered (attachment: sample.csv),Caleb Hart,0,recorded,0x1a3f9c0b2d4e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6\n2026-02-05,payment,M2 escrow funded after sample accepted,Riya Nand,400,confirmed,0x2c4d6e7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7\n2026-02-16,delivery,Final delivery posted (attachment: dataset.json + note.txt),Caleb Hart,0,recorded,0x3d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9\n2026-02-17,issue_report,Buyer reported nonconforming format and missing Site B coverage,Riya Nand,0,opened,0x4e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0\n2026-02-18,provider_response,Provider responded: format equivalent; alleges scope creep; no change order,Caleb Hart,0,recorded,0x5f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2\n2026-02-19,cure_window,Platform marks cure window active (72h) after issue notice,System,0,active,0x6a8192b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3\n2026-02-21,dispute,Buyer escalated to dispute; M3 remains unpaid in escrow,Riya Nand,400,held,0x7b92a3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5"
+    }
+  ],
+  "mcQuestions": [
+    {
+      "question": "Under the contract’s Acceptance Criteria, what is the required final dataset format?",
+      "options": [
+        "A single UTF-8 CSV file with the exact required headers and no nested structures",
+        "Either CSV or JSON as long as the fields are present",
+        "A zipped archive containing separate CSVs per source site",
+        "A Google Sheet link with editable access"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "What is the minimum post-deduplication listing count required per source site for acceptance (absent timely blocking notice)?",
+      "options": [
+        "200 per site",
+        "500 per site",
+        "1,000 combined across both sites with no per-site minimum",
+        "No minimum counts are specified"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "question": "According to the log and the contract timeline, was the final delivery posted by the stated due time?",
+      "options": [
+        "Yes; it was posted on 2026-02-16, matching the Final Delivery due date",
+        "No; it was first posted on 2026-02-17, which is late",
+        "No; it was posted on 2026-02-21 after dispute escalation",
+        "Cannot be determined because no delivery event is recorded"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "Cross-referencing the contract and the records log, which milestone is still unpaid/held at the time of dispute escalation?",
+      "options": [
+        "M1 (signing payment) is held",
+        "M2 (sample acceptance payment) is held",
+        "M3 (final acceptance payment) is held",
+        "All milestones were paid out to the Provider"
+      ],
+      "correctIndex": 2
+    },
+    {
+      "question": "Which contract clause most directly defeats the Provider’s argument that delivering JSON is acceptable because the Buyer requested changes?",
+      "options": [
+        "Scope Changes clause: absent a written change order, Provider must still deliver the originally agreed format and fields",
+        "Subcontracting clause: Provider may not use third parties without consent",
+        "Freshness clause: scraped_at must be within 2026-02-01 to 2026-02-14",
+        "Governing Evidence clause: LOBSTR message timestamps control"
+      ],
+      "correctIndex": 0
+    }
+  ],
+  "analysisPrompt": "Evaluate whether the Provider’s Final Delivery conforms to the Agreement’s Acceptance Criteria and whether the Buyer is entitled to withhold or recover M3. Use the contract terms in LOBSTR_DataScrape_Agreement_Nand_Hart_2026-02.pdf and corroborate delivery/payment timing in LOBSTR_Escrow_and_Delivery_Log_2026-02.csv, with the chat context in LOBSTR_Chat_Delivery_Dispute_2026-02-17.png.",
+  "gradingRubric": "- Identify that Acceptance Criteria requires a single UTF-8 CSV with exact headers (Contract: “ACCEPTANCE CRITERIA / DELIVERY REQUIREMENTS,” item 1), making JSON nonconforming.\n- Note the coverage requirement: both Site A and Site B must be included with at least 500 unique listings per source absent timely blocking notice (Contract: Acceptance Criteria item 2).\n- Confirm from the delivery log that the final delivery was posted as “dataset.json + note.txt” on 2026-02-16 (LOBSTR_Escrow_and_Delivery_Log_2026-02.csv), meaning timing alone is not the breach.\n- Assess whether any blocking notice within 24 hours exists; if none is evidenced, the Provider cannot rely on the exception to the per-site minimum (Contract: Scope of Work notification requirement + Acceptance Criteria item 2).\n- Address the Provider’s “scope creep” defense and apply the Scope Changes clause: absent a written change order, Provider still must deliver the originally agreed format/fields (Contract: “QUALITY, SCOPE CHANGES, & DISPUTE / REMEDIES”).\n- Use the chat screenshot to corroborate that the Buyer objected to format and missing site coverage and that the Provider asserted equivalence rather than curing (LOBSTR_Chat_Delivery_Dispute_2026-02-17.png).\n- Conclude remedy: Buyer may withhold M3 (and/or seek refund if paid) due to nonconforming delivery and unresolved acceptance failure within the cure framework; M3 is shown as held/pending in the log (Records CSV: dispute escalation row with 400 LOB held)."
+}

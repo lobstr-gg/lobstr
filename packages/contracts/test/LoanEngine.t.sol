@@ -49,19 +49,29 @@ contract LoanEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         sybilGuard = new MockSybilGuardForLoans();
+        vm.stopPrank();
 
-        loanEngine = new LoanEngine(
+        loanEngine = new LoanEngine();
+        loanEngine.initialize(
             address(token),
             address(reputation),
             address(staking),
             address(sybilGuard),
-            treasury
+            treasury,
+            address(this)
         );
 
+        // OZ 5.x: DEFAULT_ADMIN_ROLE granted to _owner (address(this)), grant to admin for tests
+        loanEngine.grantRole(loanEngine.DEFAULT_ADMIN_ROLE(), admin);
+
+        vm.startPrank(admin);
         // Grant roles to LoanEngine
         reputation.grantRole(reputation.RECORDER_ROLE(), address(loanEngine));
         staking.grantRole(staking.SLASHER_ROLE(), address(loanEngine));
@@ -699,7 +709,7 @@ contract LoanEngineTest is Test {
 
         vm.startPrank(borrower);
         token.approve(address(loanEngine), 250 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         loanEngine.requestLoan(100 ether, ILoanEngine.LoanTerm.ThirtyDays);
         vm.stopPrank();
     }
@@ -728,7 +738,7 @@ contract LoanEngineTest is Test {
 
         vm.startPrank(lender);
         token.approve(address(loanEngine), 500 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         loanEngine.fundLoan(loanId);
         vm.stopPrank();
     }
@@ -742,7 +752,7 @@ contract LoanEngineTest is Test {
 
         vm.startPrank(borrower);
         token.approve(address(loanEngine), 1000 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         loanEngine.repay(loanId, 100 ether);
         vm.stopPrank();
     }

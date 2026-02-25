@@ -38,11 +38,13 @@ contract DeployLiquidityMining is Script {
 
         vm.startBroadcast(deployerKey);
 
-        LiquidityMining liquidityMining = new LiquidityMining(
+        LiquidityMining liquidityMining = new LiquidityMining();
+        liquidityMining.initialize(
             lpToken,
             lobToken,
             stakingManager,
-            sybilGuard
+            sybilGuard,
+            deployer
         );
 
         vm.stopBroadcast();

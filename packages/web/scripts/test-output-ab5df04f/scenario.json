@@ -1,0 +1,79 @@
+{
+  "title": "Data Scraping — Delivery Fails Coverage & Format Requirements",
+  "description": "Buyer claims the seller delivered an incomplete dataset and the wrong format (missing required fields and far below the minimum record count), so the final milestone should not be paid and the initial deposit should be refunded. Seller argues the target site rate-limited and changed its layout mid-project, making full coverage impossible, and says the buyer “used” the partial data so payment is still owed. The contract’s minimum coverage, required schema, and acceptance/rejection process make the outcome objectively determinable.",
+  "expectedRuling": "BuyerWins",
+  "evidenceSpecs": [
+    {
+      "type": "pdf",
+      "name": "Feb2026_Lobstr_DataScrape_Agreement_Cruz-Kim.pdf",
+      "description": "Service agreement governing a February 2026 data scraping job, including minimum record counts, required CSV schema, timeline, acceptance procedure, and a force majeure/third‑party changes clause.",
+      "content": "[{\"heading\":\"PARTIES\",\"body\":\"This Data Scraping Service Agreement (the \\\"Agreement\\\") is entered into on 2026-02-03 by and between: (1) Daniela Cruz (\\\"Buyer\\\"), Growth Lead at Northshore Nutraceuticals LLC; and (2) Minseo Kim (\\\"Seller\\\"), independent data engineer and scraping contractor. Buyer and Seller may be referred to individually as a \\\"Party\\\" and collectively as the \\\"Parties\\\". All payments are denominated in LOB tokens via LOBSTR escrow.\"},{\"heading\":\"SCOPE OF WORK\",\"body\":\"Seller will collect product listing data from the public pages of the website identified by Buyer as \\\"VitaMarket\\\" (US storefront) for the category pages provided by Buyer. Deliverables:\\n1) One CSV file named vitamarket_products_feb2026.csv containing at least 3,000 unique product listing rows (unique by product URL) scraped during the delivery window.\\n2) Required columns (exact headers, in this order): product_name, brand, price_usd, currency, product_url, image_url, category_path, rating, review_count, availability, scraped_at_utc.\\n3) A short README.txt describing scrape date range, any exclusions, and how duplicates were handled.\\nExclusions: No login-only pages; no CAPTCHA bypass; Seller may use rotating IPs and headless browsers as legally permitted.\"},{\"heading\":\"COMPENSATION\",\"body\":\"Total fee: 1,200 LOB. Payment schedule via LOBSTR escrow: (a) 400 LOB deposit released to Seller upon project start (on-chain confirmation), and (b) 800 LOB final payment released upon Buyer acceptance of the Deliverables per Acceptance Criteria. If Buyer rejects deliverables for failure to meet Acceptance Criteria, Seller must cure within the Cure Period (defined below) before final payment can be released.\"},{\"heading\":\"TIMELINE\",\"body\":\"Start date: 2026-02-03.\\nInterim check-in: 2026-02-08 (Seller provides sample of 100 rows and confirms schema).\\nDelivery due date: 2026-02-12 23:59 UTC (Seller provides final CSV + README).\\nReview period: Buyer has 3 calendar days after delivery (through 2026-02-15 23:59 UTC) to accept or reject in writing with specific deficiencies.\\nCure period: If rejected, Seller has 3 calendar days after rejection notice to cure and redeliver (through 2026-02-18 23:59 UTC).\"},{\"heading\":\"ACCEPTANCE CRITERIA / DELIVERY REQUIREMENTS\",\"body\":\"Deliverables will be deemed accepted only if all criteria are met:\\nA) Record count: minimum 3,000 unique product URLs.\\nB) Schema: CSV must include all required columns listed in Scope of Work with non-empty values for product_name, price_usd, currency, product_url, scraped_at_utc on at least 98% of rows.\\nC) Data quality: price_usd must parse as a numeric value (decimal allowed) on at least 98% of rows; rating and review_count may be blank if not present on the page.\\nD) Format: CSV must be UTF-8, comma-delimited, with header row exactly matching required headers and order.\\nE) Delivery method: Files delivered via LOBSTR message attachment or Base-compatible file link posted in LOBSTR chat.\\nIf any criterion is not met, Buyer may reject. Partial performance does not trigger final payment unless Buyer provides written waiver explicitly referencing the unmet criteria.\"},{\"heading\":\"THIRD-PARTY CHANGES, LIMITATIONS, AND REMEDIES\",\"body\":\"1) Third-Party Changes: If VitaMarket materially changes HTML structure or introduces rate limits during the project, Seller must notify Buyer within 24 hours of discovery and propose a mitigation plan. This clause does not remove Seller’s obligation to meet Acceptance Criteria unless Buyer agrees in writing to modify Scope/Acceptance.\\n2) Late Delivery: If delivery is later than the Delivery due date without Buyer-approved extension in writing, final payment is reduced by 5% per 24-hour period late, capped at 25%.\\n3) No Subcontracting: Seller may not subcontract scraping or data labeling to third parties without Buyer’s written consent.\\n4) Refunds: If Seller fails to deliver conforming Deliverables after the Cure Period, Buyer may cancel and is entitled to a refund of the 400 LOB deposit from escrow to the extent not already released.\"}]"
+    },
+    {
+      "type": "image",
+      "name": "LOBSTR_Chat_Screenshot_Rejection_and_Schema_Issue.png",
+      "description": "A realistic chat screenshot showing the buyer rejecting the delivery, highlighting missing required columns and low row count, and the seller responding about rate limits and suggesting JSON instead of the required CSV.",
+      "content": "DALL-E prompt: Create a realistic screenshot, high detail, sharp text, modern UI design of a desktop web chat interface titled “LOBSTR Escrow Chat”. Layout: left sidebar with conversation list (small circular avatars, muted gray background), center panel with chat bubbles, right panel showing “Escrow Details” with a progress bar and two milestones. In the center chat, show an attached file card near the top (CSV icon, filename truncated) posted by the seller, followed by a buyer message bubble containing a bulleted checklist with red warning icons (indicating missing columns and low row count) and a timestamp in February 2026. Below, show a seller reply bubble referencing rate limiting and a suggestion to deliver JSON instead, with a small “link preview” card. Include visible UI elements like message timestamps, a paperclip attachment icon, and a subtle banner indicating “Review period ends in 2 days”. Use neutral colors (white background, light gray dividers, blue buyer bubbles, dark seller bubbles). Do not rely on exact readable words; convey meaning with icons, structure, and formatting."
+    },
+    {
+      "type": "csv",
+      "name": "Escrow_Ledger_and_Delivery_Log_Feb2026.csv",
+      "description": "Escrow ledger and delivery/review log with dates, actions, LOB amounts, statuses, and transaction hashes for the scraping job.",
+      "content": "date,actor,action,details,lob_amount,status,tx_hash\n2026-02-03,Daniela Cruz (Buyer),Escrow Funded,Deposit funded to escrow for project start,400,Confirmed,0x3a9c11b8d1f04c2e9a6d7b1c22d8f5a1c0e7b9a2f1c3d4e5f6a7b8c9d0e1f2a3\n2026-02-03,Minseo Kim (Seller),Deposit Released,Start confirmed and deposit released to seller,400,Released,0x6b1f2a3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n2026-02-08,Minseo Kim (Seller),Interim Sample Sent,100-row sample shared; buyer notes schema looks okay in principle,0,Logged,0x8c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff0011\n2026-02-12,Minseo Kim (Seller),Final Delivery Posted,File link posted to dataset; README included,0,Delivered,0x1f0e9d8c7b6a5948372615049382716059483726150493827160594837261504\n2026-02-13,Daniela Cruz (Buyer),Rejection Notice,Buyer rejects: 1,742 rows; missing availability and category_path columns; many blank price values,0,Rejected,0x2a1b0c9d8e7f615243120f9e8d7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4\n2026-02-14,Minseo Kim (Seller),Cure Attempt Update,Seller reports site rate limits; proposes JSON export and fewer columns,0,InProgress,0x4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3928171605\n2026-02-18,Minseo Kim (Seller),Cure Redelivery,Second file link posted; still below minimum rows per buyer later check,0,Redelivered,0x5e4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3928171606\n2026-02-19,Daniela Cruz (Buyer),Cancellation Request,Buyer requests cancellation and refund citing failure after cure period,0,Requested,0x7a6b5c4d3e2f1a0b9c8d7e6f5061728394a5b6c7d8e9f0011223344556677889\n2026-02-20,LOBSTR Escrow,System Hold,Final milestone not released pending dispute; escrow notes acceptance not recorded,800,OnHold,0x9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5061728394a5b6c7"
+    }
+  ],
+  "mcQuestions": [
+    {
+      "question": "According to the contract, what is the minimum number of unique product listing rows required for acceptance?",
+      "options": [
+        "3,000 unique product URLs",
+        "2,000 unique product URLs",
+        "1,500 unique product URLs",
+        "3,500 unique product URLs"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "What is the deadline (date and time) for the seller’s final delivery under the Timeline section?",
+      "options": [
+        "2026-02-12 23:59 UTC",
+        "2026-02-15 23:59 UTC",
+        "2026-02-18 23:59 UTC",
+        "2026-02-08 23:59 UTC"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "Cross-referencing the CSV log with the contract’s cure period: did the seller redeliver within the cure deadline, and what was that deadline?",
+      "options": [
+        "Yes; deadline was 2026-02-18 23:59 UTC and redelivery occurred 2026-02-18",
+        "No; deadline was 2026-02-15 23:59 UTC and redelivery occurred 2026-02-18",
+        "Yes; deadline was 2026-02-20 23:59 UTC and redelivery occurred 2026-02-18",
+        "No; deadline was 2026-02-12 23:59 UTC and redelivery occurred 2026-02-18"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "Which contract clause most directly defeats the seller’s argument that rate limits justify delivering JSON with fewer columns instead of the required CSV schema?",
+      "options": [
+        "Third-Party Changes clause requiring written agreement to modify Scope/Acceptance",
+        "Late Delivery clause reducing final payment by 5% per 24-hour period",
+        "No Subcontracting clause",
+        "Parties section identifying roles"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "Cross-referencing the image evidence description with the Acceptance Criteria: which of the following issues shown/claimed in the rejection is explicitly an acceptance requirement in the contract?",
+      "options": [
+        "Presence of category_path and availability columns in the CSV",
+        "Inclusion of social media share counts per product",
+        "Delivery as a Google Sheet rather than a CSV",
+        "A minimum rating value present on every row"
+      ],
+      "correctIndex": 0
+    }
+  ],
+  "analysisPrompt": "Evaluate whether the seller’s delivered dataset meets the measurable Acceptance Criteria in Feb2026_Lobstr_DataScrape_Agreement_Cruz-Kim.pdf and whether any change in requirements was agreed to in writing. Use the rejection/context shown in LOBSTR_Chat_Screenshot_Rejection_and_Schema_Issue.png and the delivery/rejection/cure timing in Escrow_Ledger_and_Delivery_Log_Feb2026.csv to determine if the buyer properly rejected and whether the seller cured in a conforming manner.",
+  "gradingRubric": "- Identify the Acceptance Criteria minimum record count (3,000 unique product URLs) and required CSV headers/order from Feb2026_Lobstr_DataScrape_Agreement_Cruz-Kim.pdf.\n- Note the contract’s rule that partial performance does not trigger final payment absent an explicit written waiver referencing unmet criteria (Acceptance Criteria section).\n- Apply the Third-Party Changes clause: seller must notify and propose mitigation, but obligations remain unless Buyer agrees in writing to modify Scope/Acceptance; assess seller’s rate-limit justification against this clause.\n- Confirm the key timeline dates: delivery due 2026-02-12 23:59 UTC, review through 2026-02-15 23:59 UTC, and cure deadline through 2026-02-18 23:59 UTC (Timeline section), and compare to the CSV log entries.\n- Use Escrow_Ledger_and_Delivery_Log_Feb2026.csv to verify the buyer’s rejection on 2026-02-13 occurred within the review window and that the seller’s redelivery on 2026-02-18 was timely but still must be conforming.\n- Corroborate the nature of deficiencies (missing required columns, low row count, blank price fields / format deviation) using the chat screenshot evidence description and map them to the measurable acceptance thresholds in the contract.\n- Conclude the remedy under the Refunds clause: if conforming deliverables were not provided after the Cure Period, buyer may cancel and is entitled to refund of the 400 LOB deposit (to the extent not already released) and final 800 LOB should remain unpaid; explain why seller’s “buyer used partial data” argument fails absent a written waiver."
+}

@@ -39,14 +39,20 @@ contract FuzzTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         mockSybilGuard = new MockSybilGuardFuzz();
         mockRewardDist = new MockRewardDistributorFuzz();
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine(
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration();
+        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),

@@ -34,13 +34,20 @@ contract SybilGuardTest is Test {
 
     function setUp() public {
         vm.prank(distributor);
-        lob = new LOBToken(distributor);
+        lob = new LOBToken();
+        lob.initialize(distributor);
 
         vm.startPrank(admin);
-        staking = new StakingManager(address(lob));
+        staking = new StakingManager();
+        staking.initialize(address(lob));
         rewardDist = new RewardDistributor();
+        rewardDist.initialize();
+        vm.stopPrank();
 
-        sybilGuard = new SybilGuard(
+        // Initialize with admin as owner (so admin gets DEFAULT_ADMIN_ROLE in OZ 5.x)
+        vm.startPrank(admin);
+        sybilGuard = new SybilGuard();
+        sybilGuard.initialize(
             address(lob),
             address(staking),
             treasuryGovernor,
@@ -144,23 +151,27 @@ contract SybilGuardTest is Test {
     }
 
     function test_constructor_reverts_zero_lobToken() public {
+        SybilGuard sg = new SybilGuard();
         vm.expectRevert("SybilGuard: zero lobToken");
-        new SybilGuard(address(0), address(staking), treasuryGovernor, address(rewardDist));
+        sg.initialize(address(0), address(staking), treasuryGovernor, address(rewardDist));
     }
 
     function test_constructor_reverts_zero_staking() public {
+        SybilGuard sg = new SybilGuard();
         vm.expectRevert("SybilGuard: zero staking");
-        new SybilGuard(address(lob), address(0), treasuryGovernor, address(rewardDist));
+        sg.initialize(address(lob), address(0), treasuryGovernor, address(rewardDist));
     }
 
     function test_constructor_reverts_zero_treasury() public {
+        SybilGuard sg = new SybilGuard();
         vm.expectRevert("SybilGuard: zero treasury");
-        new SybilGuard(address(lob), address(staking), address(0), address(rewardDist));
+        sg.initialize(address(lob), address(staking), address(0), address(rewardDist));
     }
 
     function test_constructor_reverts_zero_rewardDistributor() public {
+        SybilGuard sg = new SybilGuard();
         vm.expectRevert("SybilGuard: zero rewardDistributor");
-        new SybilGuard(address(lob), address(staking), treasuryGovernor, address(0));
+        sg.initialize(address(lob), address(staking), treasuryGovernor, address(0));
     }
 
     /* ═══════════════════════════════════════════════════════════════

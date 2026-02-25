@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "./interfaces/IAirdropClaimV3.sol";
 import "./interfaces/IReputationSystem.sol";
 import "./interfaces/IServiceRegistry.sol";
@@ -16,45 +20,43 @@ import "./verifiers/Groth16VerifierV4.sol";
 
 /**
  * @title AirdropClaimV3
- * @notice ZK Merkle membership airdrop with milestone-based unlocks.
+ * @notice ZK airdrop with workspaceHash anti-Sybil and milestone-based unlocks.
  *
  *         Everyone gets 6,000 LOB flat:
  *           - 1,000 LOB immediate on first claim
  *           - 5 milestones, each unlocking 1,000 LOB (permissionless verification)
  *
  *         Anti-Sybil (3 layers):
- *           1. ZK proof — Groth16 proof of Merkle membership (Poseidon tree, depth 20)
+ *           1. ZK proof — Groth16 proof with 3 public signals [workspaceHash, claimantAddress, tierIndex]
  *           2. IP gate — one approval per IP, permanent ban on second attempt
- *           3. PoW — keccak256(address, merkleRoot, powNonce) < difficultyTarget
+ *           3. PoW — keccak256(address, workspaceHash, powNonce) < difficultyTarget
  *
  *         Claim flow:
- *           1. Agent calls backend /register → gets salt, leaf stored
- *           2. Backend periodically builds Merkle tree, pushes root on-chain
- *           3. Agent calls backend /merkle-proof → gets pathElements + pathIndices
- *           4. Agent generates Groth16 proof locally (or via backend)
- *           5. Agent calls backend /approve → gets approvalSig (IP-gated)
- *           6. Agent computes PoW nonce locally
- *           7. Agent calls claim() on-chain with all params
- *           8. Agent completes milestones over time to unlock remaining 5,000 LOB
+ *           1. Agent generates attestation locally (heartbeats → Poseidon hash → workspaceHash)
+ *           2. Agent generates Groth16 proof locally (circuit proves workspace membership)
+ *           3. Agent calls backend /attest → registers address + workspaceHash
+ *           4. Agent calls backend /approve → gets approvalSig (IP-gated)
+ *           5. Agent computes PoW nonce locally
+ *           6. Agent calls claim() on-chain with all params
+ *           7. Agent completes milestones over time to unlock remaining 5,000 LOB
  */
-contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Pausable {
+contract AirdropClaimV3 is IAirdropClaimV3, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
-    bytes32 public constant ROOT_UPDATER_ROLE = keccak256("ROOT_UPDATER_ROLE");
-
-    IERC20 public immutable lobToken;
-    Groth16VerifierV4 public immutable verifier;
-    address public immutable approvalSigner;
-    uint256 public immutable difficultyTarget;
-    uint256 public immutable claimWindowEnd;
-    uint256 public immutable maxAirdropPool;
+    IERC20 public lobToken;
+    Groth16VerifierV4 public verifier;
+    address public approvalSigner;
+    uint256 public difficultyTarget;
+    uint256 public claimWindowEnd;
+    uint256 public maxAirdropPool;
 
     // External contracts for milestone verification
-    IReputationSystem public immutable reputationSystem;
-    IServiceRegistry public immutable serviceRegistry;
-    IStakingManager public immutable stakingManager;
-    IDisputeArbitration public immutable disputeArbitration;
+    IReputationSystem public reputationSystem;
+    IServiceRegistry public serviceRegistry;
+    IStakingManager public stakingManager;
+    IDisputeArbitration public disputeArbitration;
 
     // Allocation constants
     uint256 public constant TOTAL_ALLOCATION = 6_000 ether;
@@ -70,12 +72,17 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
     uint256 public constant GOVERNANCE_VOTE_THRESHOLD = 1;
 
     // State
-    uint256 public currentMerkleRoot;
+    mapping(uint256 => bool) private _usedWorkspaceHashes;
     mapping(address => ClaimInfo) private _claims;
     mapping(bytes32 => bool) private _usedApprovals;
     uint256 public totalClaimed;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _verifier,
         address _approvalSigner,
@@ -86,7 +93,7 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
         address _serviceRegistry,
         address _stakingManager,
         address _disputeArbitration
-    ) {
+    ) public virtual initializer {
         require(_lobToken != address(0), "V3: zero token");
         require(_verifier != address(0), "V3: zero verifier");
         require(_approvalSigner != address(0), "V3: zero approval signer");
@@ -97,6 +104,12 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
         require(_serviceRegistry != address(0), "V3: zero registry");
         require(_stakingManager != address(0), "V3: zero staking");
         require(_disputeArbitration != address(0), "V3: zero arbitration");
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         lobToken = IERC20(_lobToken);
         verifier = Groth16VerifierV4(_verifier);
@@ -113,28 +126,31 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    /// @notice Claim airdrop using ZK proof of Merkle membership.
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
+
+    /// @notice Claim airdrop using ZK proof with workspaceHash anti-Sybil.
     ///         Releases 1,000 LOB immediately. Remaining 5,000 unlocked via milestones.
     function claim(
         uint256[2] calldata pA,
         uint256[2][2] calldata pB,
         uint256[2] calldata pC,
-        uint256[2] calldata pubSignals,
+        uint256[3] calldata pubSignals,
         bytes calldata approvalSig,
         uint256 powNonce
     ) external nonReentrant whenNotPaused {
         require(block.timestamp <= claimWindowEnd, "V3: window closed");
         require(!_claims[msg.sender].claimed, "V3: already claimed");
 
-        uint256 merkleRoot = pubSignals[0];
+        uint256 workspaceHash = pubSignals[0];
         uint256 claimantAddress = pubSignals[1];
+        uint256 tierIndex = pubSignals[2];
 
         // Verify claimant address matches msg.sender
         require(claimantAddress == uint256(uint160(msg.sender)), "V3: address mismatch");
 
-        // Verify merkle root matches current on-chain root
-        require(merkleRoot == currentMerkleRoot, "V3: invalid root");
-        require(currentMerkleRoot != 0, "V3: root not set");
+        // Verify workspaceHash not already used (anti-Sybil)
+        require(!_usedWorkspaceHashes[workspaceHash], "V3: duplicate workspace");
+        require(tierIndex <= 2, "V3: invalid tier");
 
         // Verify ZK proof
         require(
@@ -143,13 +159,16 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
         );
 
         // IP gate — verify approval signature
-        _verifyApproval(msg.sender, merkleRoot, approvalSig);
+        _verifyApproval(msg.sender, workspaceHash, approvalSig);
 
         // PoW verification
-        _verifyPoW(msg.sender, merkleRoot, powNonce);
+        _verifyPoW(msg.sender, workspaceHash, powNonce);
 
         // Pool cap check
         require(totalClaimed + TOTAL_ALLOCATION <= maxAirdropPool, "V3: pool exhausted");
+
+        // Mark workspaceHash as used
+        _usedWorkspaceHashes[workspaceHash] = true;
 
         // Store claim
         _claims[msg.sender] = ClaimInfo({
@@ -194,13 +213,6 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
 
     // --- Admin ---
 
-    /// @notice Update the Merkle root (called by backend as registrations grow)
-    function updateMerkleRoot(uint256 newRoot) external onlyRole(ROOT_UPDATER_ROLE) {
-        require(newRoot != 0, "V3: zero root");
-        currentMerkleRoot = newRoot;
-        emit MerkleRootUpdated(newRoot, block.timestamp);
-    }
-
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
     }
@@ -211,6 +223,7 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
 
     /// @notice Recover unclaimed tokens after claim window ends
     function recoverTokens(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(to != address(0), "V3: zero address");
         require(block.timestamp > claimWindowEnd, "V3: window active");
         uint256 balance = lobToken.balanceOf(address(this));
         lobToken.safeTransfer(to, balance);
@@ -230,8 +243,8 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
         return _claims[claimant].milestonesCompleted & milestoneBit != 0;
     }
 
-    function getMerkleRoot() external view returns (uint256) {
-        return currentMerkleRoot;
+    function isWorkspaceHashUsed(uint256 hash) external view returns (bool) {
+        return _usedWorkspaceHashes[hash];
     }
 
     function getPendingMilestones(address claimant) external view returns (bool[5] memory pending) {
@@ -245,11 +258,11 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
 
     function _verifyApproval(
         address sender,
-        uint256 merkleRoot,
+        uint256 workspaceHash,
         bytes calldata sig
     ) internal {
         bytes32 msgHash = keccak256(
-            abi.encodePacked(sender, merkleRoot, block.chainid, address(this), "LOBSTR_AIRDROP_V3_ZK")
+            abi.encodePacked(sender, workspaceHash, block.chainid, address(this), "LOBSTR_AIRDROP_V3_ZK")
         );
         bytes32 ethHash = msgHash.toEthSignedMessageHash();
         require(!_usedApprovals[ethHash], "V3: approval already used");
@@ -259,11 +272,11 @@ contract AirdropClaimV3 is IAirdropClaimV3, AccessControl, ReentrancyGuard, Paus
 
     function _verifyPoW(
         address sender,
-        uint256 merkleRoot,
+        uint256 workspaceHash,
         uint256 powNonce
     ) internal view {
         require(
-            uint256(keccak256(abi.encodePacked(sender, merkleRoot, powNonce))) < difficultyTarget,
+            uint256(keccak256(abi.encodePacked(sender, workspaceHash, powNonce))) < difficultyTarget,
             "V3: insufficient PoW"
         );
     }

@@ -102,15 +102,18 @@ contract DeployScript is Script {
     // ── Step 1-3: Core token infrastructure ────────────────────────────
     function _deployCore(address distributionAddress) internal {
         // 1. LOBToken — mints 1B LOB to distributionAddress
-        token = new LOBToken(distributionAddress);
+        token = new LOBToken();
+        token.initialize(distributionAddress);
         console.log("LOBToken:", address(token));
 
         // 2. ReputationSystem
         reputation = new ReputationSystem();
+        reputation.initialize();
         console.log("ReputationSystem:", address(reputation));
 
         // 3. StakingManager
-        staking = new StakingManager(address(token));
+        staking = new StakingManager();
+        staking.initialize(address(token));
         console.log("StakingManager:", address(staking));
     }
 
@@ -121,7 +124,8 @@ contract DeployScript is Script {
         signers[1] = vm.envAddress("SIGNER_2_ADDRESS");
         signers[2] = vm.envAddress("SIGNER_3_ADDRESS");
 
-        treasuryGov = new TreasuryGovernor(signers, 2, address(token));
+        treasuryGov = new TreasuryGovernor();
+        treasuryGov.initialize(signers, 2, address(token));
         console.log("TreasuryGovernor:", address(treasuryGov));
     }
 
@@ -133,7 +137,8 @@ contract DeployScript is Script {
 
     // ── Step 5: SybilGuard ─────────────────────────────────────────────
     function _deploySybilGuard() internal {
-        sybilGuard = new SybilGuard(
+        sybilGuard = new SybilGuard();
+        sybilGuard.initialize(
             address(token),
             address(staking),
             address(treasuryGov),
@@ -145,7 +150,8 @@ contract DeployScript is Script {
     // ── Steps 6-8: Marketplace contracts ───────────────────────────────
     function _deployMarketplace() internal {
         // 6. ServiceRegistry
-        registry = new ServiceRegistry(
+        registry = new ServiceRegistry();
+        registry.initialize(
             address(staking),
             address(reputation),
             address(sybilGuard)
@@ -153,7 +159,8 @@ contract DeployScript is Script {
         console.log("ServiceRegistry:", address(registry));
 
         // 7. DisputeArbitration
-        dispute = new DisputeArbitration(
+        dispute = new DisputeArbitration();
+        dispute.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -163,7 +170,8 @@ contract DeployScript is Script {
         console.log("DisputeArbitration:", address(dispute));
 
         // 8. EscrowEngine
-        escrow = new EscrowEngine(
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -178,7 +186,8 @@ contract DeployScript is Script {
     // ── Steps 9-10: Skill Marketplace ──────────────────────────────────
     function _deploySkillMarketplace() internal {
         // 9. SkillRegistry
-        skillRegistry = new SkillRegistry(
+        skillRegistry = new SkillRegistry();
+        skillRegistry.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -189,51 +198,60 @@ contract DeployScript is Script {
         console.log("SkillRegistry:", address(skillRegistry));
 
         // 10. PipelineRouter
-        pipelineRouter = new PipelineRouter(
+        pipelineRouter = new PipelineRouter();
+        pipelineRouter.initialize(
             address(skillRegistry),
             address(staking),
             address(reputation),
-            address(sybilGuard)
+            address(sybilGuard),
+            deployer
         );
         console.log("PipelineRouter:", address(pipelineRouter));
     }
 
     // ── Step 11: LoanEngine ──────────────────────────────────────────────
     function _deployLoanEngine() internal {
-        loanEngine = new LoanEngine(
+        loanEngine = new LoanEngine();
+        loanEngine.initialize(
             address(token),
             address(reputation),
             address(staking),
             address(sybilGuard),
-            vm.envAddress("TREASURY_ADDRESS")
+            vm.envAddress("TREASURY_ADDRESS"),
+            deployer
         );
         console.log("LoanEngine:", address(loanEngine));
     }
 
     // ── Step 10: X402CreditFacility ──────────────────────────────────────
     function _deployCreditFacility() internal {
-        creditFacility = new X402CreditFacility(
+        creditFacility = new X402CreditFacility();
+        creditFacility.initialize(
             address(token),
             address(escrow),
             address(dispute),
             address(reputation),
             address(staking),
             address(sybilGuard),
-            vm.envAddress("TREASURY_ADDRESS")
+            vm.envAddress("TREASURY_ADDRESS"),
+            deployer
         );
         console.log("X402CreditFacility:", address(creditFacility));
     }
 
     // ── StakingRewards + LiquidityMining + RewardScheduler ────────────────
     function _deployRewards() internal {
-        stakingRewards = new StakingRewards(address(staking), address(sybilGuard));
+        stakingRewards = new StakingRewards();
+        stakingRewards.initialize(address(staking), address(sybilGuard));
         console.log("StakingRewards:", address(stakingRewards));
 
         address lpToken = vm.envAddress("LP_TOKEN_ADDRESS");
-        liquidityMining = new LiquidityMining(lpToken, address(token), address(staking), address(sybilGuard));
+        liquidityMining = new LiquidityMining();
+        liquidityMining.initialize(lpToken, address(token), address(staking), address(sybilGuard), deployer);
         console.log("LiquidityMining:", address(liquidityMining));
 
-        rewardScheduler = new RewardScheduler(address(stakingRewards), address(liquidityMining));
+        rewardScheduler = new RewardScheduler();
+        rewardScheduler.initialize(address(stakingRewards), address(liquidityMining));
         console.log("RewardScheduler:", address(rewardScheduler));
 
         stakingRewards.addRewardToken(address(token));
@@ -323,7 +341,8 @@ contract DeployScript is Script {
         uint256 difficultyTarget = type(uint256).max >> 26;
         uint256 maxAirdropPool = 400_000_000 ether;
 
-        airdropV2 = new AirdropClaimV2(
+        airdropV2 = new AirdropClaimV2();
+        airdropV2.initialize(
             address(token),
             address(zkVerifier),
             block.timestamp,

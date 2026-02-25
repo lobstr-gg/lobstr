@@ -35,6 +35,7 @@ const reputationAbi = [
           { name: "disputesLost", type: "uint256" },
           { name: "disputesWon", type: "uint256" },
           { name: "firstActivityTimestamp", type: "uint256" },
+          { name: "uniqueCounterparties", type: "uint256" },
         ],
       },
     ],

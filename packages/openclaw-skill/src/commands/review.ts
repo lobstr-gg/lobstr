@@ -9,10 +9,11 @@ import {
 import * as ui from 'openclaw';
 
 const REVIEW_REGISTRY_ABI = parseAbi([
-  'function submitReview(uint256 jobId, uint8 rating, string comment)',
-  'function getReview(uint256 reviewId) view returns (uint256 id, uint256 jobId, address reviewer, address reviewee, uint8 rating, string comment, uint256 timestamp)',
-  'function getReviewsForProvider(address provider) view returns (uint256[])',
-  'function reviewCount() view returns (uint256)',
+  'function submitReview(uint256 jobId, uint8 rating, string metadataURI)',
+  'function getReview(uint256 reviewId) view returns (uint256 id, uint256 jobId, address reviewer, uint8 rating, string metadataURI, uint256 timestamp)',
+  'function getReviewByJobAndReviewer(uint256 jobId, address reviewer) view returns (uint256 id, uint256 jobId, address reviewer, uint8 rating, string metadataURI, uint256 timestamp)',
+  'function getRatingStats(address subject) view returns (uint256 totalRatings, uint256 sumRatings, uint256 avgRating)',
+  'function getAverageRating(address subject) view returns (uint256 numerator, uint256 denominator)',
 ]);
 
 export function registerReviewCommands(program: Command): void {
@@ -27,7 +28,7 @@ export function registerReviewCommands(program: Command): void {
     .description('Submit a review for a completed job')
     .requiredOption('--job <id>', 'Job ID')
     .requiredOption('--rating <1-5>', 'Rating (1-5)')
-    .requiredOption('--comment <text>', 'Review comment')
+    .requiredOption('--metadata <uri>', 'Metadata URI for the review')
     .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
@@ -46,7 +47,7 @@ export function registerReviewCommands(program: Command): void {
           address: reviewAddr,
           abi: REVIEW_REGISTRY_ABI,
           functionName: 'submitReview',
-          args: [BigInt(opts.job), rating, opts.comment],
+          args: [BigInt(opts.job), rating, opts.metadata],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
@@ -63,59 +64,37 @@ export function registerReviewCommands(program: Command): void {
   // ── list ────────────────────────────────────────────
 
   review
-    .command('list <address>')
-    .description('List reviews for a provider')
+    .command('stats <address>')
+    .description('View rating stats for an address')
     .action(async (address: string) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const reviewAddr = getContractAddress(ws.config, 'reviewRegistry');
 
-        const spin = ui.spinner('Fetching reviews...');
-        const reviewIds = await publicClient.readContract({
+        const spin = ui.spinner('Fetching rating stats...');
+        const result = await publicClient.readContract({
           address: reviewAddr,
           abi: REVIEW_REGISTRY_ABI,
-          functionName: 'getReviewsForProvider',
+          functionName: 'getRatingStats',
           args: [address as `0x${string}`],
-        }) as bigint[];
+        }) as any;
 
-        if (reviewIds.length === 0) {
-          spin.succeed('No reviews found');
+        const stats = {
+          totalRatings: result.totalRatings ?? result[0],
+          sumRatings: result.sumRatings ?? result[1],
+          avgRating: result.avgRating ?? result[2],
+        };
+
+        if (Number(stats.totalRatings) === 0) {
+          spin.succeed('No ratings found');
           return;
         }
 
-        const reviews: any[] = [];
-        for (const rid of reviewIds) {
-          const result = await publicClient.readContract({
-            address: reviewAddr,
-            abi: REVIEW_REGISTRY_ABI,
-            functionName: 'getReview',
-            args: [rid],
-          }) as any;
-
-          reviews.push({
-            id: result.id ?? result[0],
-            jobId: result.jobId ?? result[1],
-            reviewer: result.reviewer ?? result[2],
-            reviewee: result.reviewee ?? result[3],
-            rating: result.rating ?? result[4],
-            comment: result.comment ?? result[5],
-            timestamp: result.timestamp ?? result[6],
-          });
-        }
-
-        spin.succeed(`${reviews.length} review(s)`);
-        ui.table(
-          ['ID', 'Job', 'Reviewer', 'Rating', 'Comment', 'Date'],
-          reviews.map((r: any) => [
-            r.id.toString(),
-            r.jobId.toString(),
-            r.reviewer.slice(0, 10) + '...',
-            `${r.rating}/5`,
-            r.comment.length > 40 ? r.comment.slice(0, 40) + '...' : r.comment,
-            new Date(Number(r.timestamp) * 1000).toLocaleDateString(),
-          ])
-        );
+        spin.succeed(`Rating stats for ${address}`);
+        console.log(`  Total ratings: ${stats.totalRatings.toString()}`);
+        console.log(`  Sum ratings:   ${stats.sumRatings.toString()}`);
+        console.log(`  Avg rating:    ${stats.avgRating.toString()}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
@@ -145,18 +124,16 @@ export function registerReviewCommands(program: Command): void {
           id: result.id ?? result[0],
           jobId: result.jobId ?? result[1],
           reviewer: result.reviewer ?? result[2],
-          reviewee: result.reviewee ?? result[3],
-          rating: result.rating ?? result[4],
-          comment: result.comment ?? result[5],
-          timestamp: result.timestamp ?? result[6],
+          rating: result.rating ?? result[3],
+          metadataURI: result.metadataURI ?? result[4],
+          timestamp: result.timestamp ?? result[5],
         };
 
         spin.succeed(`Review #${id}`);
         console.log(`  Job:      #${reviewData.jobId}`);
         console.log(`  Reviewer: ${reviewData.reviewer}`);
-        console.log(`  Reviewee: ${reviewData.reviewee}`);
         console.log(`  Rating:   ${'*'.repeat(Number(reviewData.rating))}${'_'.repeat(5 - Number(reviewData.rating))} (${reviewData.rating}/5)`);
-        console.log(`  Comment:  ${reviewData.comment}`);
+        console.log(`  Metadata: ${reviewData.metadataURI}`);
         console.log(`  Date:     ${new Date(Number(reviewData.timestamp) * 1000).toISOString()}`);
       } catch (err) {
         ui.error((err as Error).message);

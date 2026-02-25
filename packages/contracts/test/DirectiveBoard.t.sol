@@ -35,7 +35,8 @@ contract DirectiveBoardTest is Test {
 
     function setUp() public {
         sybil = new MockSybilGuard();
-        board = new DirectiveBoard(address(sybil));
+        board = new DirectiveBoard();
+        board.initialize(address(sybil), address(this));
 
         board.grantRole(board.POSTER_ROLE(), poster);
         board.grantRole(board.POSTER_ROLE(), poster2);

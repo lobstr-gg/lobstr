@@ -2140,3 +2140,206 @@ ponder.on("TeamVesting:VestingRevoked", async ({ event, context }) => {
     blockNumber: event.block.number,
   });
 });
+
+// ============================================
+// TreasuryGovernor Events
+// ============================================
+// Note: TreasuryGovernor has its own proposal/stream system separate from LightningGovernor
+// Required schema tables:
+// - treasury_proposal: id, proposer, token, recipient, amount, description, status, approvalCount, createdAt, timelockEnd
+// - treasury_stream: id, recipient, token, totalAmount, claimedAmount, startTime, endTime, role, active
+// - treasury_governor_event: id, eventType (proposal_approved, stream_created, stream_claimed, funds_received, signer_added), proposalId, streamId, signer, recipient, token, amount, timestamp, blockNumber
+
+ponder.on("TreasuryGovernor:ProposalCreated", async ({ event, context }) => {
+  const { db } = context;
+  const { proposalId, proposer, token, recipient, amount, description } = event.args;
+
+  // TODO: Add treasury_proposal table to schema
+  // await db.insert(schema.treasuryProposal).values({
+  //   id: proposalId,
+  //   proposer,
+  //   token,
+  //   recipient,
+  //   amount,
+  //   description,
+  //   status: 0, // Pending
+  //   approvalCount: 1,
+  //   createdAt: event.block.timestamp,
+  //   timelockEnd: 0n,
+  // });
+  console.log("TreasuryGovernor:ProposalCreated", { proposalId, proposer, token, recipient, amount, description });
+});
+
+ponder.on("TreasuryGovernor:ProposalApproved", async ({ event, context }) => {
+  const { db } = context;
+  const { proposalId, signer } = event.args;
+
+  // TODO: Update treasury_proposal approval count
+  // TODO: Add treasury_governor_event for tracking approvals
+  console.log("TreasuryGovernor:ProposalApproved", { proposalId, signer });
+});
+
+ponder.on("TreasuryGovernor:ProposalExecuted", async ({ event, context }) => {
+  const { db } = context;
+  const { proposalId, recipient, amount } = event.args;
+
+  // TODO: Update treasury_proposal status to Executed
+  console.log("TreasuryGovernor:ProposalExecuted", { proposalId, recipient, amount });
+});
+
+ponder.on("TreasuryGovernor:StreamCreated", async ({ event, context }) => {
+  const { db } = context;
+  const { streamId, recipient, token, totalAmount, startTime, endTime, role } = event.args;
+
+  // TODO: Add treasury_stream table to schema
+  // await db.insert(schema.treasuryStream).values({
+  //   id: streamId,
+  //   recipient,
+  //   token,
+  //   totalAmount,
+  //   claimedAmount: 0n,
+  //   startTime,
+  //   endTime,
+  //   role,
+  //   active: true,
+  // });
+  console.log("TreasuryGovernor:StreamCreated", { streamId, recipient, token, totalAmount, startTime, endTime, role });
+});
+
+ponder.on("TreasuryGovernor:StreamClaimed", async ({ event, context }) => {
+  const { db } = context;
+  const { streamId, recipient, amount } = event.args;
+
+  // TODO: Update treasury_stream claimedAmount
+  console.log("TreasuryGovernor:StreamClaimed", { streamId, recipient, amount });
+});
+
+ponder.on("TreasuryGovernor:FundsReceived", async ({ event, context }) => {
+  const { db } = context;
+  const { token, from, amount } = event.args;
+
+  // TODO: Track treasury incoming funds
+  console.log("TreasuryGovernor:FundsReceived", { token, from, amount });
+});
+
+ponder.on("TreasuryGovernor:SignerAdded", async ({ event, context }) => {
+  const { db } = context;
+  const { signer } = event.args;
+
+  // TODO: Track signer additions
+  console.log("TreasuryGovernor:SignerAdded", { signer });
+});
+
+// ============================================
+// AirdropClaimV3 Events
+// ============================================
+// Required schema tables:
+// - airdrop_claim: id (address), claimed, immediateRelease, milestonesCompleted, claimedAt
+// - airdrop_milestone_event: id (txHash-logIndex), claimant, milestone, amountReleased, timestamp, blockNumber
+
+ponder.on("AirdropClaimV3:AirdropClaimed", async ({ event, context }) => {
+  const { db } = context;
+  const { claimant, immediateRelease } = event.args;
+
+  // TODO: Add airdrop_claim table to schema
+  // await db.insert(schema.airdropClaim).values({
+  //   id: claimant,
+  //   claimed: true,
+  //   immediateRelease,
+  //   claimedAt: event.block.timestamp,
+  // });
+  console.log("AirdropClaimV3:AirdropClaimed", { claimant, immediateRelease });
+});
+
+ponder.on("AirdropClaimV3:MilestoneCompleted", async ({ event, context }) => {
+  const { db } = context;
+  const { claimant, milestone, amountReleased } = event.args;
+
+  // TODO: Add airdrop_claim table to track milestonesCompleted (bitmask)
+  // TODO: Add airdrop_milestone_event table
+  console.log("AirdropClaimV3:MilestoneCompleted", { claimant, milestone: Number(milestone), amountReleased });
+});
+
+// ============================================
+// RolePayroll Events
+// ============================================
+// Required schema tables:
+// - role_enrollment: id (address), roleType, rank, status, enrolledAt, stakedAmount, strikes
+// - role_pay_event: id (txHash-logIndex), holder, epoch, uptimeCount, payAmount, timestamp, blockNumber
+// - role_event: id (txHash-logIndex), eventType (heartbeat_reported, abandonment_detected, role_resigned, strike_issued), holder, timestamp, blockNumber
+
+ponder.on("RolePayroll:RoleEnrolled", async ({ event, context }) => {
+  const { db } = context;
+  const { holder, roleType, rank, certFee } = event.args;
+
+  // TODO: Add role_enrollment table to schema
+  // await db.insert(schema.roleEnrollment).values({
+  //   id: holder,
+  //   roleType,
+  //   rank,
+  //   status: 0, // Active
+  //   enrolledAt: event.block.timestamp,
+  //   stakedAmount: 0n,
+  //   strikes: 0,
+  // });
+  console.log("RolePayroll:RoleEnrolled", { holder, roleType, rank, certFee });
+});
+
+ponder.on("RolePayroll:WeeklyPayClaimed", async ({ event, context }) => {
+  const { db } = context;
+  const { holder, epoch, uptimeCount, payAmount } = event.args;
+
+  // TODO: Add role_pay_event table to schema
+  // await db.insert(schema.rolePayEvent).values({
+  //   id: `${event.transaction.hash}-${event.log.logIndex}`,
+  //   holder,
+  //   epoch,
+  //   uptimeCount,
+  //   payAmount,
+  //   timestamp: event.block.timestamp,
+  //   blockNumber: event.block.number,
+  // });
+  console.log("RolePayroll:WeeklyPayClaimed", { holder, epoch, uptimeCount, payAmount });
+});
+
+ponder.on("RolePayroll:HeartbeatReported", async ({ event, context }) => {
+  const { db } = context;
+  const { holder, timestamp } = event.args;
+
+  // TODO: Add role_event table to schema
+  // await db.insert(schema.roleEvent).values({
+  //   id: `${event.transaction.hash}-${event.log.logIndex}`,
+  //   eventType: "heartbeat_reported",
+  //   holder,
+  //   timestamp: event.block.timestamp,
+  //   blockNumber: event.block.number,
+  // });
+  console.log("RolePayroll:HeartbeatReported", { holder, timestamp });
+});
+
+ponder.on("RolePayroll:AbandonmentDetected", async ({ event, context }) => {
+  const { db } = context;
+  const { holder, silentDuration } = event.args;
+
+  // TODO: Update role_enrollment status to Suspended
+  // TODO: Add role_event for abandonment_detected
+  console.log("RolePayroll:AbandonmentDetected", { holder, silentDuration });
+});
+
+ponder.on("RolePayroll:RoleResigned", async ({ event, context }) => {
+  const { db } = context;
+  const { holder } = event.args;
+
+  // TODO: Update role_enrollment status to Resigned
+  // TODO: Add role_event for role_resigned
+  console.log("RolePayroll:RoleResigned", { holder });
+});
+
+ponder.on("RolePayroll:StrikeIssued", async ({ event, context }) => {
+  const { db } = context;
+  const { holder, totalStrikes, reason } = event.args;
+
+  // TODO: Update role_enrollment strikes count
+  // TODO: Add role_event for strike_issued
+  console.log("RolePayroll:StrikeIssued", { holder, totalStrikes, reason });
+});

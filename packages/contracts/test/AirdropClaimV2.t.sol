@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../src/LOBToken.sol";
 import "../src/AirdropClaimV2.sol";
 import "../src/verifiers/Groth16Verifier.sol";
@@ -50,13 +51,15 @@ contract AirdropClaimV2Test is Test {
         approvalSignerAddr = vm.addr(approvalSignerKey);
 
         // Deploy token (all supply goes to deployer)
-        token = new LOBToken(deployer);
+        token = new LOBToken();
+        token.initialize(deployer);
 
         // Deploy mock verifier (always returns true)
         verifier = new MockGroth16Verifier();
 
         // Deploy V2 airdrop
-        airdrop = new AirdropClaimV2(
+        airdrop = new AirdropClaimV2();
+        airdrop.initialize(
             address(token),
             address(verifier),
             block.timestamp,
@@ -83,7 +86,7 @@ contract AirdropClaimV2Test is Test {
 
     function _signApproval(address user, uint256 workspaceHash) internal view returns (bytes memory) {
         bytes32 msgHash = keccak256(abi.encodePacked(user, workspaceHash, "LOBSTR_AIRDROP_APPROVAL"));
-        bytes32 ethHash = msgHash.toEthSignedMessageHash();
+        bytes32 ethHash = MessageHashUtils.toEthSignedMessageHash(msgHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(approvalSignerKey, ethHash);
         return abi.encodePacked(r, s, v);
     }
@@ -239,7 +242,8 @@ contract AirdropClaimV2Test is Test {
 
     function test_revert_windowNotStarted() public {
         // Deploy new airdrop with future start
-        AirdropClaimV2 futureAirdrop = new AirdropClaimV2(
+        AirdropClaimV2 futureAirdrop = new AirdropClaimV2();
+        futureAirdrop.initialize(
             address(token),
             address(verifier),
             block.timestamp + 1 days,
@@ -286,7 +290,7 @@ contract AirdropClaimV2Test is Test {
         // Sign with wrong key
         uint256 wrongKey = 0xDEAD5678;
         bytes32 msgHash = keccak256(abi.encodePacked(alice, workspaceHash, "LOBSTR_AIRDROP_APPROVAL"));
-        bytes32 ethHash = msgHash.toEthSignedMessageHash();
+        bytes32 ethHash = MessageHashUtils.toEthSignedMessageHash(msgHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongKey, ethHash);
         bytes memory badSig = abi.encodePacked(r, s, v);
 
@@ -333,7 +337,8 @@ contract AirdropClaimV2Test is Test {
         // This test is inherently covered by the contract logic, but let's verify
         // the error message is correct by testing in a fresh airdrop contract.
 
-        AirdropClaimV2 airdrop2 = new AirdropClaimV2(
+        AirdropClaimV2 airdrop2 = new AirdropClaimV2();
+        airdrop2.initialize(
             address(token),
             address(verifier),
             block.timestamp,

@@ -16,8 +16,9 @@ contract MockEscrowForInsurance {
     uint256 private _nextJobId = 1;
     mapping(uint256 => IEscrowEngine.Job) private _jobs;
     mapping(uint256 => uint256) private _jobDisputeIds;
+    mapping(uint256 => address) private _jobPayers;
 
-    function createJob(uint256 listingId, address seller, uint256 amount, address token) external returns (uint256) {
+    function createJob(uint256 listingId, address seller, uint256 amount, address token, uint256 deliveryDeadline) external returns (uint256) {
         uint256 jobId = _nextJobId++;
         _jobs[jobId] = IEscrowEngine.Job({
             id: jobId,
@@ -32,7 +33,8 @@ contract MockEscrowForInsurance {
             disputeWindowEnd: 0,
             deliveryMetadataURI: "",
             escrowType: IEscrowEngine.EscrowType.SERVICE_JOB,
-            skillId: 0
+            skillId: 0,
+            deliveryDeadline: deliveryDeadline
         });
         require(IERC20(token).transferFrom(msg.sender, address(this), amount), "transfer failed");
         return jobId;
@@ -52,6 +54,14 @@ contract MockEscrowForInsurance {
 
     function setJobDisputeId(uint256 jobId, uint256 disputeId) external {
         _jobDisputeIds[jobId] = disputeId;
+    }
+
+    function jobPayer(uint256 jobId) external view returns (address) {
+        return _jobPayers[jobId];
+    }
+
+    function setJobPayer(uint256 jobId, address payer) external {
+        _jobPayers[jobId] = payer;
     }
 
     uint256 public lastConfirmedJobId;
@@ -170,7 +180,8 @@ contract InsurancePoolTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken(distributor);
+        lobToken = new LOBToken();
+        lobToken.initialize(distributor);
         escrow = new MockEscrowForInsurance();
         dispute = new MockDisputeForInsurance();
         reputation = new MockReputationForInsurance();
@@ -178,7 +189,8 @@ contract InsurancePoolTest is Test {
         sybilGuard = new MockSybilGuardForInsurance();
         serviceRegistry = new MockServiceRegistryForInsurance();
 
-        pool = new InsurancePool(
+        pool = new InsurancePool();
+        pool.initialize(
             address(lobToken),
             address(escrow),
             address(dispute),
@@ -186,7 +198,8 @@ contract InsurancePoolTest is Test {
             address(stakingManager),
             address(sybilGuard),
             address(serviceRegistry),
-            treasury
+            treasury,
+            admin
         );
         pool.grantRole(pool.GOVERNOR_ROLE(), governor);
         vm.stopPrank();
@@ -219,7 +232,7 @@ contract InsurancePoolTest is Test {
         uint256 premium = (amount * 50) / 10000;
         vm.startPrank(_buyer);
         lobToken.approve(address(pool), amount + premium);
-        uint256 jobId = pool.createInsuredJob(1, seller, amount, address(lobToken));
+        uint256 jobId = pool.createInsuredJob(1, seller, amount, address(lobToken), block.timestamp + 7 days);
         vm.stopPrank();
         return jobId;
     }
@@ -282,7 +295,7 @@ contract InsurancePoolTest is Test {
         vm.startPrank(buyer);
         lobToken.approve(address(pool), 2000 ether);
         vm.expectRevert("InsurancePool: buyer banned");
-        pool.createInsuredJob(1, seller, 1000 ether, address(lobToken));
+        pool.createInsuredJob(1, seller, 1000 ether, address(lobToken), block.timestamp + 7 days);
         vm.stopPrank();
     }
 
@@ -536,7 +549,7 @@ contract InsurancePoolTest is Test {
 
         vm.startPrank(staker1);
         lobToken.approve(address(pool), 1000 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         pool.depositToPool(1000 ether);
         vm.stopPrank();
     }
@@ -556,13 +569,15 @@ contract InsurancePoolTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroLobToken() public {
+        InsurancePool p = new InsurancePool();
         vm.expectRevert("InsurancePool: zero lobToken");
-        new InsurancePool(address(0), address(escrow), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury);
+        p.initialize(address(0), address(escrow), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury, address(this));
     }
 
     function test_revertZeroEscrowEngine() public {
+        InsurancePool p = new InsurancePool();
         vm.expectRevert("InsurancePool: zero escrowEngine");
-        new InsurancePool(address(lobToken), address(0), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury);
+        p.initialize(address(lobToken), address(0), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury, address(this));
     }
 
     // ═══════════════════════════════════════════════════════════════

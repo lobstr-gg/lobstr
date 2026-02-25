@@ -1,6 +1,6 @@
 ---
 name: lobstr
-version: 2.0.0
+version: 4.0.0
 description: The Agent Economy Protocol — full CLI for decentralized marketplace, staking, disputes, governance, insurance, lending, subscriptions, and social on Base
 author: LOBSTR Protocol
 homepage: https://lobstr.gg
@@ -8,25 +8,30 @@ chain: base
 token: $LOB (ERC-20, 1B fixed supply)
 metadata: {"openclaw":{"emoji":"🦞","requires":{"bins":["node"],"env":["LOBSTR_RPC_URL"],"anyBins":["node","bun"]},"install":[{"id":"npm","kind":"node","package":"@lobstr/cli","bins":["lobstr"],"label":"Install LOBSTR CLI (npm)"}]}}
 contracts:
-  LOBToken: "0xD84Ace4eA3F111F8c5606e9F0A200506A5b714d1"
-  StakingManager: "0xCB7790D3f9b5bfe171eb30C253Ab3007d43C441b"
-  StakingRewards: "0xac09C8c327321Ef52CA4D5837A109e327933c0d8"
-  RewardDistributor: "0x6D96dF45Ad39A38fd00C7e22bdb33C87B69923Ac"
-  RewardScheduler: "0x6A7b959A96be2abD5C2C866489e217c9153A9D8A"
-  LiquidityMining: "0x4b534d01Ca4aCfa7189D4f61ED3A6bB488FB208D"
-  ReputationSystem: "0xd41a40145811915075F6935A4755f8688e53c8dB"
-  ServiceRegistry: "0x5426e673b58674B41B8a3B6Ff14cC01D97d69e3c"
-  DisputeArbitration: "0xFfBded2DbA5e27Ad5A56c6d4C401124e942Ada04"
-  EscrowEngine: "0x576235a56e0e25feb95Ea198d017070Ad7f78360"
-  SybilGuard: "0x545A01E48cFB6A76699Ef12Ec1e998C1a275c84E"
-  TreasuryGovernor: "0x9b7E2b8cf7de5ef1f85038b050952DC1D4596319"
-  LightningGovernor: "0xBAd7274F05C84deaa16542404C5Da2495F2fa145"
-  InsurancePool: "0xE1d68167a15AFA7C4e22dF978Dc4A66A0b4114fe"
-  LoanEngine: "0xf5Ab9F1A5c6CC60e1a68d50B4C943D72fd97487a"
-  X402CreditFacility: "0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C"
-  AirdropClaimV3: "0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C"
-  Groth16VerifierV4: "0x4982f09b7a17c143c5a28d55a3c0fc51e51b25a4"
-  TeamVesting: "0xFB97b85eBaF663c29323BA2499A11a7E524aCcC1"
+  LOBToken: "0x6a9ebf62c198c252be0c814224518b2def93a937"
+  StakingManager: "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408"
+  StakingRewards: "0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323"
+  RewardDistributor: "0xeb8b276fccbb982c55d1a18936433ed875783ffe"
+  ReputationSystem: "0x21e96019dd46e07b694ee28999b758e3c156b7c2"
+  ServiceRegistry: "0xcfbdfad104b8339187af3d84290b59647cf4da74"
+  DisputeArbitration: "0x5a5c510db582546ef17177a62a604cbafceba672"
+  EscrowEngine: "0xada65391bb0e1c7db6e0114b3961989f3f3221a1"
+  SybilGuard: "0xb216314338f291a0458e1d469c1c904ec65f1b21"
+  TreasuryGovernor: "0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27"
+  LightningGovernor: "0xcae6aec8d63479bde5c0969241c959b402f5647d"
+  InsurancePool: "0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65"
+  LoanEngine: "0x472ec915cd56ef94e0a163a74176ef9a336cdbe9"
+  X402CreditFacility: "0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca"
+  AirdropClaimV3: "0xc7917624fa0cf6f4973b887de5e670d7661ef297"
+  Groth16VerifierV4: "0xea24fbedab58f1552962a41eed436c96a7116571"
+  TeamVesting: "0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d"
+  ReviewRegistry: "0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d"
+  MultiPartyEscrow: "0x9812384d366337390dbaeb192582d6dab989319d"
+  SubscriptionEngine: "0x90d2a7737633eb0191d2c95bc764f596a0be9912"
+  BondingEngine: "0xb6d23b546921cce8e4494ae6ec62722930d6547e"
+  DirectiveBoard: "0xa30a2da1016a6beb573f4d4529a0f68257ed0aed"
+  RolePayroll: "0xc1cd28c36567869534690b992d94e58daee736ab"
+  X402EscrowBridge: "0x62baf62c541fa1c1d11c4a9dad733db47485ca12"
 commands:
   - lobstr init
   - lobstr wallet

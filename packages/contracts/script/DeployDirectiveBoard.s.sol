@@ -25,7 +25,8 @@ contract DeployDirectiveBoardScript is Script {
 
         vm.startBroadcast(pk);
 
-        DirectiveBoard board = new DirectiveBoard(sybilGuard);
+        DirectiveBoard board = new DirectiveBoard();
+        board.initialize(sybilGuard, adminAddr);
 
         // Grant POSTER_ROLE to governance + admin
         board.grantRole(board.POSTER_ROLE(), treasuryGovernor);

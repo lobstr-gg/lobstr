@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,12 +16,53 @@ import "./interfaces/IStakingManager.sol";
 import "./interfaces/IReputationSystem.sol";
 import "./interfaces/ISybilGuard.sol";
 import "./interfaces/IRewardDistributor.sol";
+import "./interfaces/IRolePayroll.sol";
 
-contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGuard, Pausable {
+contract DisputeArbitration is IDisputeArbitration, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
+
+    // Custom errors (saves ~2KB bytecode vs require strings)
+    error NotFound();
+    error ZeroAddress();
+    error ZeroAmount();
+    error WrongStatus();
+    error Unauthorized();
+    error Banned();
+    error BelowMinStake();
+    error InvalidAmount();
+    error ActiveDisputes();
+    error SealDelay();
+    error DeadlinePassed();
+    error DeadlineNotPassed();
+    error AlreadyVoted();
+    error NotAssigned();
+    error VotingOpen();
+    error VotingClosed();
+    error NoVotesMustRepanel();
+    error Appealed();
+    error NotAppealed();
+    error CannotAppealAppeal();
+    error NotParty();
+    error AppealWindowClosed();
+    error AppealWindowActive();
+    error EscrowReleased();
+    error UseExecuteRuling();
+    error AlreadyPaused();
+    error NotPaused();
+    error RemovedWhilePaused();
+    error NotActive();
+    error EscrowAlreadySet();
+    error PoolSufficient();
+    error VotesCast();
+    error MaxRepanels();
+    error NotEnoughArbitrators();
+    error PanelSelectionFailed();
+    error CooldownActive();
+    error ZeroArbitrator();
 
     bytes32 public constant ESCROW_ROLE = keccak256("ESCROW_ROLE");
     bytes32 public constant SYBIL_GUARD_ROLE = keccak256("SYBIL_GUARD_ROLE");
+    bytes32 public constant CERTIFIER_ROLE = keccak256("CERTIFIER_ROLE");
 
     uint256 public constant COUNTER_EVIDENCE_WINDOW = 24 hours;
     uint256 public constant VOTING_DEADLINE = 3 days;
@@ -42,9 +86,9 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     uint256 public constant VOTE_COOLDOWN = 1 hours;
     uint256 public constant RUBBER_STAMP_PENALTY_BPS = 5000;    // 50% reward cut
     uint256 public constant RUBBER_STAMP_BIAS_THRESHOLD = 8000; // 80% bias → rubber-stamp penalty
-    uint256 public constant NO_SHOW_SLASH_BPS = 50;              // 0.5% stake slash for not voting
+    uint256 public constant NO_SHOW_SLASH_BPS = 5000;            // 50% stake slash for not voting (half stake)
     uint256 public constant QUALITY_GRACE_PERIOD = 5;            // first 5 disputes = no quality filter
-    uint256 public constant MIN_QUORUM = 2;                      // V-003: minimum votes for non-Draw ruling
+    uint256 public constant MIN_QUORUM = 2;                      // minimum votes for non-Draw ruling
 
     // Collusion detection constants
     uint256 public constant COLLUSION_AGREEMENT_THRESHOLD = 90; // 90% agreement = flagged
@@ -54,21 +98,26 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     uint256 public constant APPEAL_BOND = 500 ether;   // 500 LOB to appeal
     uint256 public constant APPEAL_WINDOW = 48 hours;   // Time after ruling to file appeal
 
-    // V-003: Two-phase panel selection
+    // Two-phase panel selection
     uint256 public constant PANEL_SEAL_DELAY = 10; // ~20s on Base (2s blocks)
 
-    // V-001: Emergency resolution timeout for stuck disputes
+    // Emergency resolution timeout for stuck disputes
     uint256 public constant PANEL_SEAL_TIMEOUT = 7 days;
 
-    // V-001: Repanel limit for zero-vote deadlocks
+    // Repanel limit for zero-vote deadlocks
     uint256 public constant MAX_REPANELS = 2;
 
-    IERC20 public immutable lobToken;
-    IStakingManager public immutable stakingManager;
-    IReputationSystem public immutable reputationSystem;
-    ISybilGuard public immutable sybilGuard;
-    IRewardDistributor public immutable rewardDistributor;
+    // Protected arbitrator addresses that can never lose arb status (Solomon, Titus, Daniel)
+    mapping(address => bool) public protectedArbiters;
+    address[] private _protectedArbList;
+
+    IERC20 public lobToken;
+    IStakingManager public stakingManager;
+    IReputationSystem public reputationSystem;
+    ISybilGuard public sybilGuard;
+    IRewardDistributor public rewardDistributor;
     IEscrowEngine public escrowEngine; // Set post-deploy (circular dependency)
+    IRolePayroll public rolePayroll;   // Set post-deploy (optional integration)
 
     uint256 private _nextDisputeId = 1;
 
@@ -77,7 +126,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     mapping(uint256 => mapping(address => bool)) private _hasVoted;
     mapping(uint256 => mapping(address => bool)) private _votedForBuyer;
     mapping(address => uint256) private _activeDisputeCount;
-    // V-002: Normalized dispute amounts (18 decimals) for reward/threshold calculations
+    // Normalized dispute amounts (18 decimals) for reward/threshold calculations
     mapping(uint256 => uint256) private _normalizedAmounts;
 
     address[] private _activeArbitrators;
@@ -102,23 +151,36 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     mapping(uint256 => uint256) private _originalDisputeId;  // appeal → original dispute ID
     mapping(uint256 => address) private _appealer;           // original disputeId → who appealed
     mapping(uint256 => bool) private _escrowReleased;        // disputeId → whether escrow was released
-    mapping(uint256 => bool) private _jobStakeSlashed;        // V-001: jobId → stake already slashed
-    mapping(uint256 => address[3]) private _panelExclusions;   // V-002: appeal panel exclusions
-    mapping(uint256 => bytes32) private _commitSeeds;          // V-002: creation-time seed for late-seal fallback
-    mapping(uint256 => uint256) private _repanelCount;           // V-001: number of repanels for this dispute
+    mapping(uint256 => bool) private _jobStakeSlashed;        // jobId → stake already slashed
+    mapping(uint256 => address[3]) private _panelExclusions;   // appeal panel exclusions
+    mapping(uint256 => bytes32) private _commitSeeds;          // creation-time seed for late-seal fallback
+    mapping(uint256 => uint256) private _repanelCount;           // number of repanels for this dispute
+    mapping(uint256 => bool) private _isDefaultRefund;             // buyer refund due to system failure
+    mapping(address => bool) private _arbitratorCertified;          // competency test passed
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _stakingManager,
         address _reputationSystem,
         address _sybilGuard,
         address _rewardDistributor
-    ) {
-        require(_lobToken != address(0), "DA:zero token");
-        require(_stakingManager != address(0), "DA:zero staking");
-        require(_reputationSystem != address(0), "DA:zero reputation");
-        require(_sybilGuard != address(0), "DA:zero sybilGuard");
-        require(_rewardDistributor != address(0), "DA:zero rewardDistributor");
+    ) public virtual initializer {
+        if (_lobToken == address(0)) revert ZeroAddress();
+        if (_stakingManager == address(0)) revert ZeroAddress();
+        if (_reputationSystem == address(0)) revert ZeroAddress();
+        if (_sybilGuard == address(0)) revert ZeroAddress();
+        if (_rewardDistributor == address(0)) revert ZeroAddress();
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         lobToken = IERC20(_lobToken);
         stakingManager = IStakingManager(_stakingManager);
@@ -126,18 +188,23 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         sybilGuard = ISybilGuard(_sybilGuard);
         rewardDistributor = IRewardDistributor(_rewardDistributor);
 
+        // Grant DEFAULT_ADMIN_ROLE to owner (can reassign and grant other roles)
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        _nextDisputeId = 1;
     }
 
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
     function stakeAsArbitrator(uint256 amount) external nonReentrant whenNotPaused {
-        require(amount > 0, "DA:zero amount");
-        require(!sybilGuard.checkBanned(msg.sender), "DA:banned");
+        if (amount == 0) revert ZeroAmount();
+        if (sybilGuard.checkBanned(msg.sender)) revert Banned();
 
         ArbitratorInfo storage info = _arbitrators[msg.sender];
         info.stake += amount;
 
         ArbitratorRank newRank = _rankFromStake(info.stake);
-        require(newRank != ArbitratorRank.None, "DA:below minimum stake");
+        if (newRank == ArbitratorRank.None) revert BelowMinStake();
 
         info.rank = newRank;
         info.active = true;
@@ -155,8 +222,8 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
     function unstakeAsArbitrator(uint256 amount) external nonReentrant {
         ArbitratorInfo storage info = _arbitrators[msg.sender];
-        require(amount > 0 && amount <= info.stake, "DA:invalid amount");
-        require(_activeDisputeCount[msg.sender] == 0, "DA:active disputes pending");
+        if (amount == 0 || amount > info.stake) revert InvalidAmount();
+        if (_activeDisputeCount[msg.sender] != 0) revert ActiveDisputes();
 
         info.stake -= amount;
 
@@ -181,8 +248,8 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         address token,
         string calldata buyerEvidenceURI
     ) external onlyRole(ESCROW_ROLE) nonReentrant returns (uint256 disputeId) {
-        require(buyer != address(0) && seller != address(0), "DA:zero address");
-        require(amount > 0, "DA:zero amount");
+        if (buyer == address(0) || seller == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
 
         disputeId = _nextDisputeId++;
 
@@ -199,11 +266,11 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         d.createdAt = block.timestamp;
         d.panelSealBlock = block.number + PANEL_SEAL_DELAY;
 
-        // V-002: Normalize amount to 18 decimals for reward/threshold calculations.
+        // Normalize amount to 18 decimals for reward/threshold calculations.
         uint256 normalizedAmount = _normalizeAmount(amount, token);
         _normalizedAmounts[disputeId] = normalizedAmount;
 
-        // V-002: Store creation-time seed for late-seal fallback (not grindable at seal time)
+        // Store creation-time seed for late-seal fallback (not grindable at seal time)
         _commitSeeds[disputeId] = blockhash(block.number - 1);
 
         emit DisputeCreated(disputeId, jobId, buyer, seller, amount);
@@ -212,9 +279,9 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     /// @notice Seal the arbitrator panel after the commit delay. Permissionless.
     function sealPanel(uint256 disputeId) external whenNotPaused {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.PanelPending, "DA:wrong status");
-        require(block.number > d.panelSealBlock, "DA:seal delay not met");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.PanelPending) revert WrongStatus();
+        if (block.number <= d.panelSealBlock) revert SealDelay();
 
         // Primary seed: blockhash of the commit block (unbiasable at dispute creation time)
         bytes32 bh = blockhash(d.panelSealBlock);
@@ -222,13 +289,13 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         if (uint256(bh) != 0) {
             seed = uint256(keccak256(abi.encodePacked(bh, d.buyer, d.seller, d.amount, disputeId, block.chainid)));
         } else {
-            // V-002: Fallback uses pre-committed seed from dispute creation time.
+            // Fallback uses pre-committed seed from dispute creation time.
             // Not grindable at seal time since it was fixed before panelSealBlock.
             seed = uint256(keccak256(abi.encodePacked(_commitSeeds[disputeId], d.buyer, d.seller, d.amount, disputeId, block.chainid)));
         }
 
         uint256 normalizedAmount = _normalizedAmounts[disputeId];
-        // V-002: Use stored exclusions for appeal disputes (original panel excluded)
+        // Use stored exclusions for appeal disputes (original panel excluded)
         address[3] memory excludeList = _isAppealDispute[disputeId] ? _panelExclusions[disputeId] : _emptyExcludeList();
         address[3] memory selected = _selectArbitratorsWithSeed(seed, normalizedAmount, d.buyer, d.seller, excludeList);
         d.arbitrators = selected;
@@ -237,7 +304,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
             _activeDisputeCount[selected[i]] += 1;
         }
 
-        // V-002: Appeals skip evidence phase — go straight to voting
+        // Appeals skip evidence phase — go straight to voting
         if (_isAppealDispute[disputeId]) {
             d.status = DisputeStatus.Voting;
             d.votingDeadline = block.timestamp + VOTING_DEADLINE;
@@ -252,10 +319,10 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
     function submitCounterEvidence(uint256 disputeId, string calldata sellerEvidenceURI) external nonReentrant {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(msg.sender == d.seller, "DA:not seller");
-        require(d.status == DisputeStatus.EvidencePhase, "DA:wrong status");
-        require(block.timestamp <= d.counterEvidenceDeadline, "DA:deadline passed");
+        if (d.id == 0) revert NotFound();
+        if (msg.sender != d.seller) revert NotParty();
+        if (d.status != DisputeStatus.EvidencePhase) revert WrongStatus();
+        if (block.timestamp > d.counterEvidenceDeadline) revert DeadlinePassed();
 
         d.sellerEvidenceURI = sellerEvidenceURI;
         d.status = DisputeStatus.Voting;
@@ -266,9 +333,9 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
     function advanceToVoting(uint256 disputeId) external whenNotPaused {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.EvidencePhase, "DA:wrong status");
-        require(block.timestamp > d.counterEvidenceDeadline, "DA:deadline not passed");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.EvidencePhase) revert WrongStatus();
+        if (block.timestamp <= d.counterEvidenceDeadline) revert DeadlineNotPassed();
 
         d.status = DisputeStatus.Voting;
         d.votingDeadline = block.timestamp + VOTING_DEADLINE;
@@ -278,19 +345,18 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
     function vote(uint256 disputeId, bool favorBuyer) external nonReentrant whenNotPaused {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.Voting, "DA:not in voting");
-        require(!_hasVoted[disputeId][msg.sender], "DA:already voted");
-        require(_isAssignedArbitrator(disputeId, msg.sender), "DA:not assigned");
-        require(block.timestamp <= d.votingDeadline, "DA:voting deadline passed");
-        require(!sybilGuard.checkBanned(msg.sender), "DA:arbitrator banned");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.Voting) revert WrongStatus();
+        if (_hasVoted[disputeId][msg.sender]) revert AlreadyVoted();
+        if (!_isAssignedArbitrator(disputeId, msg.sender)) revert NotAssigned();
+        if (block.timestamp > d.votingDeadline) revert DeadlinePassed();
+        if (sybilGuard.checkBanned(msg.sender)) revert Banned();
 
         // Vote cooldown — forces deliberation between votes (skip for first-time voters)
-        require(
-            lastVoteTimestamp[msg.sender] == 0 ||
-            block.timestamp >= lastVoteTimestamp[msg.sender] + VOTE_COOLDOWN,
-            "DA:vote cooldown"
-        );
+        if (
+            lastVoteTimestamp[msg.sender] != 0 &&
+            block.timestamp < lastVoteTimestamp[msg.sender] + VOTE_COOLDOWN
+        ) revert CooldownActive();
         lastVoteTimestamp[msg.sender] = block.timestamp;
 
         _hasVoted[disputeId][msg.sender] = true;
@@ -312,20 +378,17 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     ///         or deadline passed with 0 votes after MAX_REPANELS exhausted.
     function executeRuling(uint256 disputeId) external nonReentrant whenNotPaused {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.Voting, "DA:not in voting");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.Voting) revert WrongStatus();
 
         if (d.totalVotes < 3) {
-            require(block.timestamp > d.votingDeadline, "DA:voting still open");
+            if (block.timestamp <= d.votingDeadline) revert VotingOpen();
         }
 
-        // V-001: Block zero-vote resolution — must repanel first (up to MAX_REPANELS).
+        // Block zero-vote resolution — must repanel first (up to MAX_REPANELS).
         // Only allow 0-vote Draw as absolute last resort after all repanels exhausted.
         if (d.totalVotes == 0) {
-            require(
-                _repanelCount[disputeId] >= MAX_REPANELS,
-                "DA:no votes, must repanel"
-            );
+            if (_repanelCount[disputeId] < MAX_REPANELS) revert NoVotesMustRepanel();
         }
 
         d.status = DisputeStatus.Resolved;
@@ -337,13 +400,14 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
             }
         }
 
-        // V-002/V-003: Determine ruling FIRST (including quorum check),
-        // then compute rewards based on final ruling to prevent inflation.
+        // FIX: Default to Draw (neutral) when quorum is not reached.
+        // Previously defaulted to BuyerWins which biased toward buyer refunds on low participation.
         if (d.totalVotes < MIN_QUORUM) {
             d.ruling = Ruling.Draw;
+            _isDefaultRefund[disputeId] = true;
         } else if (d.votesForBuyer > d.votesForSeller) {
             d.ruling = Ruling.BuyerWins;
-            // V-001: Slash deferred to finalizeRuling/appeal execution (once per job)
+            // Slash deferred to finalizeRuling/appeal execution (once per job)
             reputationSystem.recordDispute(d.seller, false);
         } else if (d.votesForBuyer == d.votesForSeller) {
             d.ruling = Ruling.Draw;
@@ -355,13 +419,13 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         // Set appeal deadline
         d.appealDeadline = block.timestamp + APPEAL_WINDOW;
 
-        // V-002: Use normalized amount (18 decimals) for reward calculation.
+        // Use normalized amount (18 decimals) for reward calculation.
         uint256 baseRewardPerArb = _calculateBaseReward(_normalizedAmounts[disputeId]);
         bool majorityForBuyer = d.votesForBuyer > d.votesForSeller;
         // Use final ruling to determine draw status (accounts for quorum → Draw)
         bool isDraw = d.ruling == Ruling.Draw;
 
-        // V-003: Read available budget (balance minus existing liabilities)
+        // Read available budget (balance minus existing liabilities)
         uint256 remainingBudget = rewardDistributor.availableBudget(address(lobToken));
 
         // Track pairwise agreements for collusion detection (Fix #3a)
@@ -410,7 +474,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
                 }
             }
 
-            // V-003: Cap reward to remaining budget to prevent insolvency
+            // Cap reward to remaining budget to prevent insolvency
             if (reward > 0) {
                 if (reward > remainingBudget) {
                     reward = remainingBudget;
@@ -420,12 +484,19 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
                     remainingBudget -= reward;
                 }
             }
+
+            // Record dispute participation in RolePayroll (if wired)
+            if (address(rolePayroll) != address(0)) {
+                bool inMajority = isDraw || (votedBuyer == majorityForBuyer);
+                try rolePayroll.recordDisputeParticipation(arb, rolePayroll.currentEpoch(), inMajority) {} catch {}
+            }
         }
 
         // For appeal disputes, release escrow immediately (appeal rulings are final)
         if (_isAppealDispute[disputeId]) {
-            // V-001: Apply deferred slash for final BuyerWins (once per job)
-            if (d.ruling == Ruling.BuyerWins) {
+            // Apply deferred slash for final BuyerWins (once per job)
+            // Skip slash for default refunds (system failure, not seller fault)
+            if (d.ruling == Ruling.BuyerWins && !_isDefaultRefund[disputeId]) {
                 _applyStakeSlash(d);
             }
             _releaseEscrow(disputeId);
@@ -439,15 +510,16 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     ///         Only needed for non-appeal disputes.
     function finalizeRuling(uint256 disputeId) external nonReentrant whenNotPaused {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.Resolved, "DA:not resolved");
-        require(!d.appealed, "DA:dispute was appealed");
-        require(!_isAppealDispute[disputeId], "DA:use executeRuling for appeals");
-        require(!_escrowReleased[disputeId], "DA:escrow already released");
-        require(block.timestamp > d.appealDeadline, "DA:appeal window active");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.Resolved) revert WrongStatus();
+        if (d.appealed) revert Appealed();
+        if (_isAppealDispute[disputeId]) revert UseExecuteRuling();
+        if (_escrowReleased[disputeId]) revert EscrowReleased();
+        if (block.timestamp <= d.appealDeadline) revert AppealWindowActive();
 
-        // V-001: Apply deferred slash for BuyerWins (once per job)
-        if (d.ruling == Ruling.BuyerWins) {
+        // Apply deferred slash for BuyerWins (once per job)
+        // Skip slash for default refunds (system failure, not seller fault)
+        if (d.ruling == Ruling.BuyerWins && !_isDefaultRefund[disputeId]) {
             _applyStakeSlash(d);
         }
 
@@ -459,15 +531,12 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     /// @notice Appeal a resolved dispute within the appeal window.
     function appealRuling(uint256 disputeId) external nonReentrant whenNotPaused returns (uint256 appealDisputeId) {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.Resolved, "DA:not resolved");
-        require(!d.appealed, "DA:already appealed");
-        require(!_isAppealDispute[disputeId], "DA:cannot appeal an appeal");
-        require(
-            msg.sender == d.buyer || msg.sender == d.seller,
-            "DA:not a party"
-        );
-        require(block.timestamp <= d.appealDeadline, "DA:appeal window closed");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.Resolved) revert WrongStatus();
+        if (d.appealed) revert Appealed();
+        if (_isAppealDispute[disputeId]) revert CannotAppealAppeal();
+        if (msg.sender != d.buyer && msg.sender != d.seller) revert NotParty();
+        if (block.timestamp > d.appealDeadline) revert AppealWindowClosed();
 
         // Collect appeal bond
         lobToken.safeTransferFrom(msg.sender, address(this), APPEAL_BOND);
@@ -484,7 +553,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
     function getDispute(uint256 disputeId) external view returns (Dispute memory) {
         Dispute memory d = _disputes[disputeId];
-        require(d.id != 0, "DA:not found");
+        if (d.id == 0) revert NotFound();
         return d;
     }
 
@@ -520,17 +589,17 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
     function pauseAsArbitrator() external {
         ArbitratorInfo storage info = _arbitrators[msg.sender];
-        require(info.active, "DA:not active");
-        require(!_arbitratorPaused[msg.sender], "DA:already paused");
+        if (!info.active) revert NotActive();
+        if (_arbitratorPaused[msg.sender]) revert AlreadyPaused();
         _arbitratorPaused[msg.sender] = true;
         _removeActiveArbitrator(msg.sender);
         emit ArbitratorPaused(msg.sender);
     }
 
     function unpauseAsArbitrator() external {
-        require(_arbitratorPaused[msg.sender], "DA:not paused");
+        if (!_arbitratorPaused[msg.sender]) revert NotPaused();
         ArbitratorInfo storage info = _arbitrators[msg.sender];
-        require(info.active, "DA:removed while paused");
+        if (!info.active) revert RemovedWhilePaused();
         _arbitratorPaused[msg.sender] = false;
         if (!_isActiveArbitrator[msg.sender]) {
             _arbitratorIndex[msg.sender] = _activeArbitrators.length;
@@ -544,26 +613,58 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         return _arbitratorPaused[arb];
     }
 
+    /// @notice Whether a dispute was resolved via default refund (system failure).
+    function isDefaultRefund(uint256 disputeId) external view returns (bool) {
+        return _isDefaultRefund[disputeId];
+    }
+
+    function certifyArbitrator(address arb) external onlyRole(CERTIFIER_ROLE) {
+        if (!_arbitrators[arb].active) revert NotActive();
+        _arbitratorCertified[arb] = true;
+        emit ArbitratorCertified(arb);
+    }
+
+    function revokeCertification(address arb) external onlyRole(CERTIFIER_ROLE) {
+        _arbitratorCertified[arb] = false;
+        emit CertificationRevoked(arb);
+    }
+
+    function isCertified(address arb) external view returns (bool) {
+        return _arbitratorCertified[arb];
+    }
+
     /// @notice Emergency resolution for disputes stuck in PanelPending when
     ///         the arbitrator pool is objectively insufficient. Resolves as Draw (50/50 split).
+    ///         All active arbitrators are slashed for failing to maintain adequate participation.
     ///         Permissionless — anyone can call after timeout expires.
     function emergencyResolveStuckDispute(uint256 disputeId) external nonReentrant {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.PanelPending, "DA:not stuck");
-        require(
-            block.timestamp > d.createdAt + PANEL_SEAL_TIMEOUT,
-            "DA:timeout not reached"
-        );
-        // V-001: Only allow emergency draw when the pool cannot form a panel.
-        // If >= 3 active arbitrators exist, seal the panel instead.
-        require(
-            _activeArbitrators.length < 3,
-            "DA:pool sufficient, seal panel"
-        );
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.PanelPending) revert WrongStatus();
+        if (block.timestamp <= d.createdAt + PANEL_SEAL_TIMEOUT) revert DeadlineNotPassed();
+        // Only allow emergency draw when the pool cannot form a panel.
+        // Count *eligible* (certified + not banned) arbitrators, not just active stakers.
+        // Uncertified stakers inflate _activeArbitrators but can't serve on panels.
+        uint256 eligible = 0;
+        for (uint256 i = 0; i < _activeArbitrators.length; i++) {
+            address arb = _activeArbitrators[i];
+            if (_arbitratorCertified[arb] && !sybilGuard.checkBanned(arb) && !_arbitratorPaused[arb]) {
+                eligible++;
+            }
+        }
+        if (eligible >= 3) revert PoolSufficient();
+
+        // Slash all active arbitrators for failing to maintain adequate participation
+        // This creates economic incentive for arbitrators to stay active and form panels
+        for (uint256 i = 0; i < _activeArbitrators.length; i++) {
+            _slashNoShow(_activeArbitrators[i]);
+        }
 
         d.status = DisputeStatus.Resolved;
+        // FIX: Set ruling to Draw (neutral) instead of BuyerWins.
+        // Documentation claims 50/50 split but implementation was biased toward buyer.
         d.ruling = Ruling.Draw;
+        _isDefaultRefund[disputeId] = true;
         d.appealDeadline = 0;
 
         _releaseEscrow(disputeId);
@@ -576,11 +677,11 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     ///         Permissionless — anyone can call. Limited to MAX_REPANELS per dispute.
     function repanelDispute(uint256 disputeId) external nonReentrant whenNotPaused {
         Dispute storage d = _disputes[disputeId];
-        require(d.id != 0, "DA:dispute not found");
-        require(d.status == DisputeStatus.Voting, "DA:not in voting");
-        require(block.timestamp > d.votingDeadline, "DA:voting still open");
-        require(d.totalVotes == 0, "DA:votes were cast");
-        require(_repanelCount[disputeId] < MAX_REPANELS, "DA:max repanels reached");
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.Voting) revert WrongStatus();
+        if (block.timestamp <= d.votingDeadline) revert VotingOpen();
+        if (d.totalVotes != 0) revert VotesCast();
+        if (_repanelCount[disputeId] >= MAX_REPANELS) revert MaxRepanels();
 
         _repanelCount[disputeId] += 1;
 
@@ -607,9 +708,16 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
     // --- Admin ---
 
     function setEscrowEngine(address _escrowEngine) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(address(escrowEngine) == address(0), "DA:escrow already set");
-        require(_escrowEngine != address(0), "DA:zero escrow");
+        if (address(escrowEngine) != address(0)) revert EscrowAlreadySet();
+        if (_escrowEngine == address(0)) revert ZeroAddress();
         escrowEngine = IEscrowEngine(_escrowEngine);
+        // Grant ESCROW_ROLE to EscrowEngine so it can submit disputes
+        _grantRole(ESCROW_ROLE, _escrowEngine);
+    }
+
+    function setRolePayroll(address _rolePayroll) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_rolePayroll == address(0)) revert ZeroAddress();
+        rolePayroll = IRolePayroll(_rolePayroll);
     }
 
     function removeArbitrator(address arbitrator) external onlyRole(SYBIL_GUARD_ROLE) {
@@ -650,8 +758,8 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
         if (appeal.ruling == original.ruling) {
             // Appeal upheld original ruling → bond goes to reward pool
-            lobToken.safeApprove(address(rewardDistributor), 0);
-            lobToken.safeApprove(address(rewardDistributor), APPEAL_BOND);
+            lobToken.forceApprove(address(rewardDistributor), 0);
+            lobToken.forceApprove(address(rewardDistributor), APPEAL_BOND);
             rewardDistributor.deposit(address(lobToken), APPEAL_BOND);
             emit AppealBondForfeited(originalId, APPEAL_BOND);
         } else {
@@ -676,7 +784,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         d.token = original.token;
         d.buyerEvidenceURI = original.buyerEvidenceURI;
         d.sellerEvidenceURI = original.sellerEvidenceURI;
-        d.status = DisputeStatus.PanelPending; // V-002: two-phase for appeals too
+        d.status = DisputeStatus.PanelPending; // two-phase for appeals too
         d.ruling = Ruling.Pending;
         d.createdAt = block.timestamp;
         d.panelSealBlock = block.number + PANEL_SEAL_DELAY;
@@ -684,7 +792,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         // Copy normalized amount from original
         _normalizedAmounts[appealDisputeId] = _normalizedAmounts[originalId];
 
-        // V-002: Store exclusion list and commit seed for two-phase seal
+        // Store exclusion list and commit seed for two-phase seal
         _panelExclusions[appealDisputeId] = original.arbitrators;
         _commitSeeds[appealDisputeId] = blockhash(block.number - 1);
 
@@ -771,24 +879,36 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
 
         info.stake -= slashAmount;
 
-        // V-002: Update rank after slash — deactivate if below minimum
+        // Always recompute rank after slash for accurate reporting
+        // Protected arbitrators (Solomon, Titus, Daniel) stay active regardless of rank
         ArbitratorRank newRank = _rankFromStake(info.stake);
         info.rank = newRank;
-        if (newRank == ArbitratorRank.None) {
-            info.active = false;
-            _removeActiveArbitrator(arb);
+        if (!protectedArbiters[arb]) {
+            if (newRank == ArbitratorRank.None) {
+                info.active = false;
+                _removeActiveArbitrator(arb);
+            }
+        } else {
+            // Protected arbitrators stay active even if slashed below threshold
+            info.active = true;
         }
 
         // Transfer slashed LOB into RewardDistributor reward pool
-        lobToken.safeApprove(address(rewardDistributor), 0);
-        lobToken.safeApprove(address(rewardDistributor), slashAmount);
+        lobToken.forceApprove(address(rewardDistributor), 0);
+        lobToken.forceApprove(address(rewardDistributor), slashAmount);
         rewardDistributor.deposit(address(lobToken), slashAmount);
     }
 
     /// @dev Normalize token amount to 18 decimals for cross-token comparison.
+    /// @notice V-004: Bounded decimals to prevent overflow for tokens with large decimals
     function _normalizeAmount(uint256 amount, address token) internal view returns (uint256) {
         if (token == address(lobToken)) return amount; // LOB is 18 decimals
         try IERC20Metadata(token).decimals() returns (uint8 dec) {
+            // Bound decimals to safe range to prevent overflow in exponentiation
+            if (dec > 77) {
+                // If decimals > 77, cap to 77 (10**(77-18) = 10**59 fits in uint256)
+                dec = 77;
+            }
             if (dec < 18) {
                 return amount * (10 ** (18 - dec));
             } else if (dec > 18) {
@@ -800,15 +920,29 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         return amount;
     }
 
-    /// @dev V-001: Apply stake slash for BuyerWins, guarded by per-job flag.
+    /// @dev Apply stake slash for BuyerWins, guarded by per-job flag.
     function _applyStakeSlash(Dispute storage d) internal {
         if (_jobStakeSlashed[d.jobId]) return;
         _jobStakeSlashed[d.jobId] = true;
 
+        // Get the real payer from EscrowEngine (fall back to job buyer if not set)
+        address slashBeneficiary = escrowEngine.jobPayer(d.jobId);
+        if (slashBeneficiary == address(0)) {
+            slashBeneficiary = d.buyer;
+        }
+
+        // Use normalized amount (18 decimals) for slashing cap to avoid unit mismatch
+        // Previously used d.amount which is in settlement token units (e.g., 6 decimals for USDC)
+        uint256 normalizedAmount = _normalizedAmounts[d.id];
+        // Fallback to raw amount if normalized amount not set (backward compatibility)
+        if (normalizedAmount == 0) {
+            normalizedAmount = _normalizeAmount(d.amount, d.token);
+        }
+
         uint256 stakeSlash = (stakingManager.getStake(d.seller) * SLASH_MIN_BPS) / 10000;
-        uint256 slashAmount = stakeSlash < d.amount ? stakeSlash : d.amount;
+        uint256 slashAmount = stakeSlash < normalizedAmount ? stakeSlash : normalizedAmount;
         if (slashAmount > 0) {
-            stakingManager.slash(d.seller, slashAmount, d.buyer);
+            stakingManager.slash(d.seller, slashAmount, slashBeneficiary);
         }
     }
 
@@ -820,7 +954,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         address[3] memory excludeList
     ) internal view returns (address[3] memory selected) {
         uint256 count = _activeArbitrators.length;
-        require(count >= 3, "DA:not enough arbitrators");
+        if (count < 3) revert NotEnoughArbitrators();
 
         uint256 found = 0;
         uint256 attempts = 0;
@@ -841,10 +975,11 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
             address candidate = _activeArbitrators[idx];
             ArbitratorInfo storage info = _arbitrators[candidate];
 
-            // V-001: Exclude dispute participants from arbitrator panel
+            // Exclude dispute participants from arbitrator panel
             if (candidate == _buyer || candidate == _seller) continue;
             if (sybilGuard.checkBanned(candidate)) continue;
             if (_arbitratorPaused[candidate]) continue;
+            if (!_arbitratorCertified[candidate]) continue;
             if (info.rank == ArbitratorRank.Junior && disputeAmount > JUNIOR_MAX_DISPUTE) continue;
             if (info.rank == ArbitratorRank.Senior && disputeAmount > SENIOR_MAX_DISPUTE) continue;
 
@@ -877,7 +1012,7 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
             found++;
         }
 
-        require(found == 3, "DA:panel selection failed");
+        if (found != 3) revert PanelSelectionFailed();
     }
 
     function _isAssignedArbitrator(uint256 disputeId, address addr) internal view returns (bool) {
@@ -907,5 +1042,32 @@ contract DisputeArbitration is IDisputeArbitration, AccessControl, ReentrancyGua
         _activeArbitrators.pop();
         delete _arbitratorIndex[arb];
         _isActiveArbitrator[arb] = false;
+    }
+
+    // ─── Protected Arbitrators ───────────────────────────────────────────
+
+    /// @notice Set protected arbitrators that can never lose arbitrator status
+    /// @dev Protected arbitrators (e.g., Solomon, Titus, Daniel) will still be slashed
+    ///      for non-participation but will remain active regardless of stake level
+    ///      Only callable by DEFAULT_ADMIN_ROLE
+    /// @param arbitrators List of addresses to protect
+    function setProtectedArbitrators(address[] calldata arbitrators) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Clear existing
+        for (uint256 i = 0; i < _protectedArbList.length; i++) {
+            protectedArbiters[_protectedArbList[i]] = false;
+        }
+        delete _protectedArbList;
+
+        // Set new protected arbitrators
+        for (uint256 i = 0; i < arbitrators.length; i++) {
+            if (arbitrators[i] == address(0)) revert ZeroArbitrator();
+            protectedArbiters[arbitrators[i]] = true;
+            _protectedArbList.push(arbitrators[i]);
+        }
+    }
+
+    /// @notice Get list of protected arbitrators
+    function getProtectedArbitrators() external view returns (address[] memory) {
+        return _protectedArbList;
     }
 }

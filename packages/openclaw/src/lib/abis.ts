@@ -68,15 +68,18 @@ export const AIRDROP_CLAIM_V2_ABI = [
 ] as const;
 
 export const AIRDROP_CLAIM_V3_ABI = [
-  'function claim(uint256[2] pA, uint256[2][2] pB, uint256[2] pC, uint256[2] pubSignals, bytes approvalSig, uint256 powNonce)',
+  'function claim(uint256[2] pA, uint256[2][2] pB, uint256[2] pC, uint256[3] pubSignals, bytes approvalSig, uint256 powNonce)',
   'function completeMilestone(address claimant, uint8 milestone)',
   'function getClaimInfo(address claimant) view returns (bool claimed, uint256 released, uint256 milestonesCompleted, uint256 claimedAt)',
   'function isMilestoneComplete(address claimant, uint8 milestone) view returns (bool)',
-  'function getMerkleRoot() view returns (uint256)',
+  'function isWorkspaceHashUsed(uint256 hash) view returns (bool)',
+  'function getPendingMilestones(address claimant) view returns (bool[5])',
   'function difficultyTarget() view returns (uint256)',
-  'function totalClaimed() view returns (uint256)',
   'function claimWindowEnd() view returns (uint256)',
   'function maxAirdropPool() view returns (uint256)',
+  'function pause()',
+  'function unpause()',
+  'function recoverTokens(address to)',
   'event AirdropClaimed(address indexed claimant, uint256 immediateRelease)',
   'event MilestoneCompleted(address indexed claimant, uint8 milestone, uint256 amountReleased)',
 ] as const;
@@ -93,6 +96,11 @@ export const DISPUTE_ARBITRATION_ABI = [
   'function submitCounterEvidence(uint256 disputeId, string sellerEvidenceURI)',
   'function vote(uint256 disputeId, bool favorBuyer)',
   'function executeRuling(uint256 disputeId)',
+  'function appealRuling(uint256 disputeId) returns (uint256 appealDisputeId)',
+  'function emergencyResolveStuckDispute(uint256 disputeId)',
+  'function repanelDispute(uint256 disputeId)',
+  'function pauseAsArbitrator()',
+  'function removeArbitrator(address arbitrator)',
   'function getDispute(uint256 disputeId) view returns (uint256 id, uint256 jobId, address buyer, address seller, uint256 amount, address token, string buyerEvidenceURI, string sellerEvidenceURI, uint8 status, uint8 ruling, uint256 createdAt, uint256 counterEvidenceDeadline, uint256 votingDeadline, uint8 votesForBuyer, uint8 votesForSeller, uint8 totalVotes)',
   'function getArbitratorInfo(address arbitrator) view returns (uint256 stake, uint8 rank, uint256 disputesHandled, uint256 majorityVotes, bool active)',
   'event DisputeCreated(uint256 indexed disputeId, uint256 indexed jobId, address indexed buyer, address seller, uint256 amount)',
@@ -103,6 +111,10 @@ export const DISPUTE_ARBITRATION_ABI = [
   'event ArbitratorStaked(address indexed arbitrator, uint256 amount, uint8 rank)',
   'event ArbitratorUnstaked(address indexed arbitrator, uint256 amount)',
   'event VotingAdvanced(uint256 indexed disputeId)',
+  'event EmergencyResolution(uint256 indexed disputeId, string reason)',
+  'event DisputeRepaneled(uint256 indexed disputeId)',
+  'event ArbitratorCertified(address indexed arbitrator)',
+  'event CertificationRevoked(address indexed arbitrator)',
 ] as const;
 
 export const TREASURY_GOVERNOR_ABI = [
@@ -255,4 +267,182 @@ export const LIGHTNING_GOVERNOR_ABI = [
   'event ProposalApproved(uint256 indexed proposalId, uint256 executionDeadline)',
   'event ProposalExecuted(uint256 indexed proposalId, address indexed executor)',
   'event ProposalCancelled(uint256 indexed proposalId, address indexed cancelledBy)',
+] as const;
+
+export const ROLE_PAYROLL_ABI = [
+  'function enroll(uint8 roleType, uint8 rank)',
+  'function claimWeeklyPay(uint256 epoch, uint256[2] pA, uint256[2][2] pB, uint256[2] pC, uint256[4] pubSignals)',
+  'function reportHeartbeat(address holder)',
+  'function reportAbandonment(address holder)',
+  'function resign()',
+  'function completeResignation()',
+  'function currentEpoch() view returns (uint256)',
+  'function genesisEpoch() view returns (uint256)',
+  'function getRoleSlot(address holder) view returns (uint8 roleType, uint8 rank, uint8 status, uint256 enrolledAt, uint256 suspendedUntil, uint8 strikes, uint256 stakedAmount)',
+  'function getEpochClaim(address holder, uint256 epoch) view returns (bool claimed, uint256 uptimeCount, uint256 payAmount)',
+  'function getRoleConfig(uint8 roleType, uint8 rank) view returns (uint16 maxSlots, uint256 certFeeUsdc, uint256 minStakeLob, uint256 weeklyBaseLob, uint256 perDisputeLob, uint256 majorityBonusLob)',
+  'function getFilledSlots(uint8 roleType, uint8 rank) view returns (uint16)',
+  'function getDisputeStats(address arb, uint256 epoch) view returns (uint256 disputes, uint256 majority)',
+  'function lastHeartbeatTimestamp(address) view returns (uint256)',
+  'function founderAgents(address) view returns (bool)',
+  'function accumulatedCertFees() view returns (uint256)',
+  'event RoleEnrolled(address indexed holder, uint8 roleType, uint8 rank, uint256 certFee)',
+  'event WeeklyPayClaimed(address indexed holder, uint256 epoch, uint256 uptimeCount, uint256 payAmount)',
+  'event StrikeIssued(address indexed holder, uint8 totalStrikes, string reason)',
+  'event RoleSuspended(address indexed holder, uint256 until)',
+  'event RoleRevoked(address indexed holder, uint256 stakeSlashed)',
+  'event RoleResigned(address indexed holder)',
+  'event HeartbeatReported(address indexed holder, uint256 timestamp)',
+  'event AbandonmentDetected(address indexed holder, uint256 silentDuration)',
+  'event FounderAgentSet(address indexed agent, bool exempt)',
+] as const;
+
+export const LOAN_ENGINE_ABI = [
+  'function requestLoan(uint256 principal, uint8 term) returns (uint256 loanId)',
+  'function cancelLoan(uint256 loanId)',
+  'function fundLoan(uint256 loanId)',
+  'function repay(uint256 loanId, uint256 amount)',
+  'function liquidate(uint256 loanId)',
+  'function cleanupExpiredRequest(uint256 loanId)',
+  'function getLoan(uint256 loanId) view returns (uint256 id, address borrower, address token, uint256 principal, uint256 interestRate, uint256 collateralAmount, uint256 startTime, uint256 dueDate, uint8 status)',
+  'function getBorrowerProfile(address borrower) view returns (uint256 totalBorrowed, uint256 totalRepaid, uint256 activeLoanCount)',
+  'function getMaxBorrow(address borrower) view returns (uint256)',
+  'function getInterestRate(address borrower) view returns (uint256)',
+  'function getCollateralRequired(uint256 principal, address borrower) view returns (uint256)',
+  'function getOutstandingAmount(uint256 loanId) view returns (uint256)',
+  'function getTermDuration(uint8 term) view pure returns (uint256)',
+  'function getActiveLoanIds(address borrower) view returns (uint256[])',
+] as const;
+
+export const X402_CREDIT_FACILITY_ABI = [
+  'function openCreditLine()',
+  'function closeCreditLine()',
+  'function drawCreditAndCreateEscrow(uint256 listingId, address seller, uint256 amount) returns (uint256 drawId)',
+  'function drawCreditForAgent(address agent, uint256 listingId, address seller, uint256 amount) returns (uint256 drawId)',
+  'function confirmDelivery(uint256 escrowJobId)',
+  'function initiateDispute(uint256 escrowJobId, string evidenceURI)',
+  'function cancelJob(uint256 escrowJobId)',
+  'function repayDraw(uint256 drawId)',
+  'function claimEscrowRefund(uint256 escrowJobId)',
+  'function liquidateDraw(uint256 drawId)',
+  'function depositToPool(uint256 amount)',
+  'function withdrawFromPool(uint256 amount)',
+  'function liftFreeze(address agent)',
+  'function getCreditLine(address agent) view returns (uint256 limit, uint256 outstanding, uint256 available, bool open)',
+  'function getDraw(uint256 drawId) view returns (uint256 id, address agent, uint256 amount, uint256 repaid, uint256 startTime, bool active)',
+  'function getActiveDrawIds(address agent) view returns (uint256[])',
+  'function getAvailableCredit(address agent) view returns (uint256)',
+  'function getPoolUtilization() view returns (uint256 total, uint256 outstanding, uint256 available)',
+] as const;
+
+export const SUBSCRIPTION_ENGINE_ABI = [
+  'function createSubscription(address buyer, address seller, address paymentToken, uint256 amount, uint256 interval, string metadataURI)',
+  'function processPayment(uint256 subscriptionId)',
+  'function cancelSubscription(uint256 subscriptionId)',
+  'function pauseSubscription(uint256 subscriptionId)',
+  'function resumeSubscription(uint256 subscriptionId)',
+  'function getSubscription(uint256 id) view returns (uint256 id, address buyer, address seller, address paymentToken, uint256 amount, uint256 interval, uint256 nextPaymentTime, bool active, bool paused, string metadataURI)',
+  'function getSubscriptionsByBuyer(address buyer) view returns (uint256[])',
+  'function getSubscriptionsBySeller(address seller) view returns (uint256[])',
+] as const;
+
+export const REVIEW_REGISTRY_ABI = [
+  'function submitReview(uint256 jobId, uint8 rating, string metadataURI)',
+  'function getReview(uint256 reviewId) view returns (uint256 id, uint256 jobId, address reviewer, uint8 rating, string metadataURI, uint256 timestamp)',
+  'function getReviewByJobAndReviewer(uint256 jobId, address reviewer) view returns (uint256 id, uint256 jobId, address reviewer, uint8 rating, string metadataURI, uint256 timestamp)',
+  'function getRatingStats(address subject) view returns (uint256 totalRatings, uint256 sumRatings, uint256 avgRating)',
+  'function getAverageRating(address subject) view returns (uint256 numerator, uint256 denominator)',
+] as const;
+
+export const SKILL_REGISTRY_ABI = [
+  'function listSkill(uint8 category, string name, string description, uint256 pricePerCall, address settlementToken, string metadataURI)',
+  'function updateSkill(uint256 skillId, string name, string description, uint256 pricePerCall, string metadataURI)',
+  'function deactivateSkill(uint256 skillId)',
+  'function purchaseSkill(uint256 skillId) returns (uint256 accessId)',
+  'function renewSubscription(uint256 accessId)',
+  'function recordUsage(uint256 accessId, uint256 calls)',
+  'function depositCallCredits(address token, uint256 amount)',
+  'function withdrawCallCredits(address token, uint256 amount)',
+  'function claimEarnings(address token)',
+  'function getSkill(uint256 skillId) view returns (uint256 id, address seller, uint8 category, string name, string description, uint256 pricePerCall, address settlementToken, string metadataURI, bool active)',
+  'function getAccess(uint256 accessId) view returns (uint256 id, uint256 skillId, address buyer, uint256 callsRemaining, uint256 expiresAt, bool active)',
+  'function getMarketplaceTier(address user) view returns (uint8)',
+  'function getBuyerCredits(address buyer, address token) view returns (uint256)',
+  'function getSkillDependencies(uint256 skillId) view returns (uint256[])',
+  'function getSellerListingCount(address seller) view returns (uint256)',
+  'function hasActiveAccess(address buyer, uint256 skillId) view returns (bool)',
+] as const;
+
+export const MULTI_PARTY_ESCROW_ABI = [
+  'function createMultiJob(uint256 listingId, address[] members, uint256 amount, address token)',
+  'function confirmDelivery(uint256 jobId)',
+  'function initiateDispute(uint256 jobId, string evidenceURI)',
+  'function claimRefund(uint256 jobId)',
+  'function getGroup(uint256 groupId) view returns (uint256 id, uint256 listingId, address token, uint256 amount, uint8 status, uint256 createdAt)',
+  'function getGroupStatus(uint256 groupId) view returns (uint8)',
+  'function getGroupJobIds(uint256 groupId) view returns (uint256[])',
+] as const;
+
+export const BONDING_ENGINE_ABI = [
+  'function createMarket(string name, string symbol, address quoteToken, uint256 initialPrice, uint256 maxSupply)',
+  'function closeMarket(uint256 marketId)',
+  'function updateMarketPrice(uint256 marketId, uint256 newPrice)',
+  'function depositLOB(uint256 amount)',
+  'function withdrawLOB(uint256 amount)',
+  'function sweepQuoteToken(address token)',
+  'function purchase(uint256 marketId, uint256 quoteAmount) returns (uint256 bondId)',
+  'function claim(uint256 bondId)',
+  'function claimMultiple(uint256[] bondIds)',
+  'function getMarket(uint256 marketId) view returns (uint256 id, string name, string symbol, address quoteToken, uint256 currentPrice, uint256 maxSupply, uint256 sold, bool active)',
+  'function getBond(uint256 bondId) view returns (uint256 id, uint256 marketId, address owner, uint256 quoteAmount, uint256 lobAmount, uint256 purchaseTime, bool claimed)',
+  'function claimable(uint256 bondId) view returns (uint256)',
+  'function marketCount() view returns (uint256)',
+  'function bondCount() view returns (uint256)',
+  'function totalOutstandingLOB() view returns (uint256)',
+  'function availableLOB() view returns (uint256)',
+  'function effectiveDiscount(uint256 marketId, address buyer) view returns (uint256)',
+  'function getBondsByOwner(address owner) view returns (uint256[])',
+  'function purchasedByAddress(uint256 marketId, address buyer) view returns (uint256)',
+] as const;
+
+export const DIRECTIVE_BOARD_ABI = [
+  'function postDirective(uint8 directiveType, address target, bytes data, string description)',
+  'function markExecuted(uint256 id)',
+  'function cancelDirective(uint256 id)',
+  'function getDirective(uint256 id) view returns (uint256 id, address proposer, uint8 directiveType, address target, bytes data, string description, uint8 status, uint256 votes, uint256 createdAt, uint256 executedAt)',
+  'function getActiveDirectives(address target) view returns (uint256[])',
+  'function getDirectivesByType(uint8 directiveType) view returns (uint256[])',
+] as const;
+
+export const PIPELINE_ROUTER_ABI = [
+  'function createPipeline(uint8[] steps, bytes[] configs, string description)',
+  'function executePipeline(uint256 pipelineId)',
+  'function updatePipeline(uint256 pipelineId, uint8[] steps, bytes[] configs)',
+  'function deactivatePipeline(uint256 pipelineId)',
+  'function getPipeline(uint256 pipelineId) view returns (uint256 id, address owner, uint8[] steps, string description, bool active, uint256 createdAt)',
+  'function getPipelineSteps(uint256 pipelineId) view returns (uint256[])',
+  'function getPipelineStepConfigs(uint256 pipelineId) view returns (bytes[])',
+] as const;
+
+export const AFFILIATE_MANAGER_ABI = [
+  'function registerReferral(address referred)',
+  'function creditReferralReward(address referrer, address token, uint256 amount)',
+  'function claimRewards(address token)',
+  'function getReferralInfo(address referred) view returns (address referrer, uint256 totalRewarded, uint256 referralCount)',
+  'function getReferrerStats(address referrer) view returns (uint256 totalReferrals, uint256 totalRewards)',
+  'function claimableBalance(address referrer, address token) view returns (uint256)',
+] as const;
+
+export const REWARD_SCHEDULER_ABI = [
+  'function createStream(uint8 targetType, address rewardToken, uint256 emissionPerSecond, uint256 endTime)',
+  'function drip(uint256 streamId)',
+  'function dripAll()',
+  'function updateEmission(uint256 streamId, uint256 newEmissionPerSecond)',
+  'function pauseStream(uint256 streamId)',
+  'function resumeStream(uint256 streamId)',
+  'function topUp(address token, uint256 amount)',
+  'function withdrawBudget(address token, uint256 amount, address to)',
+  'function getStream(uint256 streamId) view returns (uint256 id, uint8 targetType, address rewardToken, uint256 emissionPerSecond, uint256 startTime, uint256 endTime, uint256 released, bool active)',
+  'function getActiveStreams() view returns (uint256[])',
+  'function streamBalance(uint256 streamId) view returns (uint256)',
 ] as const;

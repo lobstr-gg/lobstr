@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IReputationSystem.sol";
 
-contract ReputationSystem is IReputationSystem, AccessControl, Pausable {
+contract ReputationSystem is IReputationSystem, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, PausableUpgradeable {
     bytes32 public constant RECORDER_ROLE = keccak256("RECORDER_ROLE");
 
     uint256 public constant BASE_SCORE = 500;
@@ -37,9 +40,22 @@ contract ReputationSystem is IReputationSystem, AccessControl, Pausable {
     // Anti-farming: track completions per provider→client pair
     mapping(address => mapping(address => uint256)) private _pairCompletions;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize() external initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __Pausable_init();
+
+        // Grant DEFAULT_ADMIN_ROLE to owner (can reassign and grant other roles)
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function recordCompletion(
         address provider,
@@ -97,11 +113,11 @@ contract ReputationSystem is IReputationSystem, AccessControl, Pausable {
         emit ScoreUpdated(provider, newScore, _tierForUser(provider, newScore));
     }
 
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -167,5 +183,13 @@ contract ReputationSystem is IReputationSystem, AccessControl, Pausable {
             return ReputationTier.Silver;
         }
         return ReputationTier.Bronze;
+    }
+
+    // ─── Role Management ─────────────────────────────────────────────────────
+
+    /// @notice Grant RECORDER_ROLE to contracts that need to record completions/disputes
+    /// @dev Contracts like EscrowEngine, DisputeArbitration, LoanEngine, etc. need this role
+    function grantRecorderRole(address recorder) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        grantRole(RECORDER_ROLE, recorder);
     }
 }

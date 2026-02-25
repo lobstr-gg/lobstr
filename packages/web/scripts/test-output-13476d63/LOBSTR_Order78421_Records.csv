@@ -1,0 +1,11 @@
+date,event,actor,details,lobAmount,status,txHash
+2026-02-03,OrderOpened,Evelyn Harper,Order #78421 created for US agent dataset scrape,0,Open,0x7b3a8f1c2d6e4a9b0c1d2e3f4a5b6c7d8e9f1a2b
+2026-02-03,MilestonePayment,Ming Jiao,Start payment released (non-refundable once work begins),4000,Released,0x1c9d0a2b3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b
+2026-02-07,SampleDelivered,Ming Jiao,200-row sample CSV uploaded for format confirmation,0,Delivered,0x2a4c6e8f0b1d3f5a7c9e1a2b4c6d8e0f1a3c5e7b
+2026-02-08,SampleApproved,Evelyn Harper,Buyer confirms headers/date format acceptable; reminds acceptance criteria apply to final set,0,Approved,0x9f8e7d6c5b4a3c2d1e0f9a8b7c6d5e4f3a2b1c0d
+2026-02-14,FinalDelivery,Ming Jiao,Uploads us_real_estate_agents.csv + data_dictionary.pdf + source_domains.csv,0,Delivered,0x3d5f7a9b1c2e4a6c8d0f1b3d5f7a9c1e3b5d7f9a
+2026-02-16,NonconformityNotice,Evelyn Harper,Buyer reports: duplicates above threshold; many blank city/state; contactability below 60%; provides examples,0,Rejected,0x4e6a8c0d2f3b5d7f9a1c3e5a7c9e0b2d4f6a8c0e
+2026-02-17,CureProposed,Ming Jiao,Seller offers to remove duplicates and re-export but disputes contactability requirement; asks to release final milestone,0,Pending,0x5a7c9e1b3d5f7a9c1e3b5d7f9a1c3e5a7c9e0b2
+2026-02-21,CureResubmission,Ming Jiao,Updated CSV uploaded; no updated source_domains.csv; buyer states still below coverage/contactability,0,Resubmitted,0x6b8d0f1a3c5e7b9d0f1a3c5e7b9d0f1a3c5e7b9d
+2026-02-22,DisputeOpened,Evelyn Harper,Buyer opens dispute to withhold 3000 LOB acceptance milestone,0,Disputed,0x7c9e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e
+2026-02-23,MilestonePaymentAttempt,Ming Jiao,Seller requests release of Acceptance milestone,3000,Denied,0x8d0f1a3c5e7b9d0f1a3c5e7b9d0f1a3c5e7b9d0f

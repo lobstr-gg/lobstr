@@ -1,0 +1,79 @@
+{
+  "title": "Video Editing — Misleading Quality Claims",
+  "description": "The buyer contracted a video editor to produce a marketing video with specific visual quality standards. The buyer argues that the video lacks the promised quality, citing evident discrepancies in clarity and color grading. The seller claims the video meets the agreement's outlined standards and blames buyer's playback equipment for any quality issues.",
+  "expectedRuling": "BuyerWins",
+  "evidenceSpecs": [
+    {
+      "type": "pdf",
+      "name": "Contract_VideoEditing.pdf",
+      "description": "The service agreement detailing the project",
+      "content": "[{\"heading\":\"PARTIES\",\"body\":\"This contract is between Aleksey Popov (Seller, Video Editor) and Carla Reeds (Buyer, Marketing Manager).\"},{\"heading\":\"SCOPE OF WORK\",\"body\":\"Produce a 3-minute marketing video with 4K resolution, including color grading following BrandXYZ's style guide, and sound design according to the script provided by the buyer.\"},{\"heading\":\"COMPENSATION\",\"body\":\"12,000 LOB, with 6,000 LOB upfront and the remainder upon final delivery.\"},{\"heading\":\"TIMELINE\",\"body\":\"Draft by February 10th, 2026, with final delivery by February 14th, 2026.\"},{\"heading\":\"ACCEPTANCE CRITERIA\",\"body\":\"Video must be in 4K resolution, matched to the sample quality provided by the buyer, with no errors in color grading or sound sync.\"},{\"heading\":\"QUALITY STANDARDS\",\"body\":\"The video must maintain a minimum bitrate of 20Mbps to ensure clarity and meet the 4K specification.\"}]"
+    },
+    {
+      "type": "image",
+      "name": "VideoQualityComparison.png",
+      "description": "A comparison of the delivered video with the quality standards",
+      "content": "Side-by-side comparison of two video screens: left screen shows a dull and blurred frame, right screen shows vibrant and sharp 4K frame. Realistic screenshot, high detail, sharp text, modern UI design showing video editing timeline and playback controls."
+    },
+    {
+      "type": "csv",
+      "name": "PaymentAndDeliveryTimeline.csv",
+      "description": "Records of payments and delivery steps",
+      "content": "Date,Description,LOB_Amount,Status,Transaction_Hash\n2026-02-01,Initial payment to Aleksey,6000,Completed,0xabc123def\n2026-02-10,Delivery of draft,0,Completed,\n2026-02-12,Request for revisions by Carla,0,Pending,\n2026-02-14,Final delivery by Aleksey,0,Completed,\n2026-02-15,Final payment to Aleksey,6000,Pending,0x456def789"
+    }
+  ],
+  "mcQuestions": [
+    {
+      "question": "What specific quality was the seller required to maintain according to the contract?",
+      "options": [
+        "Minimum bitrate of 20Mbps",
+        "Minimum bitrate of 10Mbps",
+        "Minimum bitrate of 15Mbps",
+        "Minimum bitrate of 18Mbps"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "By what date was the final video delivery due according to the contract?",
+      "options": [
+        "February 10th, 2026",
+        "February 12th, 2026",
+        "February 14th, 2026",
+        "February 15th, 2026"
+      ],
+      "correctIndex": 2
+    },
+    {
+      "question": "What was included in the scope of work for the video editing contract?",
+      "options": [
+        "Adding special effects",
+        "Color grading and sound design",
+        "3D animation integration",
+        "Subtitle embedding"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "question": "According to the CSV, what action is pending as of the latest entry?",
+      "options": [
+        "Final payment",
+        "Draft delivery",
+        "Revisions",
+        "Initial payment"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "How does the image evidence contradict the seller's claim?",
+      "options": [
+        "It shows the video meets the 4K resolution standard",
+        "It shows errors in the color grading",
+        "It shows a lower bitrate than agreed",
+        "It shows mismatched duration"
+      ],
+      "correctIndex": 2
+    }
+  ],
+  "analysisPrompt": "Evaluate whether the final deliverable met the agreement's quality standards and determine the validity of any claimed discrepancies by analyzing the contract details, visual evidence, and timeline records.",
+  "gradingRubric": "• Identify the agreed minimum bitrate from the contract (Contract_VideoEditing.pdf).\n• Verify the visual evidence of the video quality against the contract standards (VideoQualityComparison.png).\n• Confirm delivery timeline and final payment status from the records (PaymentAndDeliveryTimeline.csv).\n• Evaluate the seller's argument regarding playback equipment and assess its relevance.\n• Determine if the discrepancies in video quality are due to the video file itself or playback conditions.\n• Check acceptance criteria to see if the final deliverable adhered to all outlined standards."
+}

@@ -20,8 +20,10 @@ contract RewardDistributorTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(tokenDistributor);
+        token = new LOBToken();
+        token.initialize(tokenDistributor);
         distributor = new RewardDistributor();
+        distributor.initialize();
 
         distributor.grantRole(distributor.DISPUTE_ROLE(), disputeContract);
         distributor.grantRole(distributor.SYBIL_GUARD_ROLE(), sybilGuardContract);

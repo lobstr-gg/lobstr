@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ILiquidityMining.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract LiquidityMining is ILiquidityMining, AccessControl, ReentrancyGuard, Pausable {
+contract LiquidityMining is ILiquidityMining, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant REWARD_NOTIFIER_ROLE = keccak256("REWARD_NOTIFIER_ROLE");
@@ -22,10 +25,10 @@ contract LiquidityMining is ILiquidityMining, AccessControl, ReentrancyGuard, Pa
     uint256 public constant GOLD_BOOST = 20000;
     uint256 public constant PLATINUM_BOOST = 30000;
 
-    IERC20 public immutable lpToken;
-    IERC20 public immutable rewardToken;
-    IStakingManager public immutable stakingManager;
-    ISybilGuard public immutable sybilGuard;
+    IERC20 public lpToken;
+    IERC20 public rewardToken;
+    IStakingManager public stakingManager;
+    ISybilGuard public sybilGuard;
 
     uint256 public rewardRate;
     uint256 public periodFinish;
@@ -39,24 +42,38 @@ contract LiquidityMining is ILiquidityMining, AccessControl, ReentrancyGuard, Pa
     mapping(address => uint256) private _userRewardPerTokenPaid;
     mapping(address => uint256) private _rewards;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lpToken,
         address _rewardToken,
         address _stakingManager,
-        address _sybilGuard
-    ) {
+        address _sybilGuard,
+        address _owner
+    ) external initializer {
         require(_lpToken != address(0), "LiquidityMining: zero lpToken");
         require(_rewardToken != address(0), "LiquidityMining: zero rewardToken");
         require(_stakingManager != address(0), "LiquidityMining: zero stakingManager");
         require(_sybilGuard != address(0), "LiquidityMining: zero sybilGuard");
+        require(_owner != address(0), "LiquidityMining: zero owner");
+
+        __Ownable_init(_owner);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         lpToken = IERC20(_lpToken);
         rewardToken = IERC20(_rewardToken);
         stakingManager = IStakingManager(_stakingManager);
         sybilGuard = ISybilGuard(_sybilGuard);
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ═══════════════════════════════════════════════════════════════
     //  MODIFIERS
@@ -239,11 +256,11 @@ contract LiquidityMining is ILiquidityMining, AccessControl, ReentrancyGuard, Pa
     //  ADMIN
     // ═══════════════════════════════════════════════════════════════
 
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 }

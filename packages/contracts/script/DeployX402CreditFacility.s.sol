@@ -36,14 +36,16 @@ contract DeployX402CreditFacilityScript is Script {
 
         vm.startBroadcast(deployerKey);
 
-        X402CreditFacility facility = new X402CreditFacility(
+        X402CreditFacility facility = new X402CreditFacility();
+        facility.initialize(
             lobToken,
             escrowEngine,
             disputeArbitration,
             reputationSystem,
             stakingManager,
             sybilGuard,
-            treasury
+            treasury,
+            deployer
         );
 
         // Grant roles

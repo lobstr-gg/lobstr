@@ -5,7 +5,7 @@ export { loadWallet, decryptKey, encryptKey, saveWallet, promptPassword, walletE
 export { createPublicClient, createWalletClient, getContractAddress } from './lib/contract-client';
 export { readActivity, writeActivity, incrementChannels, incrementToolCalls } from './lib/activity';
 export { poseidonHash } from './lib/poseidon';
-export { buildMerkleTree } from './lib/merkle';
+export { buildMerkleTree, buildRoleMerkleTree, ROLE_TREE_DEPTH, ROLE_TREE_SIZE } from './lib/merkle';
 export { parseAbi, type Address } from './lib/contract-client';
 export * from './lib/abis';
 export * from './lib/ui';

@@ -39,9 +39,11 @@ contract AffiliateManagerTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         sybilGuard = new MockSybilGuardForAffiliate();
-        affiliate = new AffiliateManager(address(sybilGuard));
+        affiliate = new AffiliateManager();
+        affiliate.initialize(address(sybilGuard));
         affiliate.grantRole(affiliate.CREDITOR_ROLE(), creditor);
         vm.stopPrank();
 
@@ -233,7 +235,7 @@ contract AffiliateManagerTest is Test {
         affiliate.pause();
 
         vm.prank(referrer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         affiliate.registerReferral(referred);
     }
 
@@ -242,7 +244,7 @@ contract AffiliateManagerTest is Test {
         affiliate.pause();
 
         vm.prank(creditor);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         affiliate.creditReferralReward(referrer, address(token), 100 ether);
     }
 
@@ -251,7 +253,8 @@ contract AffiliateManagerTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroSybilGuard() public {
+        AffiliateManager a = new AffiliateManager();
         vm.expectRevert("AffiliateManager: zero sybilGuard");
-        new AffiliateManager(address(0));
+        a.initialize(address(0));
     }
 }

@@ -31,11 +31,15 @@ contract ServiceRegistryTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
-        staking = new StakingManager(address(token));
+        token = new LOBToken();
+        token.initialize(distributor);
+        staking = new StakingManager();
+        staking.initialize(address(token));
         reputation = new ReputationSystem();
+        reputation.initialize();
         mockSybilGuard = new MockSybilGuardSR();
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
         vm.stopPrank();
 
         // Fund alice
@@ -247,7 +251,7 @@ contract ServiceRegistryTest is Test {
         registry.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         registry.createListing(
             IServiceRegistry.ServiceCategory.CODING,
             "Service",
@@ -275,7 +279,7 @@ contract ServiceRegistryTest is Test {
         registry.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         registry.updateListing(listingId, "New", "New", 200 ether, address(token), 3600, "");
     }
 
@@ -295,7 +299,7 @@ contract ServiceRegistryTest is Test {
         registry.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         registry.deactivateListing(listingId);
     }
 

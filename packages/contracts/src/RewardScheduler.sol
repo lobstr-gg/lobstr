@@ -1,34 +1,59 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IRewardScheduler.sol";
 import "./interfaces/IStakingRewards.sol";
 import "./interfaces/ILiquidityMining.sol";
 
-contract RewardScheduler is IRewardScheduler, AccessControl, ReentrancyGuard, Pausable {
+contract RewardScheduler is
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
+    IRewardScheduler
+{
     using SafeERC20 for IERC20;
 
-    IStakingRewards public immutable stakingRewards;
-    ILiquidityMining public immutable liquidityMining;
+    IStakingRewards public stakingRewards;
+    ILiquidityMining public liquidityMining;
 
     uint256 private _streamCount;
     mapping(uint256 => Stream) private _streams;
     uint256[] private _activeStreamIds;
 
-    constructor(address _stakingRewards, address _liquidityMining) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _stakingRewards, address _liquidityMining) public initializer {
         require(_stakingRewards != address(0), "RewardScheduler: zero stakingRewards");
         require(_liquidityMining != address(0), "RewardScheduler: zero liquidityMining");
+
+        __Ownable_init(msg.sender);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
 
         stakingRewards = IStakingRewards(_stakingRewards);
         liquidityMining = ILiquidityMining(_liquidityMining);
 
+        // Grant DEFAULT_ADMIN_ROLE to owner (can reassign and grant other roles)
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ═══════════════════════════════════════════════════════════════
     //  STREAM MANAGEMENT

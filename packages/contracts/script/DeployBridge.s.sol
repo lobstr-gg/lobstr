@@ -28,7 +28,8 @@ contract DeployBridgeScript is Script {
 
         vm.startBroadcast(deployerKey);
 
-        X402EscrowBridge bridge = new X402EscrowBridge(escrowEngine, disputeArbitration);
+        X402EscrowBridge bridge = new X402EscrowBridge();
+        bridge.initialize(escrowEngine, disputeArbitration);
         bridge.grantRole(bridge.FACILITATOR_ROLE(), facilitatorAddr);
 
         vm.stopBroadcast();

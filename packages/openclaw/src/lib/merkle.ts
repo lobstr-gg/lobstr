@@ -3,6 +3,9 @@ import { getPoseidon } from './poseidon';
 const TREE_DEPTH = 8;
 const TREE_SIZE = 1 << TREE_DEPTH; // 256
 
+export const ROLE_TREE_DEPTH = 11;
+export const ROLE_TREE_SIZE = 1 << ROLE_TREE_DEPTH; // 2048
+
 export interface MerkleTree {
   root: bigint;
   layers: bigint[][];
@@ -41,6 +44,48 @@ export async function buildMerkleTree(leaves: bigint[]): Promise<MerkleTree> {
 
     let idx = leafIndex;
     for (let d = 0; d < TREE_DEPTH; d++) {
+      const siblingIdx = idx % 2 === 0 ? idx + 1 : idx - 1;
+      pathElements.push(layers[d][siblingIdx]);
+      pathIndices.push(idx % 2);
+      idx = Math.floor(idx / 2);
+    }
+
+    return { pathElements, pathIndices };
+  }
+
+  return { root, layers, getProof };
+}
+
+/**
+ * Build a depth-11 Poseidon Merkle tree from leaves.
+ * Used for role uptime heartbeat proofs (2048 leaves max).
+ */
+export async function buildRoleMerkleTree(leaves: bigint[]): Promise<MerkleTree> {
+  const { poseidon, F } = await getPoseidon();
+
+  const paddedLeaves = [...leaves];
+  while (paddedLeaves.length < ROLE_TREE_SIZE) {
+    paddedLeaves.push(BigInt(0));
+  }
+
+  const layers: bigint[][] = [paddedLeaves];
+  for (let d = 0; d < ROLE_TREE_DEPTH; d++) {
+    const prev = layers[d];
+    const next: bigint[] = [];
+    for (let i = 0; i < prev.length; i += 2) {
+      next.push(F.toObject(poseidon([prev[i], prev[i + 1]])));
+    }
+    layers.push(next);
+  }
+
+  const root = layers[ROLE_TREE_DEPTH][0];
+
+  function getProof(leafIndex: number) {
+    const pathElements: bigint[] = [];
+    const pathIndices: number[] = [];
+
+    let idx = leafIndex;
+    for (let d = 0; d < ROLE_TREE_DEPTH; d++) {
       const siblingIdx = idx % 2 === 0 ? idx + 1 : idx - 1;
       pathElements.push(layers[d][siblingIdx]);
       pathIndices.push(idx % 2);

@@ -52,14 +52,20 @@ contract EscrowEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         mockSybilGuard = new MockSybilGuard();
         mockRewardDist = new MockRewardDistributor();
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine(
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration();
+        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -74,6 +80,7 @@ contract EscrowEngineTest is Test {
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute));
         dispute.grantRole(dispute.ESCROW_ROLE(), address(escrow));
+        dispute.grantRole(dispute.CERTIFIER_ROLE(), admin);
         dispute.setEscrowEngine(address(escrow));
         vm.stopPrank();
 
@@ -115,12 +122,15 @@ contract EscrowEngineTest is Test {
         token.approve(address(dispute), amount);
         dispute.stakeAsArbitrator(amount);
         vm.stopPrank();
+
+        vm.prank(admin);
+        dispute.certifyArbitrator(arb);
     }
 
     function test_CreateJob() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         assertEq(jobId, 1);
@@ -136,7 +146,7 @@ contract EscrowEngineTest is Test {
     function test_CreateJob_LOBZeroFee() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 1000 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 1000 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 1000 ether, address(token), 1 days);
         vm.stopPrank();
 
         IEscrowEngine.Job memory job = escrow.getJob(jobId);
@@ -148,7 +158,7 @@ contract EscrowEngineTest is Test {
         token.approve(address(escrow), 50 ether);
 
         vm.expectRevert("EscrowEngine: self-hire");
-        escrow.createJob(listingId, seller, 50 ether, address(token));
+        escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
     }
 
@@ -160,14 +170,14 @@ contract EscrowEngineTest is Test {
         token.approve(address(escrow), 50 ether);
 
         vm.expectRevert("EscrowEngine: listing inactive");
-        escrow.createJob(listingId, seller, 50 ether, address(token));
+        escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
     }
 
     function test_SubmitDelivery() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -182,7 +192,7 @@ contract EscrowEngineTest is Test {
     function test_SubmitDelivery_RevertNotSeller() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
 
         vm.expectRevert("EscrowEngine: not seller");
         escrow.submitDelivery(jobId, "ipfs://delivery");
@@ -193,7 +203,7 @@ contract EscrowEngineTest is Test {
         // Create and deliver job
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -214,7 +224,7 @@ contract EscrowEngineTest is Test {
     function test_ConfirmDelivery_RevertNotBuyer() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -228,7 +238,7 @@ contract EscrowEngineTest is Test {
     function test_AutoRelease() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -250,7 +260,7 @@ contract EscrowEngineTest is Test {
     function test_AutoRelease_RevertWindowNotExpired() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -263,7 +273,7 @@ contract EscrowEngineTest is Test {
     function test_HighValueJob_LongerDisputeWindow() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 500 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 500 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 500 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -277,7 +287,7 @@ contract EscrowEngineTest is Test {
     function test_InitiateDispute() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -294,7 +304,7 @@ contract EscrowEngineTest is Test {
     function test_InitiateDispute_RevertWindowClosed() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -310,7 +320,7 @@ contract EscrowEngineTest is Test {
     function test_InitiateDispute_RevertEmptyEvidence() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -373,29 +383,29 @@ contract EscrowEngineTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        vm.expectRevert("Pausable: paused");
-        escrow.createJob(listingId, seller, 50 ether, address(token));
+        vm.expectRevert("EnforcedPause()");
+        escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
     }
 
     function test_Paused_SubmitDeliveryReverts() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(admin);
         escrow.pause();
 
         vm.prank(seller);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         escrow.submitDelivery(jobId, "ipfs://delivery");
     }
 
     function test_Paused_ConfirmDeliveryReverts() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -405,14 +415,14 @@ contract EscrowEngineTest is Test {
         escrow.pause();
 
         vm.prank(buyer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         escrow.confirmDelivery(jobId);
     }
 
     function test_Paused_AutoReleaseReverts() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -423,14 +433,14 @@ contract EscrowEngineTest is Test {
         vm.prank(admin);
         escrow.pause();
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         escrow.autoRelease(jobId);
     }
 
     function test_Paused_InitiateDisputeReverts() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -440,7 +450,7 @@ contract EscrowEngineTest is Test {
         escrow.pause();
 
         vm.prank(buyer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         escrow.initiateDispute(jobId, "ipfs://evidence");
     }
 
@@ -454,7 +464,7 @@ contract EscrowEngineTest is Test {
         // Should work after unpause
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         assertEq(jobId, 1);
@@ -468,14 +478,14 @@ contract EscrowEngineTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit JobCreated(1, listingId, buyer, seller, 50 ether, address(token), 0);
-        escrow.createJob(listingId, seller, 50 ether, address(token));
+        escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
     }
 
     function test_EmitDeliverySubmitted() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -487,7 +497,7 @@ contract EscrowEngineTest is Test {
     function test_EmitDeliveryConfirmed() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -502,7 +512,7 @@ contract EscrowEngineTest is Test {
     function test_EmitFundsReleased() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -517,7 +527,7 @@ contract EscrowEngineTest is Test {
     function test_EmitAutoReleased() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -536,7 +546,7 @@ contract EscrowEngineTest is Test {
         // Create and deliver job
         vm.startPrank(buyer);
         token.approve(address(escrow), 100 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 100 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 100 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -761,7 +771,7 @@ contract EscrowEngineTest is Test {
         vm.startPrank(buyer);
         token.approve(address(escrow), 9 ether);
         vm.expectRevert("EscrowEngine: below minimum");
-        escrow.createJob(listingId, seller, 9 ether, address(token));
+        escrow.createJob(listingId, seller, 9 ether, address(token), 1 days);
         vm.stopPrank();
     }
 
@@ -783,7 +793,7 @@ contract EscrowEngineTest is Test {
     function test_AutoRelease_SellerReleasesAtWindowEnd() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -804,7 +814,7 @@ contract EscrowEngineTest is Test {
     function test_AutoRelease_NonSellerBlockedDuringGrace() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -820,7 +830,7 @@ contract EscrowEngineTest is Test {
     function test_AutoRelease_NonSellerReleasesAfterGrace() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -865,7 +875,7 @@ contract EscrowEngineTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(escrow), 10 ether);
-        uint256 jobId = escrow.createJob(smallListingId, seller, 10 ether, address(token));
+        uint256 jobId = escrow.createJob(smallListingId, seller, 10 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -886,7 +896,7 @@ contract EscrowEngineTest is Test {
     function test_ConfirmDelivery_AboveThresholdRecordsReputation() public {
         vm.startPrank(buyer);
         token.approve(address(escrow), 50 ether);
-        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token));
+        uint256 jobId = escrow.createJob(listingId, seller, 50 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);
@@ -917,7 +927,7 @@ contract EscrowEngineTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(escrow), 10 ether);
-        uint256 jobId = escrow.createJob(smallListingId, seller, 10 ether, address(token));
+        uint256 jobId = escrow.createJob(smallListingId, seller, 10 ether, address(token), 1 days);
         vm.stopPrank();
 
         vm.prank(seller);

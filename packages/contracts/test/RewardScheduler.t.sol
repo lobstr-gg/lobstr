@@ -111,22 +111,27 @@ contract RewardSchedulerTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        lobToken = new LOBToken(distributor);
+        lobToken = new LOBToken();
+        lobToken.initialize(distributor);
         lpToken = new MockLPTokenForScheduler();
         sybilGuard = new MockSybilGuardForScheduler();
         stakingManager = new MockStakingManagerForScheduler();
 
-        stakingRewards = new StakingRewards(address(stakingManager), address(sybilGuard));
+        stakingRewards = new StakingRewards();
+        stakingRewards.initialize(address(stakingManager), address(sybilGuard));
         stakingRewards.addRewardToken(address(lobToken));
 
-        liquidityMining = new LiquidityMining(
+        liquidityMining = new LiquidityMining();
+        liquidityMining.initialize(
             address(lpToken),
             address(lobToken),
             address(stakingManager),
-            address(sybilGuard)
+            address(sybilGuard),
+            admin
         );
 
-        scheduler = new RewardScheduler(address(stakingRewards), address(liquidityMining));
+        scheduler = new RewardScheduler();
+        scheduler.initialize(address(stakingRewards), address(liquidityMining));
 
         // Grant REWARD_NOTIFIER_ROLE to scheduler
         stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), address(scheduler));
@@ -462,8 +467,9 @@ contract RewardSchedulerTest is Test {
             0
         );
 
-        // Warp 100 seconds at 1 LOB/sec
-        vm.warp(block.timestamp + 100);
+        // Read lastDripTime from contract state (opaque to via_ir optimizer)
+        IRewardScheduler.Stream memory s0 = scheduler.getStream(1);
+        vm.warp(s0.lastDripTime + 100);
 
         // Update to 2 LOB/sec — should flush old rate first
         vm.prank(admin);
@@ -478,8 +484,8 @@ contract RewardSchedulerTest is Test {
         IRewardScheduler.Stream memory s = scheduler.getStream(1);
         assertEq(s.emissionPerSecond, 2 ether);
 
-        // Warp another 100 seconds at 2 LOB/sec
-        vm.warp(block.timestamp + 100);
+        // Warp another 100 seconds at 2 LOB/sec (read updated lastDripTime)
+        vm.warp(s.lastDripTime + 100);
         scheduler.drip(1);
 
         assertEq(lobToken.balanceOf(address(stakingRewards)), 300 ether); // 100 + 200
@@ -564,23 +570,26 @@ contract RewardSchedulerTest is Test {
             0
         );
 
-        vm.warp(block.timestamp + 50);
+        // Read lastDripTime from contract state (opaque to via_ir optimizer)
+        IRewardScheduler.Stream memory s0 = scheduler.getStream(1);
+        vm.warp(s0.lastDripTime + 50);
 
         vm.prank(admin);
         scheduler.pauseStream(1);
 
         // Warp 100 more seconds while paused
-        vm.warp(block.timestamp + 100);
+        IRewardScheduler.Stream memory s1 = scheduler.getStream(1);
+        vm.warp(s1.lastDripTime + 100);
 
         vm.prank(admin);
         scheduler.resumeStream(1);
 
         IRewardScheduler.Stream memory s = scheduler.getStream(1);
         assertTrue(s.active);
-        assertEq(s.lastDripTime, block.timestamp); // Reset to now
+        assertEq(s.lastDripTime, s1.lastDripTime + 100);
 
         // Warp 50 more and drip
-        vm.warp(block.timestamp + 50);
+        vm.warp(s.lastDripTime + 50);
         scheduler.drip(1);
 
         // Should have 50 (pre-pause) + 50 (post-resume) = 100 LOB
@@ -773,7 +782,7 @@ contract RewardSchedulerTest is Test {
 
         vm.warp(block.timestamp + 100);
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         scheduler.drip(1);
     }
 
@@ -879,8 +888,11 @@ contract RewardSchedulerTest is Test {
             0
         );
 
+        // Read lastDripTime from contract state (opaque to via_ir optimizer)
+        IRewardScheduler.Stream memory s0 = scheduler.getStream(1);
+        uint256 startTime = s0.lastDripTime;
+
         // Drip every day for 7 days
-        uint256 startTime = block.timestamp;
         for (uint256 i = 0; i < 7; i++) {
             vm.warp(startTime + (i + 1) * 1 days);
             scheduler.drip(1);
@@ -925,12 +937,14 @@ contract RewardSchedulerTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_constructor_RevertZeroStakingRewards() public {
+        RewardScheduler rs = new RewardScheduler();
         vm.expectRevert("RewardScheduler: zero stakingRewards");
-        new RewardScheduler(address(0), address(liquidityMining));
+        rs.initialize(address(0), address(liquidityMining));
     }
 
     function test_constructor_RevertZeroLiquidityMining() public {
+        RewardScheduler rs = new RewardScheduler();
         vm.expectRevert("RewardScheduler: zero liquidityMining");
-        new RewardScheduler(address(stakingRewards), address(0));
+        rs.initialize(address(stakingRewards), address(0));
     }
 }

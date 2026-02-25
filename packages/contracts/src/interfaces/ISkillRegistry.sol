@@ -92,4 +92,5 @@ interface ISkillRegistry {
     function getSkillDependencies(uint256 skillId) external view returns (uint256[] memory);
     function getSellerListingCount(address seller) external view returns (uint256);
     function hasActiveAccess(address buyer, uint256 skillId) external view returns (bool);
+    function getAccessIdByBuyer(address buyer, uint256 skillId) external view returns (uint256);
 }

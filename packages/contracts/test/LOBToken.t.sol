@@ -11,7 +11,8 @@ contract LOBTokenTest is Test {
     address public bob = makeAddr("bob");
 
     function setUp() public {
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
     }
 
     function test_Name() public view {
@@ -52,8 +53,9 @@ contract LOBTokenTest is Test {
     }
 
     function test_RevertZeroAddress() public {
+        LOBToken t = new LOBToken();
         vm.expectRevert("LOBToken: zero address");
-        new LOBToken(address(0));
+        t.initialize(address(0));
     }
 
     function test_TOTAL_SUPPLY_Constant() public view {

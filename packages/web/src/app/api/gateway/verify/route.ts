@@ -141,9 +141,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[gateway/verify] Error:", err);
     return NextResponse.json(
-      {
-        error: `Verification failed: ${err instanceof Error ? err.message : "unknown"}`,
-      },
+      { error: "Verification failed" },
       { status: 500 },
     );
   }

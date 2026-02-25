@@ -71,10 +71,12 @@ contract StakingRewardsTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken(distributor);
+        lobToken = new LOBToken();
+        lobToken.initialize(distributor);
         sybilGuard = new MockSybilGuardForStakingRewards();
         stakingManager = new MockStakingManagerForRewards();
-        stakingRewards = new StakingRewards(address(stakingManager), address(sybilGuard));
+        stakingRewards = new StakingRewards();
+        stakingRewards.initialize(address(stakingManager), address(sybilGuard));
         stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), notifier);
         stakingRewards.addRewardToken(address(lobToken));
         vm.stopPrank();
@@ -356,7 +358,7 @@ contract StakingRewardsTest is Test {
 
         stakingManager.setStake(alice, 1000 ether);
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         stakingRewards.syncStake();
     }
 
@@ -365,7 +367,7 @@ contract StakingRewardsTest is Test {
         stakingRewards.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         stakingRewards.claimRewards(address(lobToken));
     }
 
@@ -374,13 +376,15 @@ contract StakingRewardsTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroStakingManager() public {
+        StakingRewards sr = new StakingRewards();
         vm.expectRevert("StakingRewards: zero stakingManager");
-        new StakingRewards(address(0), address(sybilGuard));
+        sr.initialize(address(0), address(sybilGuard));
     }
 
     function test_revertZeroSybilGuard() public {
+        StakingRewards sr = new StakingRewards();
         vm.expectRevert("StakingRewards: zero sybilGuard");
-        new StakingRewards(address(stakingManager), address(0));
+        sr.initialize(address(stakingManager), address(0));
     }
 
     // ═══════════════════════════════════════════════════════════════

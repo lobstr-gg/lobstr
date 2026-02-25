@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IStakingRewards.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract StakingRewards is IStakingRewards, AccessControl, ReentrancyGuard, Pausable {
+contract StakingRewards is IStakingRewards, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant REWARD_NOTIFIER_ROLE = keccak256("REWARD_NOTIFIER_ROLE");
@@ -24,8 +25,8 @@ contract StakingRewards is IStakingRewards, AccessControl, ReentrancyGuard, Paus
     // V-004: Anti-ghost-reward staleness window
     uint256 public constant MAX_SYNC_STALENESS = 7 days;
 
-    IStakingManager public immutable stakingManager;
-    ISybilGuard public immutable sybilGuard;
+    IStakingManager public stakingManager;
+    ISybilGuard public sybilGuard;
 
     struct RewardState {
         uint256 rewardRate;
@@ -47,15 +48,21 @@ contract StakingRewards is IStakingRewards, AccessControl, ReentrancyGuard, Paus
     // V-004: Track last sync timestamp per user
     mapping(address => uint256) private _lastSyncTimestamp;
 
-    constructor(address _stakingManager, address _sybilGuard) {
+    function initialize(address _stakingManager, address _sybilGuard) public initializer {
         require(_stakingManager != address(0), "StakingRewards: zero stakingManager");
         require(_sybilGuard != address(0), "StakingRewards: zero sybilGuard");
 
         stakingManager = IStakingManager(_stakingManager);
         sybilGuard = ISybilGuard(_sybilGuard);
 
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     // ═══════════════════════════════════════════════════════════════
     //  MODIFIERS

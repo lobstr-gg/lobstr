@@ -19,22 +19,20 @@ interface IAirdropClaimV3 {
 
     event AirdropClaimed(address indexed claimant, uint256 immediateRelease);
     event MilestoneCompleted(address indexed claimant, Milestone milestone, uint256 amountReleased);
-    event MerkleRootUpdated(uint256 indexed newRoot, uint256 timestamp);
 
     function claim(
         uint256[2] calldata pA,
         uint256[2][2] calldata pB,
         uint256[2] calldata pC,
-        uint256[2] calldata pubSignals,
+        uint256[3] calldata pubSignals,
         bytes calldata approvalSig,
         uint256 powNonce
     ) external;
 
     function completeMilestone(address claimant, Milestone milestone) external;
 
-    function updateMerkleRoot(uint256 newRoot) external;
     function getClaimInfo(address claimant) external view returns (ClaimInfo memory);
     function isMilestoneComplete(address claimant, Milestone milestone) external view returns (bool);
-    function getMerkleRoot() external view returns (uint256);
+    function isWorkspaceHashUsed(uint256 hash) external view returns (bool);
     function difficultyTarget() external view returns (uint256);
 }

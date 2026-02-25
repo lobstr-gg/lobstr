@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/BondingEngine.sol";
 import "../src/LOBToken.sol";
 
@@ -143,12 +144,14 @@ contract BondingEngineTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        lobToken = new LOBToken(distributor);
+        lobToken = new LOBToken();
+        lobToken.initialize(distributor);
         usdc = new MockUSDC();
         stakingManager = new MockStakingManagerForBonds();
         sybilGuard = new MockSybilGuardForBonds();
 
-        bonding = new BondingEngine(
+        bonding = new BondingEngine();
+        bonding.initialize(
             address(lobToken),
             address(stakingManager),
             address(sybilGuard),
@@ -198,23 +201,27 @@ contract BondingEngineTest is Test {
     }
 
     function test_revertZeroLobToken() public {
+        BondingEngine b = new BondingEngine();
         vm.expectRevert("BondingEngine: zero lobToken");
-        new BondingEngine(address(0), address(stakingManager), address(sybilGuard), treasuryAddr);
+        b.initialize(address(0), address(stakingManager), address(sybilGuard), treasuryAddr);
     }
 
     function test_revertZeroStakingManager() public {
+        BondingEngine b = new BondingEngine();
         vm.expectRevert("BondingEngine: zero stakingManager");
-        new BondingEngine(address(lobToken), address(0), address(sybilGuard), treasuryAddr);
+        b.initialize(address(lobToken), address(0), address(sybilGuard), treasuryAddr);
     }
 
     function test_revertZeroSybilGuard() public {
+        BondingEngine b = new BondingEngine();
         vm.expectRevert("BondingEngine: zero sybilGuard");
-        new BondingEngine(address(lobToken), address(stakingManager), address(0), treasuryAddr);
+        b.initialize(address(lobToken), address(stakingManager), address(0), treasuryAddr);
     }
 
     function test_revertZeroTreasury() public {
+        BondingEngine b = new BondingEngine();
         vm.expectRevert("BondingEngine: zero treasury");
-        new BondingEngine(address(lobToken), address(stakingManager), address(sybilGuard), address(0));
+        b.initialize(address(lobToken), address(stakingManager), address(sybilGuard), address(0));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -551,7 +558,7 @@ contract BondingEngineTest is Test {
 
         vm.startPrank(alice);
         usdc.approve(address(bonding), 100e6);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         bonding.purchase(1, 100e6);
         vm.stopPrank();
     }
@@ -564,7 +571,7 @@ contract BondingEngineTest is Test {
         bonding.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         bonding.claim(bondId);
     }
 
@@ -579,7 +586,7 @@ contract BondingEngineTest is Test {
         ids[0] = bondId;
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         bonding.claimMultiple(ids);
     }
 

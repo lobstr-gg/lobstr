@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IInsurancePool} from "./interfaces/IInsurancePool.sol";
@@ -14,19 +17,19 @@ import {IStakingManager} from "./interfaces/IStakingManager.sol";
 import {ISybilGuard} from "./interfaces/ISybilGuard.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 
-contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausable {
+contract InsurancePool is IInsurancePool, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
 
-    IERC20 public immutable LOB_TOKEN;
-    IEscrowEngine public immutable ESCROW_ENGINE;
-    IDisputeArbitration public immutable DISPUTE_ARBITRATION;
-    IReputationSystem public immutable REPUTATION_SYSTEM;
-    IStakingManager public immutable STAKING_MANAGER;
-    ISybilGuard public immutable SYBIL_GUARD;
-    IServiceRegistry public immutable SERVICE_REGISTRY;
-    address public immutable TREASURY;
+    IERC20 public LOB_TOKEN;
+    IEscrowEngine public ESCROW_ENGINE;
+    IDisputeArbitration public DISPUTE_ARBITRATION;
+    IReputationSystem public REPUTATION_SYSTEM;
+    IStakingManager public STAKING_MANAGER;
+    ISybilGuard public SYBIL_GUARD;
+    IServiceRegistry public SERVICE_REGISTRY;
+    address public TREASURY;
 
     uint256 public premiumRateBps = 50; // 0.5%
 
@@ -66,8 +69,14 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
     mapping(uint256 => bool) private _refundClaimed;
     mapping(uint256 => uint256) private _jobPremiums;
     mapping(uint256 => address) private _jobBuyer;
+    mapping(uint256 => uint256) private _jobPrincipal;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _escrowEngine,
         address _disputeArbitration,
@@ -75,8 +84,9 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         address _stakingManager,
         address _sybilGuard,
         address _serviceRegistry,
-        address _treasury
-    ) {
+        address _treasury,
+        address _owner
+    ) external initializer {
         require(_lobToken != address(0), "InsurancePool: zero lobToken");
         require(_escrowEngine != address(0), "InsurancePool: zero escrowEngine");
         require(_disputeArbitration != address(0), "InsurancePool: zero disputeArbitration");
@@ -85,6 +95,12 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         require(_sybilGuard != address(0), "InsurancePool: zero sybilGuard");
         require(_serviceRegistry != address(0), "InsurancePool: zero serviceRegistry");
         require(_treasury != address(0), "InsurancePool: zero treasury");
+        require(_owner != address(0), "InsurancePool: zero owner");
+
+        __Ownable_init(_owner);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         LOB_TOKEN = IERC20(_lobToken);
         ESCROW_ENGINE = IEscrowEngine(_escrowEngine);
@@ -95,8 +111,10 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         SERVICE_REGISTRY = IServiceRegistry(_serviceRegistry);
         TREASURY = _treasury;
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ═══════════════════════════════════════════════════════════════
     //  POOL STAKING (Premium Yield)
@@ -156,9 +174,11 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         uint256 listingId,
         address seller,
         uint256 amount,
-        address token
+        address token,
+        uint256 deliveryDeadline
     ) external nonReentrant whenNotPaused returns (uint256 jobId) {
         require(!SYBIL_GUARD.checkBanned(msg.sender), "InsurancePool: buyer banned");
+        require(seller != msg.sender, "InsurancePool: self-dealing");
         require(token == address(LOB_TOKEN), "InsurancePool: only LOB supported");
 
         uint256 premium = (amount * premiumRateBps) / 10000;
@@ -169,12 +189,16 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         _distributePremium(premium);
         totalPremiumsCollected += premium;
 
-        LOB_TOKEN.safeApprove(address(ESCROW_ENGINE), amount);
-        jobId = ESCROW_ENGINE.createJob(listingId, seller, amount, token);
+        LOB_TOKEN.forceApprove(address(ESCROW_ENGINE), amount);
+        jobId = ESCROW_ENGINE.createJob(listingId, seller, amount, token, deliveryDeadline);
+
+        // Set the real payer so slashed stake goes to the real buyer, not the pool
+        ESCROW_ENGINE.setJobPayer(jobId, msg.sender);
 
         _insuredJobs[jobId] = true;
         _jobPremiums[jobId] = premium;
         _jobBuyer[jobId] = msg.sender;
+        _jobPrincipal[jobId] = amount;
         _totalInFlightPrincipal += amount;
 
         emit InsuredJobCreated(jobId, msg.sender, premium);
@@ -264,6 +288,26 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         require(_jobBuyer[jobId] == msg.sender, "InsurancePool: not original buyer");
 
         ESCROW_ENGINE.initiateDispute(jobId, evidenceURI);
+    }
+
+    /// @notice V-002: Proxy: cancel job on behalf of the original buyer after delivery timeout
+    function cancelInsuredJob(uint256 jobId) external nonReentrant whenNotPaused {
+        require(_insuredJobs[jobId], "InsurancePool: not insured");
+        require(_jobBuyer[jobId] == msg.sender, "InsurancePool: not original buyer");
+
+        uint256 refundAmount = ESCROW_ENGINE.cancelJob(jobId);
+
+        // Settle in-flight accounting using stored principal (job.amount is zeroed by EscrowEngine)
+        if (!_jobSettled[jobId]) {
+            _jobSettled[jobId] = true;
+            _totalInFlightPrincipal -= _jobPrincipal[jobId];
+        }
+
+        // Record cancellation refund so buyer can claim via claimRefund()
+        if (refundAmount > 0) {
+            _jobRefundAmount[jobId] = refundAmount;
+            _totalRefundLiabilities += refundAmount;
+        }
     }
 
     /// @notice Permissionless: settle a terminal job's accounting, releasing in-flight reserves.
@@ -358,7 +402,7 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
         if (!terminal) return;
 
         _jobSettled[jobId] = true;
-        _totalInFlightPrincipal -= job.amount;
+        _totalInFlightPrincipal -= _jobPrincipal[jobId];
 
         // Only Resolved jobs may owe refunds
         if (job.status == IEscrowEngine.JobStatus.Resolved) {
@@ -406,11 +450,11 @@ contract InsurancePool is IInsurancePool, AccessControl, ReentrancyGuard, Pausab
     //  ADMIN
     // ═══════════════════════════════════════════════════════════════
 
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 }

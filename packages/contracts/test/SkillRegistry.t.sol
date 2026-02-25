@@ -66,14 +66,20 @@ contract SkillRegistryTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         mockSybilGuard = new MockSybilGuardSkill();
         mockRewardDist = new MockRewardDistributorSkill();
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine(
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration();
+        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -82,7 +88,8 @@ contract SkillRegistryTest is Test {
             treasury,
             address(mockSybilGuard)
         );
-        skillRegistry = new SkillRegistry(
+        skillRegistry = new SkillRegistry();
+        skillRegistry.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -627,10 +634,12 @@ contract SkillRegistryTest is Test {
         uint256 accessId = skillRegistry.purchaseSkill(skillId);
         vm.stopPrank();
 
-        uint256 originalExpiry = block.timestamp + 30 days;
+        // Read on-chain values to avoid via_ir timestamp caching
+        ISkillRegistry.AccessRecord memory access0 = skillRegistry.getAccess(accessId);
+        uint256 originalExpiry = access0.expiresAt;
 
-        // Warp 15 days, then renew — should extend from original expiry
-        vm.warp(block.timestamp + 15 days);
+        // Warp 15 days after purchase — still within subscription period
+        vm.warp(access0.purchasedAt + 15 days);
         vm.prank(buyer);
         skillRegistry.renewSubscription(accessId);
 
@@ -832,7 +841,7 @@ contract SkillRegistryTest is Test {
         skillRegistry.pause();
 
         vm.prank(seller);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         skillRegistry.listSkill(
             _defaultParams(),
             "Test",
@@ -849,7 +858,7 @@ contract SkillRegistryTest is Test {
         skillRegistry.pause();
 
         vm.prank(buyer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         skillRegistry.purchaseSkill(skillId);
     }
 

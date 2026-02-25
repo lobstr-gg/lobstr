@@ -1,20 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IPipelineRouter.sol";
 import "./interfaces/ISkillRegistry.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/IReputationSystem.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract PipelineRouter is IPipelineRouter, AccessControl, ReentrancyGuard, Pausable {
-    ISkillRegistry public immutable skillRegistry;
-    IStakingManager public immutable stakingManager;
-    IReputationSystem public immutable reputationSystem;
-    ISybilGuard public immutable sybilGuard;
+contract PipelineRouter is
+    IPipelineRouter,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable
+{
+    ISkillRegistry public skillRegistry;
+    IStakingManager public stakingManager;
+    IReputationSystem public reputationSystem;
+    ISybilGuard public sybilGuard;
 
     uint256 private _nextPipelineId = 1;
 
@@ -22,24 +33,40 @@ contract PipelineRouter is IPipelineRouter, AccessControl, ReentrancyGuard, Paus
     mapping(uint256 => uint256[]) private _pipelineSteps;
     mapping(uint256 => bytes[]) private _pipelineStepConfigs;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _skillRegistry,
         address _stakingManager,
         address _reputationSystem,
-        address _sybilGuard
-    ) {
+        address _sybilGuard,
+        address initialOwner
+    ) public virtual initializer {
         require(_skillRegistry != address(0), "PipelineRouter: zero skillRegistry");
         require(_stakingManager != address(0), "PipelineRouter: zero staking");
         require(_reputationSystem != address(0), "PipelineRouter: zero reputation");
         require(_sybilGuard != address(0), "PipelineRouter: zero sybilGuard");
+
+        __Ownable_init(initialOwner);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+
+        _nextPipelineId = 1;
 
         skillRegistry = ISkillRegistry(_skillRegistry);
         stakingManager = IStakingManager(_stakingManager);
         reputationSystem = IReputationSystem(_reputationSystem);
         sybilGuard = ISybilGuard(_sybilGuard);
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function createPipeline(
         string calldata name,

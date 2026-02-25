@@ -55,9 +55,9 @@ contract ReviewRegistryTest is Test {
         vm.startPrank(admin);
         escrow = new MockEscrowForReviews();
         sybilGuard = new MockSybilGuardForReviews();
-        registry = new ReviewRegistry(address(escrow), address(sybilGuard));
-        vm.stopPrank();
-
+        registry = new ReviewRegistry();
+        // Initialize as admin so admin gets DEFAULT_ADMIN_ROLE
+        registry.initialize(address(escrow), address(sybilGuard));
         // Set up a confirmed job (id=1)
         _createJob(1, buyer, seller, IEscrowEngine.JobStatus.Confirmed);
         // Set up a released job (id=2)
@@ -66,6 +66,7 @@ contract ReviewRegistryTest is Test {
         _createJob(3, buyer, seller, IEscrowEngine.JobStatus.Resolved);
         // Set up an active job (id=4) - should not be reviewable
         _createJob(4, buyer, seller, IEscrowEngine.JobStatus.Active);
+        vm.stopPrank();
     }
 
     function _createJob(uint256 jobId, address _buyer, address _seller, IEscrowEngine.JobStatus status) internal {
@@ -82,7 +83,8 @@ contract ReviewRegistryTest is Test {
             disputeWindowEnd: block.timestamp + 1 hours,
             deliveryMetadataURI: "",
             escrowType: IEscrowEngine.EscrowType.SERVICE_JOB,
-            skillId: 0
+            skillId: 0,
+            deliveryDeadline: block.timestamp + 7 days
         });
         escrow.setJob(jobId, job);
     }
@@ -253,7 +255,7 @@ contract ReviewRegistryTest is Test {
         registry.pause();
 
         vm.prank(buyer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         registry.submitReview(1, 5, "ipfs://paused");
     }
 
@@ -273,12 +275,14 @@ contract ReviewRegistryTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroEscrowEngine() public {
+        ReviewRegistry r = new ReviewRegistry();
         vm.expectRevert("ReviewRegistry: zero escrowEngine");
-        new ReviewRegistry(address(0), address(sybilGuard));
+        r.initialize(address(0), address(sybilGuard));
     }
 
     function test_revertZeroSybilGuard() public {
+        ReviewRegistry r = new ReviewRegistry();
         vm.expectRevert("ReviewRegistry: zero sybilGuard");
-        new ReviewRegistry(address(escrow), address(0));
+        r.initialize(address(escrow), address(0));
     }
 }

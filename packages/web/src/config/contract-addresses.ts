@@ -32,41 +32,43 @@ export type ContractAddressBook = {
   subscriptionEngine: Address;
   affiliateManager: Address;
   bondingEngine: Address;
+  rolePayroll: Address;
 };
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
-// ── Base Mainnet (V3 — deployed 2026-02-22, block 42509758) ──
+// ── Base Mainnet (V4 — deployed 2026-02-25, block 42598375) ──
 const BASE_MAINNET_ADDRESSES: ContractAddressBook = {
-  lobToken: "0xD84Ace4eA3F111F8c5606e9F0A200506A5b714d1" as Address,
-  reputationSystem: "0xd41a40145811915075F6935A4755f8688e53c8dB" as Address,
-  stakingManager: "0xCB7790D3f9b5bfe171eb30C253Ab3007d43C441b" as Address,
-  treasuryGovernor: "0x9b7E2b8cf7de5ef1f85038b050952DC1D4596319" as Address,
-  rewardDistributor: "0x6D96dF45Ad39A38fd00C7e22bdb33C87B69923Ac" as Address,
-  sybilGuard: "0x545A01E48cFB6A76699Ef12Ec1e998C1a275c84E" as Address,
-  serviceRegistry: "0x5426e673b58674B41B8a3B6Ff14cC01D97d69e3c" as Address,
-  disputeArbitration: "0xFfBded2DbA5e27Ad5A56c6d4C401124e942Ada04" as Address,
-  escrowEngine: "0x576235a56e0e25feb95Ea198d017070Ad7f78360" as Address,
-  loanEngine: "0xf5Ab9F1A5c6CC60e1A68d50B4C943D72fd97487a" as Address,
-  x402CreditFacility: "0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C" as Address,
-  stakingRewards: "0xac09C8c327321Ef52CA4D5837A109e327933c0d8" as Address,
-  liquidityMining: "0x4b534d01Ca4aCfa7189D4f61ED3A6bB488FB208D" as Address,
-  rewardScheduler: "0x6A7b959A96be2abD5C2C866489e217c9153A9D8A" as Address,
-  lightningGovernor: "0xBAd7274F05C84deaa16542404C5Da2495F2fa145" as Address,
-  groth16VerifierV4: "0x4982F09b7a17c143c5a28D55a3C0FC51e51B25A4" as Address,
-  airdropClaim: "0x00aB66216A022aDEb0D72A2e7Ee545D2BA9b1e7C" as Address,
-  teamVesting: "0xFB97b85eBaF663c29323BA2499A11a7E524aCcC1" as Address,
-  // Not yet deployed
-  x402EscrowBridge: ZERO_ADDRESS,
-  directiveBoard: ZERO_ADDRESS,
-  reviewRegistry: ZERO_ADDRESS,
-  multiPartyEscrow: ZERO_ADDRESS,
-  insurancePool: "0xE1d68167a15AFA7C4e22dF978Dc4A66A0b4114fe" as Address,
-  skillRegistry: ZERO_ADDRESS,
-  pipelineRouter: ZERO_ADDRESS,
-  subscriptionEngine: ZERO_ADDRESS,
-  affiliateManager: ZERO_ADDRESS,
-  bondingEngine: ZERO_ADDRESS,
+  lobToken: "0x6a9ebf62c198c252be0c814224518b2def93a937" as Address,
+  reputationSystem: "0x21e96019dd46e07b694ee28999b758e3c156b7c2" as Address,
+  stakingManager: "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408" as Address,
+  treasuryGovernor: "0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27" as Address,
+  rewardDistributor: "0xeb8b276fccbb982c55d1a18936433ed875783ffe" as Address,
+  sybilGuard: "0xb216314338f291a0458e1d469c1c904ec65f1b21" as Address,
+  serviceRegistry: "0xcfbdfad104b8339187af3d84290b59647cf4da74" as Address,
+  disputeArbitration: "0x5a5c510db582546ef17177a62a604cbafceba672" as Address,
+  escrowEngine: "0xada65391bb0e1c7db6e0114b3961989f3f3221a1" as Address,
+  loanEngine: "0x472ec915cd56ef94e0a163a74176ef9a336cdbe9" as Address,
+  x402CreditFacility: "0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca" as Address,
+  stakingRewards: "0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323" as Address,
+  liquidityMining: ZERO_ADDRESS, // deferred until DEX LP pool created
+  rewardScheduler: ZERO_ADDRESS, // deferred until LiquidityMining deployed
+  lightningGovernor: "0xcae6aec8d63479bde5c0969241c959b402f5647d" as Address,
+  groth16VerifierV4: "0xea24fbedab58f1552962a41eed436c96a7116571" as Address,
+  airdropClaim: "0xc7917624fa0cf6f4973b887de5e670d7661ef297" as Address,
+  teamVesting: "0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d" as Address,
+  // Phase 2 — deployed standalone (block 42598375+)
+  x402EscrowBridge: "0x62baf62c541fa1c1d11c4a9dad733db47485ca12" as Address,
+  directiveBoard: "0xa30a2da1016a6beb573f4d4529a0f68257ed0aed" as Address,
+  reviewRegistry: "0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d" as Address,
+  multiPartyEscrow: "0x9812384d366337390dbaeb192582d6dab989319d" as Address,
+  insurancePool: "0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65" as Address,
+  skillRegistry: ZERO_ADDRESS, // deploy later
+  pipelineRouter: ZERO_ADDRESS, // deploy later
+  subscriptionEngine: "0x90d2a7737633eb0191d2c95bc764f596a0be9912" as Address,
+  affiliateManager: ZERO_ADDRESS, // not needed at launch
+  bondingEngine: "0xb6d23b546921cce8e4494ae6ec62722930d6547e" as Address,
+  rolePayroll: "0xc1cd28c36567869534690b992d94e58daee736ab" as Address,
 };
 
 // ── Base Sepolia (testnet) ──
@@ -99,6 +101,7 @@ const BASE_SEPOLIA_ADDRESSES: ContractAddressBook = {
   subscriptionEngine: ZERO_ADDRESS,
   affiliateManager: ZERO_ADDRESS,
   bondingEngine: ZERO_ADDRESS,
+  rolePayroll: ZERO_ADDRESS,
 };
 
 export const CONTRACTS_BY_CHAIN: Record<number, ContractAddressBook> = {

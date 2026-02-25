@@ -11,8 +11,8 @@ import { CONTRACTS, CHAIN } from "./config.js";
 // ─── Bridge ABI (write functions used by facilitator) ────────────────────────
 
 const BRIDGE_ABI = parseAbi([
-  "function depositAndCreateJob((bytes32 x402Nonce, address payer, address token, uint256 amount, uint256 listingId, address seller, uint256 deadline) intent, uint8 v, bytes32 r, bytes32 s) returns (uint256 jobId)",
-  "function depositWithAuthorization((address from, address token, uint256 amount, uint256 validAfter, uint256 validBefore, bytes32 eip3009Nonce) auth, uint8 v, bytes32 r, bytes32 s, (bytes32 x402Nonce, address payer, address token, uint256 amount, uint256 listingId, address seller, uint256 deadline) intent, uint8 intentV, bytes32 intentR, bytes32 intentS) returns (uint256 jobId)",
+  "function depositAndCreateJob((bytes32 x402Nonce, address payer, address token, uint256 amount, uint256 listingId, address seller, uint256 deadline, uint256 deliveryDeadline) intent, uint8 v, bytes32 r, bytes32 s) returns (uint256 jobId)",
+  "function depositWithAuthorization((address from, address token, uint256 amount, uint256 validAfter, uint256 validBefore, bytes32 eip3009Nonce) auth, uint8 v, bytes32 r, bytes32 s, (bytes32 x402Nonce, address payer, address token, uint256 amount, uint256 listingId, address seller, uint256 deadline, uint256 deliveryDeadline) intent, uint8 intentV, bytes32 intentR, bytes32 intentS) returns (uint256 jobId)",
   "function nonceUsed(bytes32) view returns (bool)",
   "function paymentToJob(bytes32) view returns (uint256)",
   "event EscrowedJobCreated(bytes32 indexed x402Nonce, uint256 indexed jobId, address indexed payer, address seller, uint256 amount, address token)",
@@ -28,6 +28,7 @@ export interface PaymentIntent {
   listingId: bigint;
   seller: Address;
   deadline: bigint;
+  deliveryDeadline: bigint;
 }
 
 export interface ERC3009Auth {
@@ -49,6 +50,7 @@ export interface BridgeExtension {
     listingId: number;
     seller: string;
     deadline: number;
+    deliveryDeadline: number;
   };
   intentSignature: {
     v: number;
@@ -104,6 +106,7 @@ export async function settleViaBridge(
     listingId: BigInt(pi.listingId),
     seller: pi.seller as Address,
     deadline: BigInt(pi.deadline),
+    deliveryDeadline: BigInt(pi.deliveryDeadline),
   };
 
   // Check deadline hasn't expired

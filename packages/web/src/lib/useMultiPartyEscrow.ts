@@ -67,6 +67,7 @@ export function useCreateMultiJob() {
     listingIds: bigint[],
     token: `0x${string}`,
     totalAmount: bigint,
+    deliveryDeadline: bigint,
     metadataURI: string,
   ) => {
     if (!contracts) throw new Error("Contracts not loaded");
@@ -74,7 +75,7 @@ export function useCreateMultiJob() {
       address: contracts.multiPartyEscrow as Address,
       abi: MultiPartyEscrowABI,
       functionName: "createMultiJob",
-      args: [sellers, shares, listingIds, token, totalAmount, metadataURI],
+      args: [sellers, shares, listingIds, token, totalAmount, deliveryDeadline, metadataURI],
     });
   };
   return { fn, isPending, isError, error, reset };

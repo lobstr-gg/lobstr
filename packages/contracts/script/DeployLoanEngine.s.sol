@@ -40,12 +40,14 @@ contract DeployLoanEngine is Script {
 
         vm.startBroadcast(deployerKey);
 
-        LoanEngine loanEngine = new LoanEngine(
+        LoanEngine loanEngine = new LoanEngine();
+        loanEngine.initialize(
             lobToken,
             reputationSystem,
             stakingManager,
             sybilGuard,
-            treasury
+            treasury,
+            deployer
         );
 
         vm.stopBroadcast();

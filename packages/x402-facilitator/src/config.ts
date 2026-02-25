@@ -18,15 +18,15 @@ export const RPC_URL = process.env.RPC_URL ?? (
 // ─── Contract Addresses ──────────────────────────────────────────────────────
 
 const MAINNET_CONTRACTS = {
-  lobToken: "0xD84Ace4eA3F111F8c5606e9F0A200506A5b714d1" as Address,
-  stakingManager: "0xCB7790D3f9b5bfe171eb30C253Ab3007d43C441b" as Address,
-  reputationSystem: "0xd41a40145811915075F6935A4755f8688e53c8dB" as Address,
-  serviceRegistry: "0x5426e673b58674B41B8a3B6Ff14cC01D97d69e3c" as Address,
-  disputeArbitration: "0xFfBded2DbA5e27Ad5A56c6d4C401124e942Ada04" as Address,
-  escrowEngine: "0x576235a56e0e25feb95Ea198d017070Ad7f78360" as Address,
-  x402EscrowBridge: "0x0000000000000000000000000000000000000000" as Address, // V1 bridge deprecated in V3
-  x402CreditFacility: "0x0d1d8583561310ADeEfe18cb3a5729e2666aC14C" as Address,
-  skillRegistry: "0x0000000000000000000000000000000000000000" as Address, // TODO: deploy and update
+  lobToken: "0x6a9ebf62c198c252be0c814224518b2def93a937" as Address,
+  stakingManager: "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408" as Address,
+  reputationSystem: "0x21e96019dd46e07b694ee28999b758e3c156b7c2" as Address,
+  serviceRegistry: "0xcfbdfad104b8339187af3d84290b59647cf4da74" as Address,
+  disputeArbitration: "0x5a5c510db582546ef17177a62a604cbafceba672" as Address,
+  escrowEngine: "0xada65391bb0e1c7db6e0114b3961989f3f3221a1" as Address,
+  x402EscrowBridge: "0x62baf62c541fa1c1d11c4a9dad733db47485ca12" as Address,
+  x402CreditFacility: "0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca" as Address,
+  skillRegistry: "0x0000000000000000000000000000000000000000" as Address, // deploy standalone
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address,
 } as const;
 

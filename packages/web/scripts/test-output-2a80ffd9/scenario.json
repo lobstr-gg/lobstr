@@ -1,0 +1,79 @@
+{
+  "title": "Video Editing — Unmet Quality Standards",
+  "description": "The buyer, Alex, commissioned video editing work from the seller, Jamie, who delivered the final project on time. However, Alex argues that the video quality does not meet the agreed standards as per the contract, while Jamie insists that the work meets all the specified criteria.",
+  "expectedRuling": "BuyerWins",
+  "evidenceSpecs": [
+    {
+      "type": "pdf",
+      "name": "Video_Editing_Contract.pdf",
+      "description": "Contract between Alex (buyer) and Jamie (seller) for video editing services.",
+      "content": "[{\"heading\":\"PARTIES\",\"body\":\"This contract is between Alex Johnson (Buyer) and Jamie Lee (Seller) for video editing services.\"},{\"heading\":\"SCOPE OF WORK\",\"body\":\"Edit a 15-minute HD video with specific transitions and effects, audio leveling, color grading, delivery in MP4 format.\"},{\"heading\":\"COMPENSATION\",\"body\":\"Total payment is 2000 LOB, payable in two installments of 1000 LOB each: 50% upfront and 50% upon approval of the final deliverable.\"},{\"heading\":\"TIMELINE\",\"body\":\"Final video to be delivered by February 20, 2026.\"},{\"heading\":\"ACCEPTANCE CRITERIA\",\"body\":\"Video must contain at least four specified types of transitions, adhere to agreed audio levels, correct color grading, and no visual artifacts.\"},{\"heading\":\"QUALITY STANDARDS\",\"body\":\"The video should not have any visual glitches or distorted audio, as significant imperfections will lead to non-acceptance.\"}]"
+    },
+    {
+      "type": "image",
+      "name": "Video_Comparison_Evidence.png",
+      "description": "Comparison showing visual discrepancies between expected and delivered video quality.",
+      "content": "Realistic screenshot, high detail, sharp text, modern UI design; split screen comparison of two HD video frames, left frame with desired color accuracy and right frame with color distortion, playback bar at bottom, timestamp showing 0:12 in both frames, central UI pause button."
+    },
+    {
+      "type": "csv",
+      "name": "Payment_and_Delivery_Records.csv",
+      "description": "Record of payments made by the buyer and delivery dates.",
+      "content": "Date,Description,Amount,Status,Transaction Hash\n2026-02-01,Initial Payment,1000 LOB,Complete,0xabc123def...\n2026-02-19,Video Delivery,0 LOB,Delivered,None\n2026-02-25,Final Payment,1000 LOB,Pending,None"
+    }
+  ],
+  "mcQuestions": [
+    {
+      "question": "What is one of the quality issues noted in the video delivery according to the evidence?",
+      "options": [
+        "Visual glitches",
+        "Incorrect video format",
+        "Missing segments",
+        "Extra transitions"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "What was the agreed final payment condition according to the contract?",
+      "options": [
+        "Upon initial satisfaction with draft",
+        "Upon halfway completion",
+        "Upon approval of final deliverable",
+        "Upon reaching halfway timeline"
+      ],
+      "correctIndex": 2
+    },
+    {
+      "question": "According to the CSV, what is the status of the final payment?",
+      "options": [
+        "Complete",
+        "Pending",
+        "Failed",
+        "Not applicable"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "question": "How many types of transitions were specifically required in the video as per the contract?",
+      "options": [
+        "Two",
+        "Three",
+        "Four",
+        "Five"
+      ],
+      "correctIndex": 2
+    },
+    {
+      "question": "By what date was the video due to be delivered?",
+      "options": [
+        "February 20, 2026",
+        "February 25, 2026",
+        "February 18, 2026",
+        "February 15, 2026"
+      ],
+      "correctIndex": 0
+    }
+  ],
+  "analysisPrompt": "Evaluate the quality standards clause in the PDF and compare the visual evidence provided in the image. Cross-check the timeline and payment status in the CSV for any deviations.",
+  "gradingRubric": "Identify the agreed quality standards for the video in the PDF and note any deviances.\nExamine the image evidence for the presence of visual glitches contrary to the contract.\nVerify the delivery date in the CSV and ensure it aligns with the contract timeline.\nCheck that the final payment is pending due to non-acceptance of work quality.\nValidate the timeline section to confirm the delivery requirements were met in terms of date.\nEnsure that the quality issues are significant enough as per the contract to withhold payment approval.\nConclude that Buyer rightfully withheld payment due to unmet quality standards."
+}

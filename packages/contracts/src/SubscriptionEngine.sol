@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -11,7 +14,7 @@ import "./interfaces/ISubscriptionEngine.sol";
 import "./interfaces/IReputationSystem.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract SubscriptionEngine is ISubscriptionEngine, AccessControl, ReentrancyGuard, Pausable {
+contract SubscriptionEngine is ISubscriptionEngine, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     uint256 public constant USDC_FEE_BPS = 150; // 1.5%
@@ -19,10 +22,10 @@ contract SubscriptionEngine is ISubscriptionEngine, AccessControl, ReentrancyGua
     uint256 public constant MAX_PROCESSING_WINDOW = 7 days;
     uint256 public constant MIN_REPUTATION_VALUE = 50 ether; // 50 LOB minimum for reputation recording
 
-    IERC20 public immutable lobToken;
-    IReputationSystem public immutable reputationSystem;
-    ISybilGuard public immutable sybilGuard;
-    address public immutable treasury;
+    IERC20 public lobToken;
+    IReputationSystem public reputationSystem;
+    ISybilGuard public sybilGuard;
+    address public treasury;
 
     uint256 private _nextSubscriptionId = 1;
 
@@ -30,16 +33,29 @@ contract SubscriptionEngine is ISubscriptionEngine, AccessControl, ReentrancyGua
     mapping(address => uint256[]) private _buyerSubscriptionIds;
     mapping(address => uint256[]) private _sellerSubscriptionIds;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _reputationSystem,
         address _sybilGuard,
         address _treasury
-    ) {
+    ) public virtual initializer {
         require(_lobToken != address(0), "SubscriptionEngine: zero lobToken");
         require(_reputationSystem != address(0), "SubscriptionEngine: zero reputationSystem");
         require(_sybilGuard != address(0), "SubscriptionEngine: zero sybilGuard");
         require(_treasury != address(0), "SubscriptionEngine: zero treasury");
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _nextSubscriptionId = 1;
 
         lobToken = IERC20(_lobToken);
         reputationSystem = IReputationSystem(_reputationSystem);
@@ -48,6 +64,8 @@ contract SubscriptionEngine is ISubscriptionEngine, AccessControl, ReentrancyGua
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function createSubscription(
         address seller,
@@ -132,7 +150,7 @@ contract SubscriptionEngine is ISubscriptionEngine, AccessControl, ReentrancyGua
             sub.status = SubscriptionStatus.Completed;
             emit SubscriptionCompleted(subscriptionId);
         } else {
-            // V-003: Advance from current time, not old due date,
+            // Advance from current time, not old due date,
             // to prevent accelerated catch-up charging
             sub.nextDue = block.timestamp + sub.interval;
         }

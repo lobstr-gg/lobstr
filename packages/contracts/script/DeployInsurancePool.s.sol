@@ -45,7 +45,8 @@ contract DeployInsurancePool is Script {
 
         vm.startBroadcast(deployerKey);
 
-        InsurancePool insurancePool = new InsurancePool(
+        InsurancePool insurancePool = new InsurancePool();
+        insurancePool.initialize(
             lobToken,
             escrowEngine,
             disputeArbitration,
@@ -53,7 +54,8 @@ contract DeployInsurancePool is Script {
             stakingManager,
             sybilGuard,
             serviceRegistry,
-            treasury
+            treasury,
+            deployer
         );
 
         vm.stopBroadcast();

@@ -13,8 +13,9 @@ contract MockEscrowForMulti {
     uint256 private _nextJobId = 1;
     mapping(uint256 => IEscrowEngine.Job) private _jobs;
     mapping(uint256 => uint256) private _jobDisputeIds;
+    mapping(uint256 => address) private _jobPayers;
 
-    function createJob(uint256 listingId, address seller, uint256 amount, address token) external returns (uint256) {
+    function createJob(uint256 listingId, address seller, uint256 amount, address token, uint256 deliveryDeadline) external returns (uint256) {
         uint256 jobId = _nextJobId++;
         _jobs[jobId] = IEscrowEngine.Job({
             id: jobId,
@@ -29,7 +30,8 @@ contract MockEscrowForMulti {
             disputeWindowEnd: 0,
             deliveryMetadataURI: "",
             escrowType: IEscrowEngine.EscrowType.SERVICE_JOB,
-            skillId: 0
+            skillId: 0,
+            deliveryDeadline: deliveryDeadline
         });
 
         // Transfer tokens from caller (MultiPartyEscrow)
@@ -52,6 +54,14 @@ contract MockEscrowForMulti {
 
     function setJobDisputeId(uint256 jobId, uint256 disputeId) external {
         _jobDisputeIds[jobId] = disputeId;
+    }
+
+    function jobPayer(uint256 jobId) external view returns (address) {
+        return _jobPayers[jobId];
+    }
+
+    function setJobPayer(uint256 jobId, address payer) external {
+        _jobPayers[jobId] = payer;
     }
 
     function setJobFee(uint256 jobId, uint256 fee) external {
@@ -131,11 +141,13 @@ contract MultiPartyEscrowTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         escrow = new MockEscrowForMulti();
         dispute = new MockDisputeForMulti();
         sybilGuard = new MockSybilGuardForMulti();
-        multiEscrow = new MultiPartyEscrow(
+        multiEscrow = new MultiPartyEscrow();
+        multiEscrow.initialize(
             address(escrow),
             address(dispute),
             address(token),
@@ -170,7 +182,7 @@ contract MultiPartyEscrowTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(multiEscrow), 1000 ether);
-        uint256 groupId = multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, "ipfs://group");
+        uint256 groupId = multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, block.timestamp + 7 days, "ipfs://group");
         vm.stopPrank();
 
         return groupId;
@@ -223,7 +235,7 @@ contract MultiPartyEscrowTest is Test {
         vm.startPrank(buyer);
         token.approve(address(multiEscrow), 1000 ether);
         vm.expectRevert("MultiPartyEscrow: array length mismatch");
-        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, "");
+        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, block.timestamp + 7 days, "");
         vm.stopPrank();
     }
 
@@ -243,7 +255,7 @@ contract MultiPartyEscrowTest is Test {
         vm.startPrank(buyer);
         token.approve(address(multiEscrow), 1000 ether);
         vm.expectRevert("MultiPartyEscrow: shares sum mismatch");
-        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, "");
+        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, block.timestamp + 7 days, "");
         vm.stopPrank();
     }
 
@@ -260,7 +272,7 @@ contract MultiPartyEscrowTest is Test {
         vm.startPrank(buyer);
         token.approve(address(multiEscrow), 1000 ether);
         vm.expectRevert("MultiPartyEscrow: min 2 sellers");
-        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, "");
+        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, block.timestamp + 7 days, "");
         vm.stopPrank();
     }
 
@@ -278,7 +290,7 @@ contract MultiPartyEscrowTest is Test {
         vm.startPrank(buyer);
         token.approve(address(multiEscrow), 1100 ether);
         vm.expectRevert("MultiPartyEscrow: max sellers exceeded");
-        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1100 ether, "");
+        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1100 ether, block.timestamp + 7 days, "");
         vm.stopPrank();
     }
 
@@ -300,7 +312,7 @@ contract MultiPartyEscrowTest is Test {
         vm.startPrank(buyer);
         token.approve(address(multiEscrow), 1000 ether);
         vm.expectRevert("MultiPartyEscrow: buyer banned");
-        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, "");
+        multiEscrow.createMultiJob(sellers, shares, listingIds, address(token), 1000 ether, block.timestamp + 7 days, "");
         vm.stopPrank();
     }
 
@@ -383,23 +395,27 @@ contract MultiPartyEscrowTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroEscrowEngine() public {
+        MultiPartyEscrow m = new MultiPartyEscrow();
         vm.expectRevert("MultiPartyEscrow: zero escrowEngine");
-        new MultiPartyEscrow(address(0), address(dispute), address(token), address(sybilGuard));
+        m.initialize(address(0), address(dispute), address(token), address(sybilGuard));
     }
 
     function test_revertZeroDisputeArbitration() public {
+        MultiPartyEscrow m = new MultiPartyEscrow();
         vm.expectRevert("MultiPartyEscrow: zero disputeArbitration");
-        new MultiPartyEscrow(address(escrow), address(0), address(token), address(sybilGuard));
+        m.initialize(address(escrow), address(0), address(token), address(sybilGuard));
     }
 
     function test_revertZeroLobToken() public {
+        MultiPartyEscrow m = new MultiPartyEscrow();
         vm.expectRevert("MultiPartyEscrow: zero lobToken");
-        new MultiPartyEscrow(address(escrow), address(dispute), address(0), address(sybilGuard));
+        m.initialize(address(escrow), address(dispute), address(0), address(sybilGuard));
     }
 
     function test_revertZeroSybilGuard() public {
+        MultiPartyEscrow m = new MultiPartyEscrow();
         vm.expectRevert("MultiPartyEscrow: zero sybilGuard");
-        new MultiPartyEscrow(address(escrow), address(dispute), address(token), address(0));
+        m.initialize(address(escrow), address(dispute), address(token), address(0));
     }
 
     // ═══════════════════════════════════════════════════════════════

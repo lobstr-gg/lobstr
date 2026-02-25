@@ -21,11 +21,12 @@ interface IInsurancePool {
     function withdrawFromPool(uint256 amount) external;
     function claimPoolRewards() external;
 
-    function createInsuredJob(uint256 listingId, address seller, uint256 amount, address token) external returns (uint256 jobId);
+    function createInsuredJob(uint256 listingId, address seller, uint256 amount, address token, uint256 deliveryDeadline) external returns (uint256 jobId);
     function claimRefund(uint256 jobId) external;
     function fileClaim(uint256 jobId) external;
     function confirmInsuredDelivery(uint256 jobId) external;
     function initiateInsuredDispute(uint256 jobId, string calldata evidenceURI) external;
+    function cancelInsuredJob(uint256 jobId) external;
     function bookJob(uint256 jobId) external;
 
     function updatePremiumRate(uint256 newBps) external;

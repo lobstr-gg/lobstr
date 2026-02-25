@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IX402CreditFacility.sol";
@@ -23,7 +26,7 @@ import "./interfaces/ISybilGuard.sol";
 ///      interest rates, and collateral requirements. Pool managers provide liquidity,
 ///      agents open credit lines, draw against them to create escrow jobs, and repay
 ///      principal + interest + protocol fee after service delivery.
-contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGuard, Pausable {
+contract X402CreditFacility is IX402CreditFacility, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     // ── Roles ───────────────────────────────────────────────────────────
@@ -55,14 +58,14 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant DAYS_PER_YEAR = 365;
 
-    // ── Immutables ──────────────────────────────────────────────────────
-    IERC20 public immutable lobToken;
-    IEscrowEngine public immutable escrowEngine;
-    IDisputeArbitration public immutable disputeArbitration;
-    IReputationSystem public immutable reputationSystem;
-    IStakingManager public immutable stakingManager;
-    ISybilGuard public immutable sybilGuard;
-    address public immutable treasury;
+    // ── Immutables (now regular state variables for upgradeability) ────
+    IERC20 public lobToken;
+    IEscrowEngine public escrowEngine;
+    IDisputeArbitration public disputeArbitration;
+    IReputationSystem public reputationSystem;
+    IStakingManager public stakingManager;
+    ISybilGuard public sybilGuard;
+    address public treasury;
 
     // ── Pool accounting ─────────────────────────────────────────────────
     uint256 public totalPoolBalance;
@@ -76,15 +79,21 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
     mapping(address => uint256[]) private _activeDrawIds;
     mapping(uint256 => uint256) public escrowJobToDraw;  // escrowJobId → drawId
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _escrowEngine,
         address _disputeArbitration,
         address _reputationSystem,
         address _stakingManager,
         address _sybilGuard,
-        address _treasury
-    ) {
+        address _treasury,
+        address _owner
+    ) public virtual initializer {
         require(_lobToken != address(0), "CreditFacility: zero lobToken");
         require(_escrowEngine != address(0), "CreditFacility: zero escrowEngine");
         require(_disputeArbitration != address(0), "CreditFacility: zero disputeArbitration");
@@ -92,6 +101,12 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
         require(_stakingManager != address(0), "CreditFacility: zero stakingManager");
         require(_sybilGuard != address(0), "CreditFacility: zero sybilGuard");
         require(_treasury != address(0), "CreditFacility: zero treasury");
+
+        __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         lobToken = IERC20(_lobToken);
         escrowEngine = IEscrowEngine(_escrowEngine);
@@ -101,8 +116,12 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
         sybilGuard = ISybilGuard(_sybilGuard);
         treasury = _treasury;
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+
+        _nextDrawId = 1;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ══════════════════════════════════════════════════════════════════════
     //  CREDIT LINE MANAGEMENT
@@ -130,7 +149,7 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
             totalCollateralHeld += collateral;
         }
 
-        // V-002: Lock agent's stake to prevent unstake-before-liquidation evasion
+        // Lock agent's stake to prevent unstake-before-liquidation evasion
         stakingManager.lockStake(msg.sender, creditLimit);
 
         _creditLines[msg.sender] = CreditLine({
@@ -156,7 +175,7 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
         require(line.activeDraws == 0, "CreditFacility: outstanding draws");
         require(line.status != CreditLineStatus.Closed, "CreditFacility: already closed");
 
-        // V-002: Unlock agent's stake
+        // Unlock agent's stake
         stakingManager.unlockStake(msg.sender, line.creditLimit);
 
         uint256 collateral = line.collateralDeposited;
@@ -217,9 +236,11 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
         uint256 fee = (amount * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
 
         // Approve and create escrow job — facility becomes the buyer
-        lobToken.safeApprove(address(escrowEngine), 0);
-        lobToken.safeApprove(address(escrowEngine), amount);
-        uint256 escrowJobId = escrowEngine.createJob(listingId, seller, amount, address(lobToken));
+        lobToken.forceApprove(address(escrowEngine), 0);
+        lobToken.forceApprove(address(escrowEngine), amount);
+        uint256 escrowJobId = escrowEngine.createJob(listingId, seller, amount, address(lobToken), REPAYMENT_DEADLINE);
+        // Set the real payer so slashed stake goes to the agent, not the facility
+        escrowEngine.setJobPayer(escrowJobId, agent);
 
         drawId = _nextDrawId++;
 
@@ -264,6 +285,22 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
         require(drawId != 0, "CreditFacility: unknown job");
         require(_draws[drawId].agent == msg.sender, "CreditFacility: not agent");
         escrowEngine.initiateDispute(escrowJobId, evidenceURI);
+    }
+
+    /// @notice V-002: Agent cancels job after delivery timeout (proxied through facility since facility is buyer).
+    function cancelJob(uint256 escrowJobId) external nonReentrant {
+        uint256 drawId = escrowJobToDraw[escrowJobId];
+        require(drawId != 0, "CreditFacility: unknown job");
+        require(_draws[drawId].agent == msg.sender, "CreditFacility: not agent");
+
+        uint256 refundAmount = escrowEngine.cancelJob(escrowJobId);
+
+        CreditDraw storage draw = _draws[drawId];
+        if (refundAmount > 0 && draw.refundCredit == 0) {
+            uint256 credit = refundAmount > draw.amount ? draw.amount : refundAmount;
+            draw.refundCredit = credit;
+            emit RefundCredited(drawId, escrowJobId, credit);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -364,30 +401,44 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
 
         CreditLine storage line = _creditLines[draw.agent];
 
-        // Slash reputation
-        reputationSystem.recordDispute(draw.agent, false);
-
-        // Best-effort stake slash
-        uint256 stakeSlashed = 0;
-        uint256 staked = stakingManager.getStake(draw.agent);
-        if (staked > 0) {
-            uint256 slashTarget = draw.amount;
-            if (slashTarget > staked) {
-                slashTarget = staked;
-            }
-            try stakingManager.slash(draw.agent, slashTarget, address(this)) {
-                stakeSlashed = slashTarget;
-                totalPoolBalance += slashTarget; // recovered funds go to pool
-            } catch {
-                // Best-effort
+        // Compute effective principal owed (subtract escrow refund if already received)
+        uint256 principalOwed = draw.amount;
+        if (draw.refundCredit > 0) {
+            principalOwed = draw.amount > draw.refundCredit ? draw.amount - draw.refundCredit : 0;
+        } else if (job.status == IEscrowEngine.JobStatus.Resolved) {
+            // Check if escrow has returned funds - compute refund from chain
+            uint256 escrowRefund = _computeRefundFromChain(draw.escrowJobId);
+            if (escrowRefund > 0) {
+                principalOwed = draw.amount > escrowRefund ? draw.amount - escrowRefund : 0;
             }
         }
 
-        // Seize proportional collateral
+        // Slash reputation
+        reputationSystem.recordDispute(draw.agent, false);
+
+        // Best-effort stake slash (only on actual unpaid principal)
+        uint256 stakeSlashed = 0;
+        if (principalOwed > 0) {
+            uint256 staked = stakingManager.getStake(draw.agent);
+            if (staked > 0) {
+                uint256 slashTarget = principalOwed;
+                if (slashTarget > staked) {
+                    slashTarget = staked;
+                }
+                try stakingManager.slash(draw.agent, slashTarget, address(this)) {
+                    stakeSlashed = slashTarget;
+                    totalPoolBalance += slashTarget; // recovered funds go to pool
+                } catch {
+                    // Best-effort
+                }
+            }
+        }
+
+        // Seize proportional collateral (only on actual unpaid principal)
         uint256 collateralSeized = 0;
-        if (line.collateralDeposited > 0) {
-            // Proportional: (drawAmount / creditLimit) * totalCollateral
-            collateralSeized = (draw.amount * line.collateralDeposited) / line.creditLimit;
+        if (principalOwed > 0 && line.collateralDeposited > 0) {
+            // Proportional: (principalOwed / creditLimit) * totalCollateral
+            collateralSeized = (principalOwed * line.collateralDeposited) / line.creditLimit;
             if (collateralSeized > line.collateralDeposited) {
                 collateralSeized = line.collateralDeposited;
             }
@@ -400,8 +451,8 @@ contract X402CreditFacility is IX402CreditFacility, AccessControl, ReentrancyGua
 
         // Write down pool for unrecovered principal to prevent phantom surplus
         uint256 totalRecovered = stakeSlashed + collateralSeized;
-        if (totalRecovered < draw.amount) {
-            uint256 unrecovered = draw.amount - totalRecovered;
+        if (totalRecovered < principalOwed) {
+            uint256 unrecovered = principalOwed - totalRecovered;
             totalPoolBalance -= unrecovered > totalPoolBalance ? totalPoolBalance : unrecovered;
         }
 

@@ -49,6 +49,7 @@ interface IX402CreditFacility {
     function drawCreditForAgent(address agent, uint256 listingId, address seller, uint256 amount) external returns (uint256 drawId);
     function confirmDelivery(uint256 escrowJobId) external;
     function initiateDispute(uint256 escrowJobId, string calldata evidenceURI) external;
+    function cancelJob(uint256 escrowJobId) external;
     function repayDraw(uint256 drawId) external;
     function claimEscrowRefund(uint256 escrowJobId) external;
     function liquidateDraw(uint256 drawId) external;

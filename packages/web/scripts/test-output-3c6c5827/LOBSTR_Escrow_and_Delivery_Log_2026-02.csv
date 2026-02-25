@@ -1,0 +1,9 @@
+date,event_type,description,party,lob_amount,status,tx_hash
+2026-02-02,payment,M1 escrow funded (signing payment),Riya Nand,400,confirmed,0x8b21c4f19a7d2e33b6f0a9c1d5e6f708a9b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5
+2026-02-05,delivery,Preliminary sample delivered (attachment: sample.csv),Caleb Hart,0,recorded,0x1a3f9c0b2d4e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6
+2026-02-05,payment,M2 escrow funded after sample accepted,Riya Nand,400,confirmed,0x2c4d6e7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7
+2026-02-16,delivery,Final delivery posted (attachment: dataset.json + note.txt),Caleb Hart,0,recorded,0x3d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9
+2026-02-17,issue_report,Buyer reported nonconforming format and missing Site B coverage,Riya Nand,0,opened,0x4e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0
+2026-02-18,provider_response,Provider responded: format equivalent; alleges scope creep; no change order,Caleb Hart,0,recorded,0x5f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2
+2026-02-19,cure_window,Platform marks cure window active (72h) after issue notice,System,0,active,0x6a8192b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3
+2026-02-21,dispute,Buyer escalated to dispute; M3 remains unpaid in escrow,Riya Nand,400,held,0x7b92a3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5c7d9e0f1a2b3c4d5e6f7081a3b5

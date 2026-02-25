@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../src/LOBToken.sol";
 import "../src/AirdropClaimV3.sol";
 import "../src/ReputationSystem.sol";
@@ -21,7 +22,7 @@ contract MockGroth16VerifierV4 {
         uint[2] calldata,
         uint[2][2] calldata,
         uint[2] calldata,
-        uint[2] calldata
+        uint[3] calldata
     ) external view returns (bool) {
         return shouldVerify;
     }
@@ -83,24 +84,29 @@ contract AirdropClaimV3Test is Test {
     uint256 public approvalSignerKey = 0xDEAD5678;
     address public approvalSignerAddr;
 
-    uint256 public constant TEST_MERKLE_ROOT = 12345678;
+    uint256 public constant TEST_WORKSPACE_HASH = 12345678;
 
     function setUp() public {
         approvalSignerAddr = vm.addr(approvalSignerKey);
 
-        token = new LOBToken(deployer);
+        token = new LOBToken();
+        token.initialize(deployer);
         verifier = new MockGroth16VerifierV4();
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         mockSybilGuard = new MockSybilGuardAirdrop();
         mockDispute = new MockDisputeArbitrationAirdrop();
-        registry = new ServiceRegistry(
+        registry = new ServiceRegistry();
+        registry.initialize(
             address(staking),
             address(reputation),
             address(mockSybilGuard)
         );
 
-        airdrop = new AirdropClaimV3(
+        airdrop = new AirdropClaimV3();
+        airdrop.initialize(
             address(token),
             address(verifier),
             approvalSignerAddr,
@@ -112,10 +118,6 @@ contract AirdropClaimV3Test is Test {
             address(staking),
             address(mockDispute)
         );
-
-        // Grant ROOT_UPDATER_ROLE and set root
-        airdrop.grantRole(airdrop.ROOT_UPDATER_ROLE(), deployer);
-        airdrop.updateMerkleRoot(TEST_MERKLE_ROOT);
 
         // Fund the airdrop contract
         token.transfer(address(airdrop), 400_000_000 ether);
@@ -130,22 +132,26 @@ contract AirdropClaimV3Test is Test {
 
     // --- Helpers ---
 
-    function _signApproval(address user, uint256 merkleRoot) internal view returns (bytes memory) {
+    function _signApproval(address user, uint256 workspaceHash) internal view returns (bytes memory) {
         bytes32 msgHash = keccak256(
-            abi.encodePacked(user, merkleRoot, block.chainid, address(airdrop), "LOBSTR_AIRDROP_V3_ZK")
+            abi.encodePacked(user, workspaceHash, block.chainid, address(airdrop), "LOBSTR_AIRDROP_V3_ZK")
         );
-        bytes32 ethHash = msgHash.toEthSignedMessageHash();
+        bytes32 ethHash = MessageHashUtils.toEthSignedMessageHash(msgHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(approvalSignerKey, ethHash);
         return abi.encodePacked(r, s, v);
     }
 
     function _doClaim(address user) internal {
-        bytes memory approvalSig = _signApproval(user, TEST_MERKLE_ROOT);
+        _doClaimWithHash(user, TEST_WORKSPACE_HASH);
+    }
+
+    function _doClaimWithHash(address user, uint256 workspaceHash) internal {
+        bytes memory approvalSig = _signApproval(user, workspaceHash);
 
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(user))];
+        uint256[3] memory pubSignals = [workspaceHash, uint256(uint160(user)), uint256(0)];
 
         vm.prank(user);
         airdrop.claim(pA, pB, pC, pubSignals, approvalSig, 0); // nonce=0 always passes with max difficulty
@@ -169,36 +175,65 @@ contract AirdropClaimV3Test is Test {
         _doClaim(alice);
 
         // Prepare params before vm.expectRevert to avoid depth issues
-        bytes memory approvalSig = _signApproval(alice, TEST_MERKLE_ROOT);
+        bytes memory approvalSig = _signApproval(alice, TEST_WORKSPACE_HASH);
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(alice))];
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(alice)), uint256(0)];
 
         vm.prank(alice);
         vm.expectRevert("V3: already claimed");
         airdrop.claim(pA, pB, pC, pubSignals, approvalSig, 0);
     }
 
-    function test_ClaimRejectsInvalidRoot() public {
+    function test_ClaimRejectsDuplicateWorkspace() public {
+        // Alice claims with TEST_WORKSPACE_HASH
+        _doClaim(alice);
+
+        // Bob tries to claim with the same workspaceHash
+        bytes memory approvalSig = _signApproval(bob, TEST_WORKSPACE_HASH);
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [uint256(999999), uint256(uint160(alice))];
-        bytes memory approvalSig = _signApproval(alice, 999999);
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(bob)), uint256(0)];
+
+        vm.prank(bob);
+        vm.expectRevert("V3: duplicate workspace");
+        airdrop.claim(pA, pB, pC, pubSignals, approvalSig, 0);
+    }
+
+    function test_DifferentWorkspacesBothSucceed() public {
+        uint256 aliceHash = 111111;
+        uint256 bobHash = 222222;
+
+        _doClaimWithHash(alice, aliceHash);
+        _doClaimWithHash(bob, bobHash);
+
+        assertTrue(airdrop.getClaimInfo(alice).claimed);
+        assertTrue(airdrop.getClaimInfo(bob).claimed);
+        assertTrue(airdrop.isWorkspaceHashUsed(aliceHash));
+        assertTrue(airdrop.isWorkspaceHashUsed(bobHash));
+    }
+
+    function test_ClaimRejectsInvalidTier() public {
+        bytes memory approvalSig = _signApproval(alice, TEST_WORKSPACE_HASH);
+        uint256[2] memory pA = [uint256(0), uint256(0)];
+        uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
+        uint256[2] memory pC = [uint256(0), uint256(0)];
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(alice)), uint256(5)]; // tierIndex=5, invalid
 
         vm.prank(alice);
-        vm.expectRevert("V3: invalid root");
+        vm.expectRevert("V3: invalid tier");
         airdrop.claim(pA, pB, pC, pubSignals, approvalSig, 0);
     }
 
     function test_ClaimRejectsAddressMismatch() public {
-        bytes memory approvalSig = _signApproval(alice, TEST_MERKLE_ROOT);
+        bytes memory approvalSig = _signApproval(alice, TEST_WORKSPACE_HASH);
 
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(bob))]; // bob's address, not alice's
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(bob)), uint256(0)]; // bob's address, not alice's
 
         vm.prank(alice);
         vm.expectRevert("V3: address mismatch");
@@ -208,12 +243,12 @@ contract AirdropClaimV3Test is Test {
     function test_ClaimRejectsInvalidProof() public {
         verifier.setVerify(false);
 
-        bytes memory approvalSig = _signApproval(alice, TEST_MERKLE_ROOT);
+        bytes memory approvalSig = _signApproval(alice, TEST_WORKSPACE_HASH);
 
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(alice))];
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(alice)), uint256(0)];
 
         vm.prank(alice);
         vm.expectRevert("V3: invalid proof");
@@ -223,11 +258,11 @@ contract AirdropClaimV3Test is Test {
     function test_ClaimRejectsAfterWindowCloses() public {
         vm.warp(block.timestamp + CLAIM_WINDOW + 1);
 
-        bytes memory approvalSig = _signApproval(alice, TEST_MERKLE_ROOT);
+        bytes memory approvalSig = _signApproval(alice, TEST_WORKSPACE_HASH);
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(alice))];
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(alice)), uint256(0)];
 
         vm.prank(alice);
         vm.expectRevert("V3: window closed");
@@ -236,7 +271,8 @@ contract AirdropClaimV3Test is Test {
 
     function test_ClaimRejectsInvalidPoW() public {
         // Deploy a separate airdrop with very strict PoW (difficulty=1 means hash < 1 = impossible)
-        AirdropClaimV3 strictAirdrop = new AirdropClaimV3(
+        AirdropClaimV3 strictAirdrop = new AirdropClaimV3();
+        strictAirdrop.initialize(
             address(token),
             address(verifier),
             approvalSignerAddr,
@@ -248,21 +284,19 @@ contract AirdropClaimV3Test is Test {
             address(staking),
             address(mockDispute)
         );
-        strictAirdrop.grantRole(strictAirdrop.ROOT_UPDATER_ROLE(), deployer);
-        strictAirdrop.updateMerkleRoot(TEST_MERKLE_ROOT);
         // No need to fund — revert happens before transfer
 
         // Sign approval against strictAirdrop's address (domain-separated)
         bytes32 msgHash = keccak256(
-            abi.encodePacked(alice, TEST_MERKLE_ROOT, block.chainid, address(strictAirdrop), "LOBSTR_AIRDROP_V3_ZK")
+            abi.encodePacked(alice, TEST_WORKSPACE_HASH, block.chainid, address(strictAirdrop), "LOBSTR_AIRDROP_V3_ZK")
         );
-        bytes32 ethHash = msgHash.toEthSignedMessageHash();
+        bytes32 ethHash = MessageHashUtils.toEthSignedMessageHash(msgHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(approvalSignerKey, ethHash);
         bytes memory approvalSig = abi.encodePacked(r, s, v);
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(alice))];
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(alice)), uint256(0)];
 
         vm.prank(alice);
         vm.expectRevert("V3: insufficient PoW");
@@ -410,18 +444,6 @@ contract AirdropClaimV3Test is Test {
 
     // --- Admin Tests ---
 
-    function test_UpdateMerkleRoot() public {
-        uint256 newRoot = 99999;
-        airdrop.updateMerkleRoot(newRoot);
-        assertEq(airdrop.getMerkleRoot(), newRoot);
-    }
-
-    function test_UpdateMerkleRootRevertsIfNotUpdater() public {
-        vm.prank(alice);
-        vm.expectRevert();
-        airdrop.updateMerkleRoot(99999);
-    }
-
     function test_RecoverTokensAfterWindow() public {
         vm.warp(block.timestamp + CLAIM_WINDOW + 1);
 
@@ -438,14 +460,14 @@ contract AirdropClaimV3Test is Test {
     function test_PauseUnpause() public {
         airdrop.pause();
 
-        bytes memory approvalSig = _signApproval(alice, TEST_MERKLE_ROOT);
+        bytes memory approvalSig = _signApproval(alice, TEST_WORKSPACE_HASH);
         uint256[2] memory pA = [uint256(0), uint256(0)];
         uint256[2][2] memory pB = [[uint256(0), uint256(0)], [uint256(0), uint256(0)]];
         uint256[2] memory pC = [uint256(0), uint256(0)];
-        uint256[2] memory pubSignals = [TEST_MERKLE_ROOT, uint256(uint160(alice))];
+        uint256[3] memory pubSignals = [TEST_WORKSPACE_HASH, uint256(uint160(alice)), uint256(0)];
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         airdrop.claim(pA, pB, pC, pubSignals, approvalSig, 0);
 
         airdrop.unpause();
@@ -475,5 +497,11 @@ contract AirdropClaimV3Test is Test {
         assertEq(airdrop.totalClaimed(), 0);
         _doClaim(alice);
         assertEq(airdrop.totalClaimed(), 6_000 ether); // Full allocation reserved
+    }
+
+    function test_IsWorkspaceHashUsed() public {
+        assertFalse(airdrop.isWorkspaceHashUsed(TEST_WORKSPACE_HASH));
+        _doClaim(alice);
+        assertTrue(airdrop.isWorkspaceHashUsed(TEST_WORKSPACE_HASH));
     }
 }

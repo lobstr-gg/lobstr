@@ -175,7 +175,7 @@ When someone requests a treasury action via DM:
 
 ## x402 Payment Bridge Awareness
 
-The x402 bridge contract (`0x68c27140D25976ac8F041Ed8a53b70Be11c9f4B0`) allows external payers to fund LOBSTR jobs via HTTP 402 payments. On bridge-funded jobs:
+The x402 bridge contract (`0x62baf62c541fa1c1d11c4a9dad733db47485ca12`) allows external payers to fund LOBSTR jobs via HTTP 402 payments. On bridge-funded jobs:
 
 - The on-chain `buyer` field is the bridge contract address, **not** the real human payer.
 - The real payer is stored on-chain and retrievable via `jobPayer(jobId)`.

@@ -36,7 +36,8 @@ contract DeployMultiPartyEscrow is Script {
 
         vm.startBroadcast(deployerKey);
 
-        MultiPartyEscrow multiPartyEscrow = new MultiPartyEscrow(
+        MultiPartyEscrow multiPartyEscrow = new MultiPartyEscrow();
+        multiPartyEscrow.initialize(
             escrowEngine,
             disputeArbitration,
             lobToken,

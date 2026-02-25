@@ -99,15 +99,18 @@ contract LiquidityMiningTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken(distributor);
+        lobToken = new LOBToken();
+        lobToken.initialize(distributor);
         lpToken = new MockLPToken();
         sybilGuard = new MockSybilGuardForLP();
         stakingManager = new MockStakingManagerForLP();
-        mining = new LiquidityMining(
+        mining = new LiquidityMining();
+        mining.initialize(
             address(lpToken),
             address(lobToken),
             address(stakingManager),
-            address(sybilGuard)
+            address(sybilGuard),
+            admin
         );
         mining.grantRole(mining.REWARD_NOTIFIER_ROLE(), notifier);
         vm.stopPrank();
@@ -322,7 +325,7 @@ contract LiquidityMiningTest is Test {
 
         vm.startPrank(alice);
         lpToken.approve(address(mining), 1000 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         mining.stake(1000 ether);
         vm.stopPrank();
     }
@@ -334,7 +337,7 @@ contract LiquidityMiningTest is Test {
         mining.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         mining.withdraw(500 ether);
     }
 
@@ -367,23 +370,27 @@ contract LiquidityMiningTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroLpToken() public {
+        LiquidityMining lm = new LiquidityMining();
         vm.expectRevert("LiquidityMining: zero lpToken");
-        new LiquidityMining(address(0), address(lobToken), address(stakingManager), address(sybilGuard));
+        lm.initialize(address(0), address(lobToken), address(stakingManager), address(sybilGuard), admin);
     }
 
     function test_revertZeroRewardToken() public {
+        LiquidityMining lm = new LiquidityMining();
         vm.expectRevert("LiquidityMining: zero rewardToken");
-        new LiquidityMining(address(lpToken), address(0), address(stakingManager), address(sybilGuard));
+        lm.initialize(address(lpToken), address(0), address(stakingManager), address(sybilGuard), admin);
     }
 
     function test_revertZeroStakingManager() public {
+        LiquidityMining lm = new LiquidityMining();
         vm.expectRevert("LiquidityMining: zero stakingManager");
-        new LiquidityMining(address(lpToken), address(lobToken), address(0), address(sybilGuard));
+        lm.initialize(address(lpToken), address(lobToken), address(0), address(sybilGuard), admin);
     }
 
     function test_revertZeroSybilGuard() public {
+        LiquidityMining lm = new LiquidityMining();
         vm.expectRevert("LiquidityMining: zero sybilGuard");
-        new LiquidityMining(address(lpToken), address(lobToken), address(stakingManager), address(0));
+        lm.initialize(address(lpToken), address(lobToken), address(stakingManager), address(0), admin);
     }
 
     // ═══════════════════════════════════════════════════════════════

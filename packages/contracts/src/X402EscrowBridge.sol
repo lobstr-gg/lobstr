@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/IEscrowEngine.sol";
 import "./interfaces/IDisputeArbitration.sol";
@@ -34,7 +37,7 @@ import "./interfaces/IERC3009.sol";
 ///      contract. To prevent cross-user theft from pooled balances, resolved refunds should
 ///      be eagerly booked into totalLiabilities via bookRefundCredit() or registerRefund()
 ///      as soon as resolution is observed (keepers/facilitators should call these promptly).
-contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
+contract X402EscrowBridge is Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, EIP712Upgradeable {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
@@ -42,11 +45,11 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
 
     /// @dev EIP-712 typehash for payer-signed payment intents (used by depositAndCreateJob)
     bytes32 private constant PAYMENT_INTENT_TYPEHASH = keccak256(
-        "PaymentIntent(bytes32 x402Nonce,address token,uint256 amount,uint256 listingId,address seller,uint256 deadline)"
+        "PaymentIntent(bytes32 x402Nonce,address token,uint256 amount,uint256 listingId,address seller,uint256 deadline,uint256 deliveryDeadline)"
     );
 
-    IEscrowEngine public immutable escrow;
-    IDisputeArbitration public immutable disputeArbitration;
+    IEscrowEngine public escrow;
+    IDisputeArbitration public disputeArbitration;
 
     /// @notice Tracks whether an x402 nonce has been used (prevents replay)
     mapping(bytes32 => bool) public nonceUsed;
@@ -75,6 +78,7 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         uint256 listingId;
         address seller;
         uint256 deadline;
+        uint256 deliveryDeadline; // Time after which buyer can cancel
     }
 
     /// @notice EIP-3009 transfer authorization for depositWithAuthorization()
@@ -105,6 +109,15 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
     /// @notice Per-job escrow reserve amount (tracks how much was escrowed per job)
     mapping(uint256 => uint256) public jobEscrowReserve;
 
+    /// @notice Tracks unbooked resolved refund amounts per token.
+    /// @dev These are funds that have returned from EscrowEngine for resolved jobs
+    ///      but haven't been booked into totalLiabilities yet. Included in solvency
+    ///      checks to prevent cross-user theft from pooled balances.
+    mapping(address => uint256) public unbookedResolvedReserves;
+
+    /// @notice Per-job flag: true once job resolves with refund owed but not yet booked.
+    mapping(uint256 => bool) public jobHasUnbookedRefund;
+
 
     event EscrowedJobCreated(
         bytes32 indexed x402Nonce,
@@ -117,19 +130,38 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
 
     event DeliveryConfirmedByPayer(uint256 indexed jobId, address indexed payer);
     event DisputeInitiatedByPayer(uint256 indexed jobId, address indexed payer);
+    event JobCancelledByPayer(uint256 indexed jobId, address indexed payer);
     event EscrowRefundClaimed(uint256 indexed jobId, address indexed payer, uint256 amount);
     event RefundRegistered(uint256 indexed jobId, uint256 amount);
     event TokenAllowlistUpdated(address indexed token, bool allowed);
     event EscrowReserveReleased(uint256 indexed jobId, address token, uint256 amount);
     event StrandedDepositRecovered(address indexed payer, address indexed token, uint256 amount, bytes32 eip3009Nonce);
+    event UnbookedRefundRecorded(uint256 indexed jobId, address token, uint256 amount);
 
-    constructor(address _escrow, address _disputeArbitration) EIP712("X402EscrowBridge", "1") {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _escrow, address _disputeArbitration) public virtual initializer {
         require(_escrow != address(0), "Bridge: zero escrow");
         require(_disputeArbitration != address(0), "Bridge: zero dispute");
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __EIP712_init("X402EscrowBridge", "1");
+
         escrow = IEscrowEngine(_escrow);
         disputeArbitration = IDisputeArbitration(_disputeArbitration);
+
+        // Grant roles to owner (can reassign later)
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(FACILITATOR_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// @notice Admin adds or removes a token from the allowlist
     /// @param token ERC-20 token address
@@ -183,7 +215,7 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         // Create escrow job atomically
         jobId = _createEscrowJob(
             intent.x402Nonce, auth.from, auth.token, auth.amount,
-            intent.listingId, intent.seller
+            intent.listingId, intent.seller, intent.deliveryDeadline
         );
     }
 
@@ -220,7 +252,7 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         // Create escrow job atomically
         jobId = _createEscrowJob(
             intent.x402Nonce, intent.payer, intent.token, intent.amount,
-            intent.listingId, intent.seller
+            intent.listingId, intent.seller, intent.deliveryDeadline
         );
     }
 
@@ -232,7 +264,7 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         bytes32 structHash = keccak256(abi.encode(
             PAYMENT_INTENT_TYPEHASH,
             intent.x402Nonce, intent.token, intent.amount,
-            intent.listingId, intent.seller, intent.deadline
+            intent.listingId, intent.seller, intent.deadline, intent.deliveryDeadline
         ));
         address signer = _hashTypedDataV4(structHash).recover(v, r, s);
         require(signer == intent.payer, "Bridge: invalid payer signature");
@@ -265,19 +297,29 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         address token,
         uint256 amount,
         uint256 listingId,
-        address seller
+        address seller,
+        uint256 deliveryDeadline
     ) internal returns (uint256 jobId) {
         nonceUsed[x402Nonce] = true;
         totalEscrowReserves[token] += amount;
 
         uint256 escrowBalBefore = IERC20(token).balanceOf(address(this));
-        IERC20(token).safeApprove(address(escrow), 0);
-        IERC20(token).safeApprove(address(escrow), amount);
-        jobId = escrow.createJob(listingId, seller, amount, token);
+        IERC20(token).forceApprove(address(escrow), 0);
+        IERC20(token).forceApprove(address(escrow), amount);
+        jobId = escrow.createJob(listingId, seller, amount, token, deliveryDeadline);
         uint256 escrowBalAfter = IERC20(token).balanceOf(address(this));
         require(escrowBalBefore - escrowBalAfter == amount, "Bridge: escrow funding mismatch");
 
-        require(escrowBalAfter >= totalLiabilities[token], "Bridge: escrow depleted obligations");
+        // Solvency: bridge must hold enough to cover all tracked obligations.
+        uint256 totalObligations = totalLiabilities[token] + unbookedResolvedReserves[token];
+        require(escrowBalAfter >= totalObligations, "Bridge: escrow depleted obligations");
+
+        // V-002 FIX: Reject if bridge holds untracked funds (resolved refunds not yet booked).
+        // After an atomic deposit+escrow, the bridge balance should equal tracked obligations.
+        // Any excess means EscrowEngine returned dispute refunds that haven't been recorded
+        // via recordResolvedRefund(). Without this check, those refund tokens could be spent
+        // funding new jobs, making earlier payers' refunds unclaimable.
+        require(escrowBalAfter <= totalObligations, "Bridge: unbooked refunds, call recordResolvedRefund");
 
         IEscrowEngine.Job memory job = escrow.getJob(jobId);
         require(job.buyer == address(this), "Bridge: buyer mismatch");
@@ -288,6 +330,9 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         jobPayer[jobId] = payerAddr;
         jobToken[jobId] = token;
         jobEscrowReserve[jobId] = amount;
+
+        // Set the real payer in EscrowEngine so slashed stake goes to the real payer
+        escrow.setJobPayer(jobId, payerAddr);
 
         emit EscrowedJobCreated(x402Nonce, jobId, payerAddr, seller, amount, token);
     }
@@ -309,6 +354,61 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         require(msg.sender == jobPayer[jobId], "Bridge: not payer");
         escrow.initiateDispute(jobId, evidenceURI);
         emit DisputeInitiatedByPayer(jobId, msg.sender);
+    }
+
+    /// @notice Payer cancels job after delivery timeout (proxied through bridge since bridge is escrow buyer)
+    /// @param jobId The escrow job ID
+    function cancelJob(uint256 jobId) external nonReentrant {
+        require(msg.sender == jobPayer[jobId], "Bridge: not payer");
+        address token = jobToken[jobId];
+
+        uint256 refundAmount = escrow.cancelJob(jobId);
+
+        // Clear escrow reserve — funds returned from EscrowEngine to bridge
+        uint256 reserve = jobEscrowReserve[jobId];
+        if (reserve > 0) {
+            totalEscrowReserves[token] -= reserve;
+            delete jobEscrowReserve[jobId];
+        }
+
+        // Forward cancellation refund directly to payer
+        if (refundAmount > 0) {
+            IERC20(token).safeTransfer(msg.sender, refundAmount);
+        }
+
+        emit JobCancelledByPayer(jobId, msg.sender);
+    }
+
+    // ─── Unbooked Refund Tracking ───────────────────────────────────────────
+
+    /// @notice Permissionless: record a resolved job's refund as unbooked.
+    ///         Must be called BEFORE creating a new job if there are resolved jobs
+    ///         with refunds not yet booked. This ensures resolved refund funds cannot
+    ///         be reused to fund new jobs (preventing cross-user theft).
+    /// @param jobId The escrow job ID that has resolved with a refund
+    function recordResolvedRefund(uint256 jobId) external {
+        require(jobPayer[jobId] != address(0), "Bridge: unknown job");
+        require(!jobHasUnbookedRefund[jobId], "Bridge: already recorded");
+        require(!refundClaimed[jobId], "Bridge: already claimed");
+
+        // Compute refund from on-chain state
+        uint256 refund = _computeRefundFromChain(jobId);
+        require(refund > 0, "Bridge: no refund owed");
+
+        address token = jobToken[jobId];
+
+        // Clear escrow reserve - refund has come back from EscrowEngine
+        uint256 reserve = jobEscrowReserve[jobId];
+        if (reserve > 0) {
+            totalEscrowReserves[token] -= reserve;
+            delete jobEscrowReserve[jobId];
+        }
+
+        // Track as unbooked resolved reserve
+        unbookedResolvedReserves[token] += refund;
+        jobHasUnbookedRefund[jobId] = true;
+
+        emit UnbookedRefundRecorded(jobId, token, refund);
     }
 
     // ─── Refund Registration & Claiming ──────────────────────────────────────
@@ -337,14 +437,21 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
             delete jobEscrowReserve[jobId];
         }
 
+        // Clear any unbooked resolved reserve if it was recorded
+        if (jobHasUnbookedRefund[jobId]) {
+            unbookedResolvedReserves[token] -= amount;
+            delete jobHasUnbookedRefund[jobId];
+        }
+
         // Reserve funds via liabilities — check only against on-bridge obligations.
         // Note: totalEscrowReserves excluded — those funds are held by EscrowEngine, not here.
-        uint256 newLiabilities = totalLiabilities[token] + amount;
+        // Include unbookedResolvedReserves in the check.
+        uint256 totalObligations = totalLiabilities[token] + unbookedResolvedReserves[token] + amount;
         require(
-            IERC20(token).balanceOf(address(this)) >= newLiabilities,
+            IERC20(token).balanceOf(address(this)) >= totalObligations,
             "Bridge: insufficient balance for refund"
         );
-        totalLiabilities[token] = newLiabilities;
+        totalLiabilities[token] = totalLiabilities[token] + amount;
         jobRefundCredit[jobId] = amount;
 
         emit RefundRegistered(jobId, amount);
@@ -370,6 +477,16 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
             delete jobEscrowReserve[jobId];
         }
 
+        // Clear any unbooked resolved reserve
+        if (jobHasUnbookedRefund[jobId]) {
+            // We need to compute the credit first to know how much to unbook
+            uint256 pendingCredit = _computeRefundFromChain(jobId);
+            if (pendingCredit > 0 && unbookedResolvedReserves[token] >= pendingCredit) {
+                unbookedResolvedReserves[token] -= pendingCredit;
+            }
+            delete jobHasUnbookedRefund[jobId];
+        }
+
         // Compute credit from on-chain dispute state
         uint256 credit = _computeRefundFromChain(jobId);
         require(credit > 0, "Bridge: no refund owed");
@@ -379,13 +496,14 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         require(credit <= job.amount, "Bridge: refund exceeds escrowed amount");
 
         // Verify bridge can back this new liability
-        uint256 newLiabilities = totalLiabilities[token] + credit;
+        // Include unbookedResolvedReserves in the check
+        uint256 totalObligations = totalLiabilities[token] + unbookedResolvedReserves[token] + credit;
         require(
-            IERC20(token).balanceOf(address(this)) >= newLiabilities,
+            IERC20(token).balanceOf(address(this)) >= totalObligations,
             "Bridge: insufficient balance for refund"
         );
 
-        totalLiabilities[token] = newLiabilities;
+        totalLiabilities[token] = totalLiabilities[token] + credit;
         jobRefundCredit[jobId] = credit;
 
         emit RefundRegistered(jobId, credit);
@@ -413,6 +531,20 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
             delete jobEscrowReserve[jobId];
         }
 
+        // Clear any unbooked resolved reserve
+        if (jobHasUnbookedRefund[jobId]) {
+            if (credit > 0 && unbookedResolvedReserves[token] >= credit) {
+                unbookedResolvedReserves[token] -= credit;
+            } else if (credit == 0) {
+                // Will compute below
+                uint256 pendingCredit = _computeRefundFromChain(jobId);
+                if (pendingCredit > 0 && unbookedResolvedReserves[token] >= pendingCredit) {
+                    unbookedResolvedReserves[token] -= pendingCredit;
+                }
+            }
+            delete jobHasUnbookedRefund[jobId];
+        }
+
         if (credit == 0) {
             // Permissionless path: compute refund from on-chain dispute state
             credit = _computeRefundFromChain(jobId);
@@ -428,8 +560,10 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
 
         // Verify bridge can cover all on-bridge liabilities (which includes the credit).
         // Note: totalEscrowReserves excluded — those funds are held by EscrowEngine, not here.
+        // Include unbookedResolvedReserves in the check.
+        uint256 totalObligations = totalLiabilities[token] + unbookedResolvedReserves[token];
         require(
-            IERC20(token).balanceOf(address(this)) >= totalLiabilities[token],
+            IERC20(token).balanceOf(address(this)) >= totalObligations,
             "Bridge: insufficient balance for refund"
         );
 
@@ -477,8 +611,9 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
 
     /// @notice Recover tokens accidentally sent to this contract (admin only).
     ///         Cannot withdraw funds reserved for refund credits or escrow reserves.
-    /// @dev totalEscrowReserves is intentionally included — conservative guard that prevents
-    ///      admin from draining tokens that may return from escrow (buyerWins/draw).
+    /// @dev totalEscrowReserves and unbookedResolvedReserves are intentionally included —
+    ///      conservative guard that prevents admin from draining tokens that may return from
+    ///      escrow (buyerWins/draw) or are owed to payers as unbooked refunds.
     ///      Admin can use releaseJobReserve() for terminal jobs to free up reserves.
     /// @param token ERC-20 token to recover
     /// @param to Recipient address
@@ -489,7 +624,7 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         uint256 amount
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 balance = IERC20(token).balanceOf(address(this));
-        uint256 reserved = totalLiabilities[token] + totalEscrowReserves[token];
+        uint256 reserved = totalLiabilities[token] + totalEscrowReserves[token] + unbookedResolvedReserves[token];
         require(balance >= reserved + amount, "Bridge: would drain reserved funds");
         IERC20(token).safeTransfer(to, amount);
     }
@@ -528,9 +663,11 @@ contract X402EscrowBridge is AccessControl, ReentrancyGuard, EIP712 {
         // Note: totalEscrowReserves is intentionally EXCLUDED — those funds are held by
         // EscrowEngine, not on this contract. Including them would make recovery impossible
         // whenever active escrow jobs exist for the same token.
+        // unbookedResolvedReserves IS included to protect payer refunds.
         address token = intent.token;
         uint256 balance = IERC20(token).balanceOf(address(this));
-        require(balance >= totalLiabilities[token] + intent.amount, "Bridge: insufficient balance");
+        uint256 totalObligations = totalLiabilities[token] + unbookedResolvedReserves[token] + intent.amount;
+        require(balance >= totalObligations, "Bridge: insufficient balance");
 
         IERC20(token).safeTransfer(intent.payer, intent.amount);
         emit StrandedDepositRecovered(intent.payer, token, intent.amount, intent.x402Nonce);

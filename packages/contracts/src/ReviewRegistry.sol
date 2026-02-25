@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./interfaces/IReviewRegistry.sol";
 import "./interfaces/IEscrowEngine.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract ReviewRegistry is IReviewRegistry, AccessControl, ReentrancyGuard, Pausable {
-    IEscrowEngine public immutable escrowEngine;
-    ISybilGuard public immutable sybilGuard;
+contract ReviewRegistry is IReviewRegistry, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+    IEscrowEngine public escrowEngine;
+    ISybilGuard public sybilGuard;
 
     uint256 private _nextReviewId = 1;
 
@@ -18,15 +21,31 @@ contract ReviewRegistry is IReviewRegistry, AccessControl, ReentrancyGuard, Paus
     mapping(uint256 => mapping(address => uint256)) private _jobReviewIds;
     mapping(address => RatingStats) private _ratingStats;
 
-    constructor(address _escrowEngine, address _sybilGuard) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _escrowEngine, address _sybilGuard) public virtual initializer {
         require(_escrowEngine != address(0), "ReviewRegistry: zero escrowEngine");
         require(_sybilGuard != address(0), "ReviewRegistry: zero sybilGuard");
 
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        // OZ 5.x: grant DEFAULT_ADMIN_ROLE to owner for access control
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        _nextReviewId = 1;
+
         escrowEngine = IEscrowEngine(_escrowEngine);
         sybilGuard = ISybilGuard(_sybilGuard);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function submitReview(
         uint256 jobId,

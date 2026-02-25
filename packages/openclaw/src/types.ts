@@ -34,6 +34,12 @@ export interface ContractAddresses {
   skillRegistry?: string;
   subscriptionEngine?: string;
   directiveBoard?: string;
+  multiPartyEscrow?: string;
+  bondingEngine?: string;
+  x402EscrowBridge?: string;
+  // Payroll system
+  rolePayroll?: string;
+  uptimeVerifier?: string;
 }
 
 export interface EncryptedWallet {
@@ -61,6 +67,25 @@ export interface HeartbeatData {
   leaf: string;
   pathElements: string[];
   pathIndices: number[];
+}
+
+export interface RoleHeartbeatEntry {
+  timestamp: number;
+  blockNumber: number;
+  blockHash: string;
+  blockHashField: string;  // blockHash % SNARK_FIELD, as decimal string
+  hash: string;            // Poseidon(timestamp, blockHashField, nonce), as decimal string
+  nonce: string;           // random nonce, as decimal string
+}
+
+export interface RoleUptimeInput {
+  claimantAddress: string;
+  uptimeCount: number;
+  weekStart: number;
+  merkleRoot: string;
+  sampledLeaves: string[];
+  sampledPathElements: string[][];
+  sampledPathIndices: number[][];
 }
 
 export interface AttestationInput {

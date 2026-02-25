@@ -3,7 +3,7 @@
 import { useReadContract, useWriteContract, useAccount } from "wagmi";
 import { type Address } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
-import { AirdropClaimABI } from "@/config/abis";
+import { AirdropClaimV3ABI as AirdropClaimABI } from "@/config/abis";
 
 function useContracts() {
   return getContracts(CHAIN.id);
@@ -83,16 +83,6 @@ export function useIsMilestoneComplete(address?: string, milestone?: number) {
   });
 }
 
-export function useMerkleRoot() {
-  const contracts = useContracts();
-  return useReadContract({
-    address: contracts?.airdropClaim,
-    abi: AirdropClaimABI,
-    functionName: "getMerkleRoot",
-    query: { enabled: !!contracts },
-  });
-}
-
 export function useDifficultyTarget() {
   const contracts = useContracts();
   return useReadContract({
@@ -129,7 +119,7 @@ export function useClaimAirdropV3() {
     pA: [bigint, bigint],
     pB: [[bigint, bigint], [bigint, bigint]],
     pC: [bigint, bigint],
-    pubSignals: [bigint, bigint],
+    pubSignals: [bigint, bigint, bigint],
     approvalSig: `0x${string}`,
     powNonce: bigint,
   ) => {

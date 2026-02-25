@@ -1,5 +1,5 @@
 import { createConfig } from "@ponder/core";
-import { http } from "viem";
+import { http, Address } from "viem";
 import { base } from "viem/chains";
 
 import { LOBTokenABI } from "./abis/LOBToken";
@@ -26,15 +26,18 @@ import { TeamVestingABI } from "./abis/TeamVesting";
 import { RewardSchedulerABI } from "./abis/RewardScheduler";
 import { BondingEngineABI } from "./abis/BondingEngine";
 import { LightningGovernorABI } from "./abis/LightningGovernor";
+import { TreasuryGovernorABI } from "./abis/TreasuryGovernor";
+import { AirdropClaimV3ABI } from "./abis/AirdropClaimV3";
+import { RolePayrollABI } from "./abis/RolePayroll";
 import { SybilGuardABI } from "./abis/SybilGuard";
 import { CONTRACTS_BY_CHAIN } from "../web/src/config/contract-addresses";
 
 const CONTRACTS = CONTRACTS_BY_CHAIN[base.id];
 
-// V3 full redeploy — 2026-02-22, block 42509758
-const V1_START_BLOCK = 42509758;
-const V2_START_BLOCK = 42509758;
-const V3_START_BLOCK = 42509758;
+// V4 full redeploy — 2026-02-25, block 42598375
+const V1_START_BLOCK = 42598375;
+const V2_START_BLOCK = 42598375;
+const V3_START_BLOCK = 42598375;
 
 export default createConfig({
   networks: {
@@ -196,6 +199,24 @@ export default createConfig({
       network: "baseMainnet",
       abi: LightningGovernorABI,
       address: CONTRACTS.lightningGovernor,
+      startBlock: V3_START_BLOCK,
+    },
+    TreasuryGovernor: {
+      network: "baseMainnet",
+      abi: TreasuryGovernorABI,
+      address: CONTRACTS.treasuryGovernor,
+      startBlock: V3_START_BLOCK,
+    },
+    AirdropClaimV3: {
+      network: "baseMainnet",
+      abi: AirdropClaimV3ABI,
+      address: CONTRACTS.airdropClaim,
+      startBlock: V3_START_BLOCK,
+    },
+    RolePayroll: {
+      network: "baseMainnet",
+      abi: RolePayrollABI,
+      address: CONTRACTS.rolePayroll,
       startBlock: V3_START_BLOCK,
     },
   },

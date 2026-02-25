@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/LOBToken.sol";
 import "../src/AirdropClaim.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract AirdropClaimTest is Test {
     LOBToken public token;
@@ -28,8 +29,10 @@ contract AirdropClaimTest is Test {
         windowEnd = block.timestamp + 30 days;
 
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
-        airdrop = new AirdropClaim(
+        token = new LOBToken();
+        token.initialize(distributor);
+        airdrop = new AirdropClaim();
+        airdrop.initialize(
             address(token),
             attestor,
             windowStart,
@@ -187,7 +190,8 @@ contract AirdropClaimTest is Test {
     function test_ClaimWindowNotStarted_Reverts() public {
         // Deploy a new airdrop with future start
         vm.prank(admin);
-        AirdropClaim futureAirdrop = new AirdropClaim(
+        AirdropClaim futureAirdrop = new AirdropClaim();
+        futureAirdrop.initialize(
             address(token),
             attestor,
             block.timestamp + 10 days,
@@ -319,12 +323,5 @@ contract AirdropClaimTest is Test {
         airdrop.submitAttestation(ws, hr, 10, 2, 200, sig);
 
         assertTrue(airdrop.isWorkspaceHashUsed(ws));
-    }
-}
-
-// Helper to use OZ v4's ECDSA
-library MessageHashUtils {
-    function toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
     }
 }

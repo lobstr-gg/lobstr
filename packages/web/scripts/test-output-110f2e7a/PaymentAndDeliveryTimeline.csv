@@ -1,0 +1,6 @@
+Date,Description,LOB_Amount,Status,Transaction_Hash
+2026-02-01,Initial payment to Aleksey,6000,Completed,0xabc123def
+2026-02-10,Delivery of draft,0,Completed,
+2026-02-12,Request for revisions by Carla,0,Pending,
+2026-02-14,Final delivery by Aleksey,0,Completed,
+2026-02-15,Final payment to Aleksey,6000,Pending,0x456def789

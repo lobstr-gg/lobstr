@@ -24,7 +24,11 @@ contract MockRewardDistributor {
 /// @dev Mock ERC-20 that implements EIP-3009 transferWithAuthorization + receiveWithAuthorization.
 ///      Skips signature verification — just transfers tokens directly.
 contract MockERC3009 is LOBToken {
-    constructor(address _distributor) LOBToken(_distributor) {}
+    constructor() {}
+
+    function init(address _distributor) external {
+        initialize(_distributor);
+    }
 
     function transferWithAuthorization(
         address from,
@@ -88,7 +92,7 @@ contract X402EscrowBridgeTest is Test {
 
     // EIP-712 constants for PaymentIntent signing
     bytes32 private constant PAYMENT_INTENT_TYPEHASH = keccak256(
-        "PaymentIntent(bytes32 x402Nonce,address token,uint256 amount,uint256 listingId,address seller,uint256 deadline)"
+        "PaymentIntent(bytes32 x402Nonce,address token,uint256 amount,uint256 listingId,address seller,uint256 deadline,uint256 deliveryDeadline)"
     );
 
     function setUp() public {
@@ -97,14 +101,20 @@ contract X402EscrowBridgeTest is Test {
         vm.startPrank(admin);
 
         // Deploy protocol stack
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         mockSybilGuard = new MockSybilGuard();
         mockRewardDist = new MockRewardDistributor();
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine(
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration();
+        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -115,7 +125,10 @@ contract X402EscrowBridgeTest is Test {
         );
 
         // Deploy bridge
-        bridge = new X402EscrowBridge(address(escrow), address(dispute));
+        bridge = new X402EscrowBridge();
+        bridge.initialize(address(escrow), address(dispute));
+        // OZ 5.x: grant admin role so we can call protected functions
+        bridge.grantRole(bridge.DEFAULT_ADMIN_ROLE(), address(this));
         bridge.grantRole(bridge.FACILITATOR_ROLE(), facilitator);
         bridge.setTokenAllowed(address(token), true);
 
@@ -124,6 +137,7 @@ contract X402EscrowBridgeTest is Test {
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute));
         dispute.grantRole(dispute.ESCROW_ROLE(), address(escrow));
+        dispute.grantRole(dispute.CERTIFIER_ROLE(), address(this));
         dispute.setEscrowEngine(address(escrow));
         vm.stopPrank();
 
@@ -165,6 +179,8 @@ contract X402EscrowBridgeTest is Test {
         token.approve(address(dispute), amount);
         dispute.stakeAsArbitrator(amount);
         vm.stopPrank();
+        // Certify the arbitrator so they can be selected for disputes
+        dispute.certifyArbitrator(arb);
     }
 
     // ─── EIP-712 Helpers ────────────────────────────────────────────────────
@@ -185,10 +201,11 @@ contract X402EscrowBridgeTest is Test {
         uint256 amount,
         uint256 _listingId,
         address _seller,
-        uint256 deadline
+        uint256 deadline,
+        uint256 deliveryDeadline
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 structHash = keccak256(abi.encode(
-            PAYMENT_INTENT_TYPEHASH, x402Nonce, _token, amount, _listingId, _seller, deadline
+            PAYMENT_INTENT_TYPEHASH, x402Nonce, _token, amount, _listingId, _seller, deadline, deliveryDeadline
         ));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (v, r, s) = vm.sign(payerPk, digest);
@@ -201,7 +218,7 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            nonce, address(token), amount, listingId, seller, deadline
+            nonce, address(token), amount, listingId, seller, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
@@ -211,7 +228,8 @@ contract X402EscrowBridgeTest is Test {
             amount: amount,
             listingId: listingId,
             seller: seller,
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -350,7 +368,7 @@ contract X402EscrowBridgeTest is Test {
 
         // Sign with wrong seller
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, random, deadline
+            NONCE_1, address(token), 50 ether, listingId, random, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
@@ -360,7 +378,8 @@ contract X402EscrowBridgeTest is Test {
             amount: 50 ether,
             listingId: listingId,
             seller: seller, // mismatch with signature
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -374,7 +393,7 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp - 1;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
@@ -384,7 +403,8 @@ contract X402EscrowBridgeTest is Test {
             amount: 50 ether,
             listingId: listingId,
             seller: seller,
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -398,7 +418,7 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
 
         // Facilitator inflates amount
@@ -409,7 +429,8 @@ contract X402EscrowBridgeTest is Test {
             amount: 100 ether,
             listingId: listingId,
             seller: seller,
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -423,7 +444,7 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
@@ -433,7 +454,8 @@ contract X402EscrowBridgeTest is Test {
             amount: 50 ether,
             listingId: listingId,
             seller: random, // attacker address
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -447,7 +469,7 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
@@ -457,7 +479,8 @@ contract X402EscrowBridgeTest is Test {
             amount: 50 ether,
             listingId: listingId,
             seller: seller,
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(random);
@@ -474,12 +497,13 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -495,12 +519,13 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
 
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -514,7 +539,8 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization() public {
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009(admin);
+        MockERC3009 erc3009 = new MockERC3009();
+        erc3009.init(admin);
         bridge.setTokenAllowed(address(erc3009), true);
         escrow.allowlistToken(address(erc3009)); // V-002: EscrowEngine also needs allowlist
         vm.stopPrank();
@@ -543,11 +569,12 @@ contract X402EscrowBridgeTest is Test {
 
         // Payer signs the PaymentIntent binding escrow routing params
         (uint8 iv, bytes32 ir, bytes32 is_) = _signPaymentIntent(
-            NONCE_1, address(erc3009), 50 ether, erc3009ListingId, seller, deadline
+            NONCE_1, address(erc3009), 50 ether, erc3009ListingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(erc3009),
-            amount: 50 ether, listingId: erc3009ListingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: erc3009ListingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -564,7 +591,8 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization_RevertTokenNotAllowed() public {
         vm.prank(admin);
-        MockERC3009 erc3009 = new MockERC3009(admin);
+        MockERC3009 erc3009 = new MockERC3009();
+        erc3009.init(admin);
         // NOT allowlisted
 
         uint256 deadline = block.timestamp + 1 hours;
@@ -576,11 +604,12 @@ contract X402EscrowBridgeTest is Test {
         });
 
         (uint8 iv, bytes32 ir, bytes32 is_) = _signPaymentIntent(
-            NONCE_1, address(erc3009), 50 ether, 1, seller, deadline
+            NONCE_1, address(erc3009), 50 ether, 1, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(erc3009),
-            amount: 50 ether, listingId: 1, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: 1, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -601,11 +630,12 @@ contract X402EscrowBridgeTest is Test {
         });
 
         (uint8 iv, bytes32 ir, bytes32 is_) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(random);
@@ -618,7 +648,8 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization_RevertPayerMismatch() public {
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009(admin);
+        MockERC3009 erc3009 = new MockERC3009();
+        erc3009.init(admin);
         bridge.setTokenAllowed(address(erc3009), true);
         erc3009.transfer(payer, 100 ether);
         vm.stopPrank();
@@ -634,12 +665,13 @@ contract X402EscrowBridgeTest is Test {
 
         // Intent claims random as payer — cross-validation should catch this
         (uint8 iv, bytes32 ir, bytes32 is_) = _signPaymentIntent(
-            NONCE_1, address(erc3009), 50 ether, listingId, seller, deadline
+            NONCE_1, address(erc3009), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: random,  // mismatch with auth.from
             token: address(erc3009),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -652,7 +684,8 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization_RevertRoutingTamper() public {
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009(admin);
+        MockERC3009 erc3009 = new MockERC3009();
+        erc3009.init(admin);
         bridge.setTokenAllowed(address(erc3009), true);
         erc3009.transfer(payer, 100 ether);
         vm.stopPrank();
@@ -673,7 +706,7 @@ contract X402EscrowBridgeTest is Test {
 
         // Payer signs intent with legit seller
         (uint8 iv, bytes32 ir, bytes32 is_) = _signPaymentIntent(
-            NONCE_1, address(erc3009), 50 ether, erc3009ListingId, seller, deadline
+            NONCE_1, address(erc3009), 50 ether, erc3009ListingId, seller, deadline, deadline + 7 days
         );
 
         // Facilitator tampers: changes seller to attacker
@@ -681,7 +714,8 @@ contract X402EscrowBridgeTest is Test {
             x402Nonce: NONCE_1, payer: payer, token: address(erc3009),
             amount: 50 ether, listingId: erc3009ListingId,
             seller: random,  // attacker-controlled seller
-            deadline: deadline
+            deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1255,11 +1289,12 @@ contract X402EscrowBridgeTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1275,11 +1310,12 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(random);
@@ -1293,11 +1329,12 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp - 1;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1315,11 +1352,12 @@ contract X402EscrowBridgeTest is Test {
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1331,11 +1369,12 @@ contract X402EscrowBridgeTest is Test {
         // No funds sent to bridge — nothing to recover
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
-            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 50 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1360,11 +1399,12 @@ contract X402EscrowBridgeTest is Test {
         uint256 drainAmount = surplus + 1 ether;
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_2, address(token), drainAmount, listingId, seller, deadline
+            NONCE_2, address(token), drainAmount, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_2, payer: payer, token: address(token),
-            amount: drainAmount, listingId: listingId, seller: seller, deadline: deadline
+            amount: drainAmount, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1387,11 +1427,12 @@ contract X402EscrowBridgeTest is Test {
         uint256 payerBalBefore = token.balanceOf(payer);
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_2, address(token), 10 ether, listingId, seller, deadline
+            NONCE_2, address(token), 10 ether, listingId, seller, deadline, deadline + 7 days
         );
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_2, payer: payer, token: address(token),
-            amount: 10 ether, listingId: listingId, seller: seller, deadline: deadline
+            amount: 10 ether, listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1408,13 +1449,14 @@ contract X402EscrowBridgeTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
         // Sign with correct params
         (uint8 v, bytes32 r, bytes32 s) = _signPaymentIntent(
-            NONCE_1, address(token), 50 ether, listingId, seller, deadline
+            NONCE_1, address(token), 50 ether, listingId, seller, deadline, deadline + 7 days
         );
         // Tamper: change amount in the intent
         X402EscrowBridge.PaymentIntent memory intent = X402EscrowBridge.PaymentIntent({
             x402Nonce: NONCE_1, payer: payer, token: address(token),
             amount: 100 ether, // tampered
-            listingId: listingId, seller: seller, deadline: deadline
+            listingId: listingId, seller: seller, deadline: deadline,
+            deliveryDeadline: deadline + 7 days
         });
 
         vm.prank(facilitator);
@@ -1427,7 +1469,8 @@ contract X402EscrowBridgeTest is Test {
     function test_DepositWithAuthorization_FrontRunProtection() public {
         // Verify that MockERC3009.receiveWithAuthorization enforces caller == to
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009(admin);
+        MockERC3009 erc3009 = new MockERC3009();
+        erc3009.init(admin);
         bridge.setTokenAllowed(address(erc3009), true);
         erc3009.transfer(payer, 100 ether);
         vm.stopPrank();

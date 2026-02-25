@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../src/LOBToken.sol";
 import "../src/AirdropClaimV2.sol";
 
@@ -25,7 +26,7 @@ contract MockVerifier {
  *         Run: forge script script/TestAntiSybilE2E.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
  */
 contract TestAntiSybilE2E is Script {
-    using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     // ── Storage to avoid stack-too-deep ────────────────────────────
     LOBToken internal token;
@@ -69,14 +70,16 @@ contract TestAntiSybilE2E is Script {
     function _deploy(address deployer, address signerAddr) internal {
         vm.startBroadcast(DEPLOYER_KEY);
 
-        token = new LOBToken(deployer);
+        token = new LOBToken();
+        token.initialize(deployer);
         console.log("[1] LOBToken deployed:", address(token));
 
         MockVerifier mockVerifier = new MockVerifier();
         console.log("[1] MockVerifier deployed:", address(mockVerifier));
 
         uint256 testDifficulty = type(uint256).max >> 20;
-        airdrop = new AirdropClaimV2(
+        airdrop = new AirdropClaimV2();
+        airdrop.initialize(
             address(token),
             address(mockVerifier),
             block.timestamp,
@@ -107,7 +110,7 @@ contract TestAntiSybilE2E is Script {
         approvalSig = abi.encodePacked(r, s, v);
         console.log("    Approval signature created (65 bytes)");
 
-        address recovered = ethHash.recover(approvalSig);
+        address recovered = ECDSA.recover(ethHash, approvalSig);
         require(recovered == signerAddr, "Signature recovery mismatch!");
         console.log("    Recovered signer:", recovered);
         console.log("    Signature valid!");

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IStakingManager.sol";
 
-contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Pausable {
+contract StakingManager is IStakingManager, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
@@ -21,18 +22,29 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
     uint256 public constant GOLD_THRESHOLD = 10_000 ether;
     uint256 public constant PLATINUM_THRESHOLD = 100_000 ether;
 
-    IERC20 public immutable lobToken;
+    IERC20 public lobToken;
 
     mapping(address => StakeInfo) private _stakes;
 
-    // V-001: Stake locking — prevents unstake while loans/credit lines are active
+    // Stake locking — prevents unstake while loans/credit lines are active
     mapping(address => uint256) private _lockedStake;
 
-    constructor(address _lobToken) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _lobToken) public initializer {
         require(_lobToken != address(0), "StakingManager: zero token");
         lobToken = IERC20(_lobToken);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     function stake(uint256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "StakingManager: zero amount");
@@ -56,7 +68,7 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
         require(info.amount >= amount, "StakingManager: insufficient stake");
         require(info.unstakeRequestAmount == 0, "StakingManager: pending unstake");
 
-        // V-001: Cannot unstake locked stake
+        // Cannot unstake locked stake
         require(info.amount - _lockedStake[msg.sender] >= amount, "StakingManager: stake locked");
 
         info.unstakeRequestAmount = amount;
@@ -71,6 +83,11 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
 
         require(amount > 0, "StakingManager: no pending unstake");
         require(block.timestamp >= info.unstakeRequestTime + UNSTAKE_COOLDOWN, "StakingManager: cooldown active");
+
+        // FIX: Enforce locked stake cannot be withdrawn
+        uint256 locked = _lockedStake[msg.sender];
+        uint256 unlockedBalance = info.amount - locked;
+        require(amount <= unlockedBalance, "StakingManager: stake locked");
 
         Tier oldTier = getTier(msg.sender);
 
@@ -113,7 +130,7 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
 
         info.amount -= amount;
 
-        // V-001: Auto-reduce locked stake if slash drops below lock
+        // Auto-reduce locked stake if slash drops below lock
         if (_lockedStake[user] > info.amount) {
             _lockedStake[user] = info.amount;
         }
@@ -129,7 +146,7 @@ contract StakingManager is IStakingManager, AccessControl, ReentrancyGuard, Paus
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  V-001: STAKE LOCKING
+    // STAKE LOCKING
     // ═══════════════════════════════════════════════════════════════
 
     function lockStake(address user, uint256 amount) external onlyRole(LOCKER_ROLE) {

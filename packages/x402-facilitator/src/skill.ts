@@ -14,9 +14,10 @@ const SKILL_REGISTRY_ABI = parseAbi([
   "function purchaseSkill(uint256 skillId) returns (uint256 accessId)",
   "function hasActiveAccess(address buyer, uint256 skillId) view returns (bool)",
   "function recordUsage(uint256 accessId, uint256 calls)",
-  "function getAccessByBuyer(address buyer, uint256 skillId) view returns ((uint256 id, uint256 skillId, address buyer, uint8 pricingModel, uint256 purchasedAt, uint256 expiresAt, uint256 callsUsed, uint256 callsLimit, bool active))",
+  "function getAccessIdByBuyer(address buyer, uint256 skillId) view returns (uint256)",
+  "function getAccess(uint256 accessId) view returns ((uint256 id, uint256 skillId, address buyer, uint8 pricingModel, uint256 purchasedAt, uint256 expiresAt, uint256 totalCallsUsed, uint256 totalPaid, bool active))",
   "event SkillPurchased(uint256 indexed skillId, address indexed buyer, uint256 accessId, uint8 pricingModel, uint256 amount)",
-  "event UsageRecorded(uint256 indexed accessId, uint256 calls, uint256 totalCalls)",
+  "event UsageRecorded(uint256 indexed accessId, uint256 indexed skillId, uint256 calls, uint256 cost)",
 ]);
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -82,11 +83,10 @@ export async function settleViaSkill(
 
   // 3. If PER_CALL and buyer already has access, record usage instead of purchasing
   if (hasAccess && skill.pricingModel === PricingModel.PER_CALL) {
-    // Fetch the existing access record to get accessId
-    const access = await readClient.readContract({
+    const accessId = await readClient.readContract({
       address: registryAddress,
       abi: SKILL_REGISTRY_ABI,
-      functionName: "getAccessByBuyer",
+      functionName: "getAccessIdByBuyer",
       args: [buyerAddr, skillId],
     });
 
@@ -96,26 +96,25 @@ export async function settleViaSkill(
       address: registryAddress,
       abi: SKILL_REGISTRY_ABI,
       functionName: "recordUsage",
-      args: [access.id, 1n],
+      args: [accessId, 1n],
     });
 
     await readClient.waitForTransactionReceipt({ hash: txHash });
 
-    console.log(`[settle] Skill usage recorded: accessId=${access.id}, tx=${txHash}`);
-    return { accessId: access.id.toString(), txHash };
+    console.log(`[settle] Skill usage recorded: accessId=${accessId}, tx=${txHash}`);
+    return { accessId: accessId.toString(), txHash };
   }
 
   // 4. If buyer already has access (non-PER_CALL), just return existing access
   if (hasAccess) {
-    const access = await readClient.readContract({
+    const accessId = await readClient.readContract({
       address: registryAddress,
       abi: SKILL_REGISTRY_ABI,
-      functionName: "getAccessByBuyer",
+      functionName: "getAccessIdByBuyer",
       args: [buyerAddr, skillId],
     });
 
-    // No on-chain tx needed — buyer already owns access
-    return { accessId: access.id.toString(), txHash: "0x0" as `0x${string}` };
+    return { accessId: accessId.toString(), txHash: "0x0" as `0x${string}` };
   }
 
   // 5. No access — purchase the skill

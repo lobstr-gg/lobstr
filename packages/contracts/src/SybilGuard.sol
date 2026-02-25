@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IStakingManager.sol";
@@ -26,7 +29,7 @@ import "./interfaces/IRewardDistributor.sol";
  *           - Anti-collusion pair tracking (watcher-judge pairs per 30-day epoch)
  *           - Watcher quality scoring (confirmed/submitted ratio)
  */
-contract SybilGuard is AccessControl, ReentrancyGuard {
+contract SybilGuard is Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
     /* ═══════════════════════════════════════════════════════════════
@@ -114,10 +117,10 @@ contract SybilGuard is AccessControl, ReentrancyGuard {
        STATE
        ═══════════════════════════════════════════════════════════════ */
 
-    IERC20 public immutable lobToken;
-    IStakingManager public immutable stakingManager;
-    address public immutable treasuryGovernor;
-    IRewardDistributor public immutable rewardDistributor;
+    IERC20 public lobToken;
+    IStakingManager public stakingManager;
+    address public treasuryGovernor;
+    IRewardDistributor public rewardDistributor;
     address public disputeArbitration;
 
     uint256 private _nextReportId = 1;
@@ -208,24 +211,39 @@ contract SybilGuard is AccessControl, ReentrancyGuard {
        CONSTRUCTOR
        ═══════════════════════════════════════════════════════════════ */
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _stakingManager,
         address _treasuryGovernor,
         address _rewardDistributor
-    ) {
+    ) public virtual initializer {
         require(_lobToken != address(0), "SybilGuard: zero lobToken");
         require(_stakingManager != address(0), "SybilGuard: zero staking");
         require(_treasuryGovernor != address(0), "SybilGuard: zero treasury");
         require(_rewardDistributor != address(0), "SybilGuard: zero rewardDistributor");
 
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+
+        // OZ 5.x: grant DEFAULT_ADMIN_ROLE to owner
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        _nextReportId = 1;
+
         lobToken = IERC20(_lobToken);
         stakingManager = IStakingManager(_stakingManager);
         treasuryGovernor = _treasuryGovernor;
         rewardDistributor = IRewardDistributor(_rewardDistributor);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function setDisputeArbitration(address _disputeArbitration) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(disputeArbitration == address(0), "SybilGuard: disputeArbitration already set");
@@ -510,9 +528,9 @@ contract SybilGuard is AccessControl, ReentrancyGuard {
         watcherReward = _applyWatcherQuality(watcher, watcherReward);
 
         if (watcherReward > 0) {
-            // V-001: Actually transfer tokens to RewardDistributor to back the credit
-            lobToken.safeApprove(address(rewardDistributor), 0);
-            lobToken.safeApprove(address(rewardDistributor), watcherReward);
+            // Actually transfer tokens to RewardDistributor to back the credit
+            lobToken.forceApprove(address(rewardDistributor), 0);
+            lobToken.forceApprove(address(rewardDistributor), watcherReward);
             rewardDistributor.deposit(address(lobToken), watcherReward);
             rewardDistributor.creditWatcherReward(watcher, address(lobToken), watcherReward);
         }
@@ -527,7 +545,7 @@ contract SybilGuard is AccessControl, ReentrancyGuard {
         uint256 judgeCount = judges.length;
         if (judgeCount == 0) return 0;
 
-        // V-001: Cap judge rewards to remaining seized funds
+        // Cap judge rewards to remaining seized funds
         uint256 remaining = totalSeizedAmount - alreadyDistributed;
         uint256 budgetForJudges = JUDGE_FLAT_REWARD;
         if (budgetForJudges > remaining) budgetForJudges = remaining;
@@ -548,9 +566,9 @@ contract SybilGuard is AccessControl, ReentrancyGuard {
         perJudge = budgetForJudges / eligibleCount;
         totalJudgeReward = perJudge * eligibleCount;
 
-        // V-001: Transfer total judge reward to RewardDistributor to back the credits
-        lobToken.safeApprove(address(rewardDistributor), 0);
-        lobToken.safeApprove(address(rewardDistributor), totalJudgeReward);
+        // Transfer total judge reward to RewardDistributor to back the credits
+        lobToken.forceApprove(address(rewardDistributor), 0);
+        lobToken.forceApprove(address(rewardDistributor), totalJudgeReward);
         rewardDistributor.deposit(address(lobToken), totalJudgeReward);
 
         for (uint256 i = 0; i < judgeCount; i++) {

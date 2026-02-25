@@ -162,7 +162,8 @@ export default function HireModal({
         if (result.jobId) setBridgeJobId(result.jobId);
         setStep("success");
       } else {
-        const hash = await createJob(listingId, seller, amount, token);
+        const deliveryDeadline = BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60);
+        const hash = await createJob(listingId, seller, amount, token, deliveryDeadline);
         setJobTxHash(hash);
         setStep("success");
       }

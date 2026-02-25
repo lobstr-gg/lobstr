@@ -16,8 +16,6 @@ import "../src/SybilGuard.sol";
 import "../src/TreasuryGovernor.sol";
 import "../src/RewardDistributor.sol";
 import "../src/StakingRewards.sol";
-import "../src/LiquidityMining.sol";
-import "../src/RewardScheduler.sol";
 import "../src/LightningGovernor.sol";
 import "../src/verifiers/Groth16VerifierV4.sol";
 
@@ -25,8 +23,7 @@ import "../src/verifiers/Groth16VerifierV4.sol";
  * @title DeployAllScript
  * @notice Full protocol redeploy for LOBSTR V3 on Base.
  *         Fresh LOBToken (1B supply) with proper token distribution.
- *         ZK Merkle airdrop with milestone unlocks.
- *         Arbitrator/moderator reward system via RewardDistributor.
+ *         ZK airdrop with workspaceHash anti-Sybil + milestone unlocks.
  *
  *   Deployment order:
  *     1.  LOBToken (1B minted to deployer)
@@ -45,18 +42,20 @@ import "../src/verifiers/Groth16VerifierV4.sol";
  *    14.  RewardScheduler
  *    15.  LightningGovernor
  *    16.  Groth16VerifierV4
- *    17.  AirdropClaimV3 (ZK Merkle + milestones)
+ *    17.  AirdropClaimV3 (ZK workspaceHash + milestones)
  *    18.  TeamVesting (3yr vest, 6mo cliff)
  *    19.  Role grants + admin transfer
- *    20.  Token distribution
+ *    20.  Token distribution (580K direct to agents, rest to TeamVesting)
  *
  *   Required .env variables:
  *     PRIVATE_KEY,
  *     SIGNER_2_ADDRESS, SIGNER_3_ADDRESS, SIGNER_4_ADDRESS,
- *     APPROVAL_SIGNER_ADDRESS, ROOT_UPDATER_ADDRESS,
+ *     APPROVAL_SIGNER_ADDRESS,
  *     TEAM_BENEFICIARY_ADDRESS, LP_WALLET_ADDRESS,
- *     LP_TOKEN_ADDRESS, SENTINEL_ADDRESS, ARBITER_ADDRESS,
+ *     SENTINEL_ADDRESS, ARBITER_ADDRESS,
  *     STEWARD_ADDRESS, GUARDIAN_ADDRESS
+ *
+ *   LP_TOKEN_ADDRESS NOT needed — LiquidityMining deployed separately after DEX pool creation.
  *
  *   Usage:
  *     forge script script/DeployAll.s.sol:DeployAllScript \
@@ -77,8 +76,6 @@ contract DeployAllScript is Script {
     LoanEngine public loanEngine;
     X402CreditFacility public creditFacility;
     StakingRewards public stakingRewards;
-    LiquidityMining public liquidityMining;
-    RewardScheduler public rewardScheduler;
     LightningGovernor public lightningGov;
     Groth16VerifierV4 public verifierV4;
     AirdropClaimV3 public airdropV3;
@@ -90,6 +87,12 @@ contract DeployAllScript is Script {
     uint256 constant TREASURY_ALLOC = 300_000_000 ether; // 30%
     uint256 constant TEAM_ALLOC     = 150_000_000 ether; // 15%
     uint256 constant LP_ALLOC       = 150_000_000 ether; // 15%
+
+    // ── Agent allocations (carved out of TEAM_ALLOC) ─────────────
+    uint256 constant SENTINEL_ALLOC = 250_000 ether; // Titus: 100K platinum + 100K services + 50K buffer
+    uint256 constant ARBITER_ALLOC  = 175_000 ether; // Solomon: 100K platinum + 25K senior arb + 50K buffer
+    uint256 constant STEWARD_ALLOC  = 155_000 ether; // Daniel: 100K platinum + 5K junior arb + 50K buffer
+    uint256 constant AGENT_TOTAL    = 580_000 ether; // Sum of agent allocations
 
     // ── Airdrop claim window ─────────────────────────────────────
     // Ends 2026-12-31 23:59:00 MST (UTC-7) = 2027-01-01 06:59:00 UTC
@@ -125,10 +128,10 @@ contract DeployAllScript is Script {
         // 11: X402CreditFacility
         _deployCreditFacility();
 
-        // 12-14: StakingRewards + LiquidityMining + RewardScheduler
-        _deployRewards();
+        // 12: StakingRewards (LiquidityMining + RewardScheduler deferred until LP pool exists)
+        _deployStakingRewards();
 
-        // 15: LightningGovernor
+        // 13: LightningGovernor
         _deployLightningGovernor();
 
         // 16-17: Verifier + Airdrop
@@ -151,13 +154,16 @@ contract DeployAllScript is Script {
 
     // ── 1-3: Core ────────────────────────────────────────────────
     function _deployCore() internal {
-        token = new LOBToken(deployer);
+        token = new LOBToken();
+        token.initialize(deployer);
         console.log("LOBToken:", address(token));
 
         reputation = new ReputationSystem();
+        reputation.initialize();
         console.log("ReputationSystem:", address(reputation));
 
-        staking = new StakingManager(address(token));
+        staking = new StakingManager();
+        staking.initialize(address(token));
         console.log("StakingManager:", address(staking));
     }
 
@@ -169,19 +175,22 @@ contract DeployAllScript is Script {
         signers[2] = vm.envAddress("SIGNER_3_ADDRESS");
         signers[3] = vm.envAddress("SIGNER_4_ADDRESS");
 
-        treasuryGov = new TreasuryGovernor(signers, 3, address(token));
+        treasuryGov = new TreasuryGovernor();
+        treasuryGov.initialize(signers, 3, address(token));
         console.log("TreasuryGovernor:", address(treasuryGov));
     }
 
     // ── 5: RewardDistributor ─────────────────────────────────────
     function _deployRewardDistributor() internal {
         rewardDist = new RewardDistributor();
+        rewardDist.initialize();
         console.log("RewardDistributor:", address(rewardDist));
     }
 
     // ── 6: SybilGuard ────────────────────────────────────────────
     function _deploySybilGuard() internal {
-        sybilGuard = new SybilGuard(
+        sybilGuard = new SybilGuard();
+        sybilGuard.initialize(
             address(token),
             address(staking),
             address(treasuryGov),
@@ -192,14 +201,16 @@ contract DeployAllScript is Script {
 
     // ── 7-9: Marketplace ─────────────────────────────────────────
     function _deployMarketplace() internal {
-        registry = new ServiceRegistry(
+        registry = new ServiceRegistry();
+        registry.initialize(
             address(staking),
             address(reputation),
             address(sybilGuard)
         );
         console.log("ServiceRegistry:", address(registry));
 
-        dispute = new DisputeArbitration(
+        dispute = new DisputeArbitration();
+        dispute.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -208,7 +219,8 @@ contract DeployAllScript is Script {
         );
         console.log("DisputeArbitration:", address(dispute));
 
-        escrow = new EscrowEngine(
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -222,48 +234,43 @@ contract DeployAllScript is Script {
 
     // ── 10: LoanEngine ────────────────────────────────────────────
     function _deployLoanEngine() internal {
-        loanEngine = new LoanEngine(
+        loanEngine = new LoanEngine();
+        loanEngine.initialize(
             address(token),
             address(reputation),
             address(staking),
             address(sybilGuard),
-            address(treasuryGov)
+            address(treasuryGov),
+            deployer
         );
         console.log("LoanEngine:", address(loanEngine));
     }
 
     // ── 11: X402CreditFacility ───────────────────────────────────
     function _deployCreditFacility() internal {
-        creditFacility = new X402CreditFacility(
+        creditFacility = new X402CreditFacility();
+        creditFacility.initialize(
             address(token),
             address(escrow),
             address(dispute),
             address(reputation),
             address(staking),
             address(sybilGuard),
-            address(treasuryGov)
+            address(treasuryGov),
+            deployer
         );
         console.log("X402CreditFacility:", address(creditFacility));
     }
 
-    // ── 12-14: StakingRewards + LiquidityMining + RewardScheduler
-    function _deployRewards() internal {
-        stakingRewards = new StakingRewards(address(staking), address(sybilGuard));
+    // ── 12: StakingRewards only ──────────────────────────────────
+    // LiquidityMining + RewardScheduler deployed separately after LP pool creation.
+    // Order: Deploy LOB → Create DEX pool → Get LP token → Deploy LiquidityMining → Deploy RewardScheduler
+    function _deployStakingRewards() internal {
+        stakingRewards = new StakingRewards();
+        stakingRewards.initialize(address(staking), address(sybilGuard));
         console.log("StakingRewards:", address(stakingRewards));
 
-        address lpToken = vm.envAddress("LP_TOKEN_ADDRESS");
-        liquidityMining = new LiquidityMining(lpToken, address(token), address(staking), address(sybilGuard));
-        console.log("LiquidityMining:", address(liquidityMining));
-
-        rewardScheduler = new RewardScheduler(address(stakingRewards), address(liquidityMining));
-        console.log("RewardScheduler:", address(rewardScheduler));
-
-        // Add LOB as reward token on StakingRewards
         stakingRewards.addRewardToken(address(token));
-
-        // Grant REWARD_NOTIFIER_ROLE to scheduler
-        stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), address(rewardScheduler));
-        liquidityMining.grantRole(liquidityMining.REWARD_NOTIFIER_ROLE(), address(rewardScheduler));
     }
 
     // ── 15: LightningGovernor ─────────────────────────────────────
@@ -278,7 +285,8 @@ contract DeployAllScript is Script {
         executors[1] = arbiter;
         executors[2] = steward;
 
-        lightningGov = new LightningGovernor(
+        lightningGov = new LightningGovernor();
+        lightningGov.initialize(
             address(staking),
             address(treasuryGov),
             executors,
@@ -295,7 +303,8 @@ contract DeployAllScript is Script {
         address approvalSigner = vm.envAddress("APPROVAL_SIGNER_ADDRESS");
         uint256 difficultyTarget = type(uint256).max >> 26;
 
-        airdropV3 = new AirdropClaimV3(
+        airdropV3 = new AirdropClaimV3();
+        airdropV3.initialize(
             address(token),
             address(verifierV4),
             approvalSigner,
@@ -310,11 +319,12 @@ contract DeployAllScript is Script {
         console.log("AirdropClaimV3:", address(airdropV3));
     }
 
-    // ── 14: TeamVesting ──────────────────────────────────────────
+    // ── 18: TeamVesting ──────────────────────────────────────────
     function _deployTeamVesting() internal {
         address teamBeneficiary = vm.envAddress("TEAM_BENEFICIARY_ADDRESS");
 
-        teamVesting = new TeamVesting(
+        teamVesting = new TeamVesting();
+        teamVesting.initialize(
             address(token),
             teamBeneficiary,
             block.timestamp,
@@ -324,7 +334,7 @@ contract DeployAllScript is Script {
         console.log("TeamVesting:", address(teamVesting));
     }
 
-    // ── 15a: Role grants ─────────────────────────────────────────
+    // ── 19a: Role grants ─────────────────────────────────────────
     function _grantRoles() internal {
         // ReputationSystem RECORDER_ROLE
         reputation.grantRole(reputation.RECORDER_ROLE(), address(escrow));
@@ -351,25 +361,20 @@ contract DeployAllScript is Script {
         rewardDist.grantRole(rewardDist.DISPUTE_ROLE(), address(dispute));
         rewardDist.grantRole(rewardDist.SYBIL_GUARD_ROLE(), address(sybilGuard));
 
-        // AirdropClaimV3 ROOT_UPDATER_ROLE
-        address rootUpdater = vm.envAddress("ROOT_UPDATER_ADDRESS");
-        airdropV3.grantRole(airdropV3.ROOT_UPDATER_ROLE(), rootUpdater);
-
         console.log("Roles granted, escrow wired, reward distributor wired");
     }
 
-    // ── 15b: Transfer admin to TreasuryGovernor ──────────────────
+    // ── 19b: Transfer admin to TreasuryGovernor ──────────────────
     function _transferAdmin() internal {
         bytes32 adminRole = reputation.DEFAULT_ADMIN_ROLE();
 
         // LightningGovernor — grant admin on target contracts it can fast-track
+        // NOTE: LiquidityMining + RewardScheduler admin grants deferred to post-LP-deploy
         staking.grantRole(adminRole, address(lightningGov));
         dispute.grantRole(adminRole, address(lightningGov));
         escrow.grantRole(adminRole, address(lightningGov));
         registry.grantRole(adminRole, address(lightningGov));
-        rewardScheduler.grantRole(adminRole, address(lightningGov));
         stakingRewards.grantRole(adminRole, address(lightningGov));
-        liquidityMining.grantRole(adminRole, address(lightningGov));
 
         reputation.grantRole(adminRole, address(treasuryGov));
         staking.grantRole(adminRole, address(treasuryGov));
@@ -381,8 +386,7 @@ contract DeployAllScript is Script {
         registry.grantRole(adminRole, address(treasuryGov));
         rewardDist.grantRole(adminRole, address(treasuryGov));
         stakingRewards.grantRole(adminRole, address(treasuryGov));
-        liquidityMining.grantRole(adminRole, address(treasuryGov));
-        rewardScheduler.grantRole(adminRole, address(treasuryGov));
+        // NOTE: LiquidityMining + RewardScheduler admin grants deferred to post-LP-deploy
         airdropV3.grantRole(adminRole, address(treasuryGov));
 
         reputation.renounceRole(adminRole, deployer);
@@ -395,17 +399,19 @@ contract DeployAllScript is Script {
         registry.renounceRole(adminRole, deployer);
         rewardDist.renounceRole(adminRole, deployer);
         stakingRewards.renounceRole(adminRole, deployer);
-        liquidityMining.renounceRole(adminRole, deployer);
-        rewardScheduler.renounceRole(adminRole, deployer);
+        // NOTE: LiquidityMining + RewardScheduler renounce deferred to post-LP-deploy
         airdropV3.renounceRole(adminRole, deployer);
         treasuryGov.renounceRole(adminRole, deployer);
 
         console.log("Admin transferred to TreasuryGovernor, deployer renounced");
     }
 
-    // ── 16: Token distribution ───────────────────────────────────
+    // ── 20: Token distribution ───────────────────────────────────
     function _distributeTokens() internal {
         address lpWallet = vm.envAddress("LP_WALLET_ADDRESS");
+        address sentinel = vm.envAddress("SENTINEL_ADDRESS");
+        address arbiter = vm.envAddress("ARBITER_ADDRESS");
+        address steward = vm.envAddress("STEWARD_ADDRESS");
 
         // 400M → AirdropClaimV3
         token.transfer(address(airdropV3), AIRDROP_POOL);
@@ -415,10 +421,17 @@ contract DeployAllScript is Script {
         token.transfer(address(treasuryGov), TREASURY_ALLOC);
         console.log("Transferred 300M LOB to TreasuryGovernor");
 
-        // 150M → TeamVesting
-        token.transfer(address(teamVesting), TEAM_ALLOC);
-        teamVesting.setTotalAllocation(TEAM_ALLOC);
-        console.log("Transferred 150M LOB to TeamVesting + set allocation");
+        // 150M team: 580K direct to agents, rest to TeamVesting
+        token.transfer(sentinel, SENTINEL_ALLOC);
+        console.log("Transferred 250K LOB to Sentinel (Titus):", sentinel);
+        token.transfer(arbiter, ARBITER_ALLOC);
+        console.log("Transferred 175K LOB to Arbiter (Solomon):", arbiter);
+        token.transfer(steward, STEWARD_ALLOC);
+        console.log("Transferred 155K LOB to Steward (Daniel):", steward);
+
+        token.transfer(address(teamVesting), TEAM_ALLOC - AGENT_TOTAL);
+        teamVesting.setTotalAllocation(TEAM_ALLOC - AGENT_TOTAL);
+        console.log("Transferred remaining team LOB to TeamVesting (minus 580K agent alloc)");
 
         // 150M → LP wallet
         token.transfer(lpWallet, LP_ALLOC);
@@ -447,8 +460,8 @@ contract DeployAllScript is Script {
         console.log("LoanEngine:         ", address(loanEngine));
         console.log("X402CreditFacility: ", address(creditFacility));
         console.log("StakingRewards:     ", address(stakingRewards));
-        console.log("LiquidityMining:    ", address(liquidityMining));
-        console.log("RewardScheduler:    ", address(rewardScheduler));
+        console.log("LiquidityMining:     (deferred - deploy after LP pool)");
+        console.log("RewardScheduler:     (deferred - deploy after LP pool)");
         console.log("LightningGovernor:  ", address(lightningGov));
         console.log("Groth16VerifierV4:  ", address(verifierV4));
         console.log("AirdropClaimV3:     ", address(airdropV3));
@@ -458,11 +471,12 @@ contract DeployAllScript is Script {
         console.log("TOKEN DISTRIBUTION:");
         console.log("  AirdropClaimV3:   400M LOB (40%)");
         console.log("  TreasuryGovernor: 300M LOB (30%)");
-        console.log("  TeamVesting:      150M LOB (15%) - 6mo cliff, 3yr vest");
+        console.log("  TeamVesting:      149.42M LOB (15% minus agent allocs)");
+        console.log("  Agent direct:     580K LOB (Sentinel 250K, Arbiter 175K, Steward 155K)");
         console.log("  LP Wallet:        150M LOB (15%)");
         console.log("");
         console.log("AIRDROP:");
-        console.log("  Type: ZK Merkle membership + milestone unlocks");
+        console.log("  Type: ZK workspaceHash + milestone unlocks");
         console.log("  Allocation: 6,000 LOB flat (1K immediate + 5x1K milestones)");
         console.log("  Claim window ends: 2026-12-31 23:59 MST (1798786740)");
         console.log("");
@@ -477,10 +491,9 @@ contract DeployAllScript is Script {
         console.log("  3. Grant FACILITATOR_ROLE + POOL_MANAGER_ROLE on X402CreditFacility");
         console.log("  4. Seed X402CreditFacility pool with LOB via depositToPool()");
         console.log("  5. Seed DEX LP with the 150M LOB in LP wallet");
-        console.log("  6. Push initial Merkle root via /update-root API");
-        console.log("  7. Deposit initial reward budget to RewardDistributor");
-        console.log("  8. Fund RewardScheduler with LOB via topUp() + create streams");
-        console.log("  9. Smoke-test full claim flow: register, prove, claim, milestones");
+        console.log("  6. Deposit initial reward budget to RewardDistributor");
+        console.log("  7. Fund RewardScheduler with LOB via topUp() + create streams");
+        console.log("  8. Smoke-test full claim flow: attest, prove, claim, milestones");
         console.log("  NOTE: DEFAULT_ADMIN_ROLE transferred to TreasuryGovernor");
     }
 }

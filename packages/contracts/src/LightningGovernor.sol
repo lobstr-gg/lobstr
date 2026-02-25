@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/ILightningGovernor.sol";
 import "./interfaces/IStakingManager.sol";
 
-contract LightningGovernor is ILightningGovernor, AccessControl, ReentrancyGuard, Pausable {
+contract LightningGovernor is Initializable, UUPSUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, ILightningGovernor {
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
@@ -22,7 +24,7 @@ contract LightningGovernor is ILightningGovernor, AccessControl, ReentrancyGuard
     uint256 public constant MAX_EXECUTION_WINDOW = 48 hours;
     uint256 public constant PROPOSAL_COOLDOWN = 10 minutes;
 
-    IStakingManager public immutable stakingManager;
+    IStakingManager public stakingManager;
 
     uint256 public quorum = 3;
     uint256 public executionDelay = 15 minutes;
@@ -40,16 +42,23 @@ contract LightningGovernor is ILightningGovernor, AccessControl, ReentrancyGuard
     // proposer => last proposal timestamp
     mapping(address => uint256) private _lastProposalTime;
 
-    constructor(
+    function initialize(
         address _stakingManager,
         address _admin,
         address[] memory _executors,
         address _guardian
-    ) {
+    ) public initializer {
         require(_stakingManager != address(0), "LightningGovernor: zero staking manager");
         require(_admin != address(0), "LightningGovernor: zero admin");
         require(_guardian != address(0), "LightningGovernor: zero guardian");
         require(_executors.length > 0, "LightningGovernor: no executors");
+
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _nextProposalId = 1;
 
         stakingManager = IStakingManager(_stakingManager);
 
@@ -65,6 +74,8 @@ contract LightningGovernor is ILightningGovernor, AccessControl, ReentrancyGuard
         // Guardian
         _grantRole(GUARDIAN_ROLE, _guardian);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     // ── Proposal lifecycle ─────────────────────────────────────────
 

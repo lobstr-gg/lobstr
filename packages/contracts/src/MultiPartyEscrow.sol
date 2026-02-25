@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IMultiPartyEscrow} from "./interfaces/IMultiPartyEscrow.sol";
@@ -11,15 +14,15 @@ import {IEscrowEngine} from "./interfaces/IEscrowEngine.sol";
 import {IDisputeArbitration} from "./interfaces/IDisputeArbitration.sol";
 import {ISybilGuard} from "./interfaces/ISybilGuard.sol";
 
-contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, Pausable {
+contract MultiPartyEscrow is IMultiPartyEscrow, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     uint256 public constant MAX_SELLERS = 10;
 
-    IEscrowEngine public immutable ESCROW_ENGINE;
-    IDisputeArbitration public immutable DISPUTE_ARBITRATION;
-    IERC20 public immutable LOB_TOKEN;
-    ISybilGuard public immutable SYBIL_GUARD;
+    IEscrowEngine public ESCROW_ENGINE;
+    IDisputeArbitration public DISPUTE_ARBITRATION;
+    IERC20 public LOB_TOKEN;
+    ISybilGuard public SYBIL_GUARD;
 
     uint256 private _nextGroupId = 1;
 
@@ -28,19 +31,34 @@ contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, 
     mapping(uint256 => uint256) private _jobToGroup;
     mapping(uint256 => bool) private _refundClaimed;
 
-    constructor(address _escrowEngine, address _disputeArbitration, address _lobToken, address _sybilGuard) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _escrowEngine, address _disputeArbitration, address _lobToken, address _sybilGuard) public virtual initializer {
         require(_escrowEngine != address(0), "MultiPartyEscrow: zero escrowEngine");
         require(_disputeArbitration != address(0), "MultiPartyEscrow: zero disputeArbitration");
         require(_lobToken != address(0), "MultiPartyEscrow: zero lobToken");
         require(_sybilGuard != address(0), "MultiPartyEscrow: zero sybilGuard");
 
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        _nextGroupId = 1;
+
         ESCROW_ENGINE = IEscrowEngine(_escrowEngine);
         DISPUTE_ARBITRATION = IDisputeArbitration(_disputeArbitration);
         LOB_TOKEN = IERC20(_lobToken);
         SYBIL_GUARD = ISybilGuard(_sybilGuard);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function createMultiJob(
         address[] calldata sellers,
@@ -48,6 +66,7 @@ contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, 
         uint256[] calldata listingIds,
         address token,
         uint256 totalAmount,
+        uint256 deliveryDeadline,
         string calldata metadataURI
     ) external nonReentrant whenNotPaused returns (uint256 groupId) {
         _validateArrays(sellers, shares, listingIds, totalAmount);
@@ -57,8 +76,8 @@ contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, 
 
         groupId = _nextGroupId++;
 
-        IERC20(token).safeApprove(address(ESCROW_ENGINE), totalAmount);
-        uint256[] memory jobIds = _createJobs(groupId, sellers, shares, listingIds, token);
+        IERC20(token).forceApprove(address(ESCROW_ENGINE), totalAmount);
+        uint256[] memory jobIds = _createJobs(groupId, msg.sender, sellers, shares, listingIds, token, deliveryDeadline);
 
         _groups[groupId] = JobGroup({
             groupId: groupId,
@@ -93,14 +112,18 @@ contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, 
 
     function _createJobs(
         uint256 groupId,
+        address buyer,
         address[] calldata sellers,
         uint256[] calldata shares,
         uint256[] calldata listingIds,
-        address token
+        address token,
+        uint256 deliveryDeadline
     ) internal returns (uint256[] memory jobIds) {
         jobIds = new uint256[](sellers.length);
         for (uint256 i = 0; i < sellers.length; i++) {
-            uint256 jobId = ESCROW_ENGINE.createJob(listingIds[i], sellers[i], shares[i], token);
+            uint256 jobId = ESCROW_ENGINE.createJob(listingIds[i], sellers[i], shares[i], token, deliveryDeadline);
+            // Set the real payer so slashed stake goes to the real buyer
+            ESCROW_ENGINE.setJobPayer(jobId, buyer);
             jobIds[i] = jobId;
             _groupJobIds[groupId].push(jobId);
             _jobToGroup[jobId] = groupId;
@@ -121,6 +144,24 @@ contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, 
         require(groupId != 0, "MultiPartyEscrow: job not in group");
         require(_groups[groupId].buyer == msg.sender, "MultiPartyEscrow: not buyer");
         ESCROW_ENGINE.initiateDispute(jobId, evidenceURI);
+    }
+
+    /// @notice Proxy: cancel job on behalf of the real buyer after delivery timeout
+    function cancelJob(uint256 jobId) external nonReentrant whenNotPaused {
+        uint256 groupId = _jobToGroup[jobId];
+        require(groupId != 0, "MultiPartyEscrow: job not in group");
+        require(_groups[groupId].buyer == msg.sender, "MultiPartyEscrow: not buyer");
+
+        // Cache token before cancel (token field survives cancelJob)
+        IEscrowEngine.Job memory job = ESCROW_ENGINE.getJob(jobId);
+        address token = job.token;
+
+        uint256 refundAmount = ESCROW_ENGINE.cancelJob(jobId);
+
+        // Forward cancellation refund to the real buyer
+        if (refundAmount > 0) {
+            IERC20(token).safeTransfer(msg.sender, refundAmount);
+        }
     }
 
     /// @notice Claim escrow refund for a resolved dispute (BuyerWins or Draw)
@@ -193,11 +234,11 @@ contract MultiPartyEscrow is IMultiPartyEscrow, AccessControl, ReentrancyGuard, 
         return _jobToGroup[jobId];
     }
 
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 }

@@ -1,33 +1,52 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/IReputationSystem.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard, Pausable {
-    IStakingManager public immutable stakingManager;
-    IReputationSystem public immutable reputationSystem;
-    ISybilGuard public immutable sybilGuard;
+contract ServiceRegistry is IServiceRegistry, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+    IStakingManager public stakingManager;
+    IReputationSystem public reputationSystem;
+    ISybilGuard public sybilGuard;
 
     uint256 private _nextListingId = 1;
 
     mapping(uint256 => Listing) private _listings;
     mapping(address => uint256) private _providerListingCount;
 
-    constructor(address _stakingManager, address _reputationSystem, address _sybilGuard) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _stakingManager, address _reputationSystem, address _sybilGuard) external initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        _nextListingId = 1;
+
         require(_stakingManager != address(0), "ServiceRegistry: zero staking");
         require(_reputationSystem != address(0), "ServiceRegistry: zero reputation");
         require(_sybilGuard != address(0), "ServiceRegistry: zero sybilGuard");
         stakingManager = IStakingManager(_stakingManager);
         reputationSystem = IReputationSystem(_reputationSystem);
         sybilGuard = ISybilGuard(_sybilGuard);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function createListing(
         ServiceCategory category,
@@ -113,11 +132,11 @@ contract ServiceRegistry is IServiceRegistry, AccessControl, ReentrancyGuard, Pa
         emit ListingDeactivated(listingId);
     }
 
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 

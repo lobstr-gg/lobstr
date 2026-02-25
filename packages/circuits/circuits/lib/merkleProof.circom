@@ -26,27 +26,23 @@ template MerkleProofVerifier(D) {
     hashes[0] <== leaf;
 
     component hashers[D];
-    component indexChecks[D];
+    signal left[D];
+    signal right[D];
 
     for (var i = 0; i < D; i++) {
         // Ensure pathIndices[i] is binary
         pathIndices[i] * (1 - pathIndices[i]) === 0;
 
-        // Select left and right inputs based on pathIndices[i]
-        // If pathIndices[i] == 0: left = hashes[i], right = pathElements[i]
-        // If pathIndices[i] == 1: left = pathElements[i], right = hashes[i]
         hashers[i] = Poseidon(2);
 
-        signal left;
-        signal right;
+        // Select left/right based on pathIndices[i]
+        // pathIndices[i]==0: left=hashes[i], right=pathElements[i]
+        // pathIndices[i]==1: left=pathElements[i], right=hashes[i]
+        left[i] <== hashes[i] + pathIndices[i] * (pathElements[i] - hashes[i]);
+        right[i] <== pathElements[i] + pathIndices[i] * (hashes[i] - pathElements[i]);
 
-        // left = hashes[i] + pathIndices[i] * (pathElements[i] - hashes[i])
-        left <== hashes[i] + pathIndices[i] * (pathElements[i] - hashes[i]);
-        // right = pathElements[i] + pathIndices[i] * (hashes[i] - pathElements[i])
-        right <== pathElements[i] + pathIndices[i] * (hashes[i] - pathElements[i]);
-
-        hashers[i].inputs[0] <== left;
-        hashers[i].inputs[1] <== right;
+        hashers[i].inputs[0] <== left[i];
+        hashers[i].inputs[1] <== right[i];
 
         hashes[i + 1] <== hashers[i].out;
     }

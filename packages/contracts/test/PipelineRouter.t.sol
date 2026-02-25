@@ -59,14 +59,20 @@ contract PipelineRouterTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         mockSybilGuard = new MockSybilGuardPipe();
         mockRewardDist = new MockRewardDistributorPipe();
-        registry = new ServiceRegistry(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine(
+        registry = new ServiceRegistry();
+        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        dispute = new DisputeArbitration();
+        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        escrow = new EscrowEngine();
+        escrow.initialize(
             address(token),
             address(registry),
             address(staking),
@@ -75,7 +81,8 @@ contract PipelineRouterTest is Test {
             treasury,
             address(mockSybilGuard)
         );
-        skillRegistry = new SkillRegistry(
+        skillRegistry = new SkillRegistry();
+        skillRegistry.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -83,13 +90,20 @@ contract PipelineRouterTest is Test {
             address(escrow),
             treasury
         );
-        pipelineRouter = new PipelineRouter(
+        pipelineRouter = new PipelineRouter();
+        pipelineRouter.initialize(
             address(skillRegistry),
             address(staking),
             address(reputation),
-            address(mockSybilGuard)
+            address(mockSybilGuard),
+            address(this)
         );
+        vm.stopPrank();
 
+        // OZ 5.x: DEFAULT_ADMIN_ROLE granted to _owner (address(this)), grant to admin for tests
+        pipelineRouter.grantRole(pipelineRouter.DEFAULT_ADMIN_ROLE(), admin);
+
+        vm.startPrank(admin);
         // Grant roles
         reputation.grantRole(reputation.RECORDER_ROLE(), address(escrow));
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));
@@ -355,7 +369,7 @@ contract PipelineRouterTest is Test {
         steps[0] = skill1Id;
 
         vm.prank(buyer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         pipelineRouter.createPipeline("Pipeline", steps, _emptyConfigs(1), false);
     }
 
@@ -370,7 +384,7 @@ contract PipelineRouterTest is Test {
         pipelineRouter.pause();
 
         vm.prank(buyer);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         pipelineRouter.executePipeline(pipelineId);
     }
 }

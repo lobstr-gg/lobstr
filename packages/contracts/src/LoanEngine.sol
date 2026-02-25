@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ILoanEngine.sol";
@@ -11,7 +14,7 @@ import "./interfaces/IReputationSystem.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
+contract LoanEngine is ILoanEngine, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     // ── Tier borrowing parameters ────────────────────────────────────
@@ -42,12 +45,12 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant DAYS_PER_YEAR = 365;
 
-    // ── Immutables ───────────────────────────────────────────────────
-    IERC20 public immutable lobToken;
-    IReputationSystem public immutable reputationSystem;
-    IStakingManager public immutable stakingManager;
-    ISybilGuard public immutable sybilGuard;
-    address public immutable treasury;
+    // ── Immutables (now regular state variables for upgradeability) ─────
+    IERC20 public lobToken;
+    IReputationSystem public reputationSystem;
+    IStakingManager public stakingManager;
+    ISybilGuard public sybilGuard;
+    address public treasury;
 
     // ── State ────────────────────────────────────────────────────────
     uint256 private _nextLoanId = 1;
@@ -55,18 +58,30 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
     mapping(address => BorrowerProfile) private _profiles;
     mapping(address => uint256[]) private _activeLoanIds;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _reputationSystem,
         address _stakingManager,
         address _sybilGuard,
-        address _treasury
-    ) {
+        address _treasury,
+        address _owner
+    ) public virtual initializer {
         require(_lobToken != address(0), "LoanEngine: zero lobToken");
         require(_reputationSystem != address(0), "LoanEngine: zero reputation");
         require(_stakingManager != address(0), "LoanEngine: zero staking");
         require(_sybilGuard != address(0), "LoanEngine: zero sybilGuard");
         require(_treasury != address(0), "LoanEngine: zero treasury");
+
+        __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         lobToken = IERC20(_lobToken);
         reputationSystem = IReputationSystem(_reputationSystem);
@@ -74,8 +89,12 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
         sybilGuard = ISybilGuard(_sybilGuard);
         treasury = _treasury;
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+
+        _nextLoanId = 1;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ══════════════════════════════════════════════════════════════════
     //  CORE FUNCTIONS
@@ -171,7 +190,7 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
         loan.fundedAt = block.timestamp;
         loan.dueDate = block.timestamp + getTermDuration(loan.term);
 
-        // V-001: Lock borrower's stake to prevent unstake-before-liquidation evasion
+        // Lock borrower's stake to prevent unstake-before-liquidation evasion
         stakingManager.lockStake(loan.borrower, loan.principal);
 
         // Lender sends principal, forwarded to borrower
@@ -201,7 +220,7 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
         if (remaining == 0) {
             loan.status = LoanStatus.Repaid;
 
-            // V-001: Unlock borrower's stake
+            // Unlock borrower's stake
             stakingManager.unlockStake(loan.borrower, loan.principal);
 
             // Distribute: fee to treasury, remainder to lender
@@ -231,7 +250,7 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
 
         loan.status = LoanStatus.Liquidated;
 
-        // V-001: Unlock borrower's stake before slashing (slash handles locked reduction)
+        // Unlock borrower's stake before slashing (slash handles locked reduction)
         stakingManager.unlockStake(loan.borrower, loan.principal);
 
         // Slash reputation (-200 via recordDispute)
@@ -279,7 +298,7 @@ contract LoanEngine is ILoanEngine, AccessControl, ReentrancyGuard, Pausable {
             }
             toLender = totalRecovered - fee;
 
-            // V-003: Cap lender payout to actual debt owed, refund surplus to borrower
+            // Cap lender payout to actual debt owed, refund surplus to borrower
             if (toLender > lenderEntitlement) {
                 uint256 surplus = toLender - lenderEntitlement;
                 toLender = lenderEntitlement;

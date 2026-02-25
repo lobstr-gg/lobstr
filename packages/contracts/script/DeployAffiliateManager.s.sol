@@ -32,7 +32,8 @@ contract DeployAffiliateManager is Script {
 
         vm.startBroadcast(deployerKey);
 
-        AffiliateManager affiliateManager = new AffiliateManager(sybilGuard);
+        AffiliateManager affiliateManager = new AffiliateManager();
+        affiliateManager.initialize(sybilGuard);
 
         vm.stopBroadcast();
 

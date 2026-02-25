@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ISkillRegistry.sol";
@@ -12,7 +15,7 @@ import "./interfaces/IReputationSystem.sol";
 import "./interfaces/ISybilGuard.sol";
 import "./interfaces/IEscrowEngine.sol";
 
-contract SkillRegistry is ISkillRegistry, AccessControl, ReentrancyGuard, Pausable {
+contract SkillRegistry is ISkillRegistry, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant GATEWAY_ROLE = keccak256("GATEWAY_ROLE");
@@ -20,12 +23,12 @@ contract SkillRegistry is ISkillRegistry, AccessControl, ReentrancyGuard, Pausab
     uint256 public constant USDC_FEE_BPS = 150; // 1.5%
     uint256 public constant SUBSCRIPTION_PERIOD = 30 days;
 
-    IERC20 public immutable lobToken;
-    IStakingManager public immutable stakingManager;
-    IReputationSystem public immutable reputationSystem;
-    ISybilGuard public immutable sybilGuard;
-    IEscrowEngine public immutable escrowEngine;
-    address public immutable treasury;
+    IERC20 public lobToken;
+    IStakingManager public stakingManager;
+    IReputationSystem public reputationSystem;
+    ISybilGuard public sybilGuard;
+    IEscrowEngine public escrowEngine;
+    address public treasury;
 
     uint256 private _nextSkillId = 1;
     uint256 private _nextAccessId = 1;
@@ -38,20 +41,34 @@ contract SkillRegistry is ISkillRegistry, AccessControl, ReentrancyGuard, Pausab
     mapping(address => mapping(address => uint256)) private _sellerEarnings; // seller => token => balance
     mapping(address => mapping(uint256 => uint256)) private _buyerSkillAccess; // buyer => skillId => accessId
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _lobToken,
         address _stakingManager,
         address _reputationSystem,
         address _sybilGuard,
         address _escrowEngine,
         address _treasury
-    ) {
+    ) public virtual initializer {
         require(_lobToken != address(0), "SkillRegistry: zero lobToken");
         require(_stakingManager != address(0), "SkillRegistry: zero staking");
         require(_reputationSystem != address(0), "SkillRegistry: zero reputation");
         require(_sybilGuard != address(0), "SkillRegistry: zero sybilGuard");
         require(_escrowEngine != address(0), "SkillRegistry: zero escrow");
         require(_treasury != address(0), "SkillRegistry: zero treasury");
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _nextSkillId = 1;
+        _nextAccessId = 1;
 
         lobToken = IERC20(_lobToken);
         stakingManager = IStakingManager(_stakingManager);
@@ -62,6 +79,8 @@ contract SkillRegistry is ISkillRegistry, AccessControl, ReentrancyGuard, Pausab
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // --- Core Functions ---
 
@@ -271,7 +290,7 @@ contract SkillRegistry is ISkillRegistry, AccessControl, ReentrancyGuard, Pausab
         // Collect payment from buyer (requires prior ERC-20 approval)
         _collectPayment(access.buyer, skill.seller, skill.price, skill.settlementToken);
 
-        // V-001: Extend from max(expiresAt, now) — prevents overcharging expired users
+        // Extend from max(expiresAt, now) — prevents overcharging expired users
         // If still active, extends seamlessly from current expiry (no gap).
         // If expired, extends from now so buyer always gets a full period of access.
         uint256 base = access.expiresAt > block.timestamp ? access.expiresAt : block.timestamp;
@@ -389,6 +408,10 @@ contract SkillRegistry is ISkillRegistry, AccessControl, ReentrancyGuard, Pausab
 
     function getSellerListingCount(address seller) external view returns (uint256) {
         return _sellerListingCount[seller];
+    }
+
+    function getAccessIdByBuyer(address buyer, uint256 skillId) external view returns (uint256) {
+        return _buyerSkillAccess[buyer][skillId];
     }
 
     function hasActiveAccess(address buyer, uint256 skillId) external view returns (bool) {

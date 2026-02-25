@@ -32,11 +32,13 @@ interface IMultiPartyEscrow {
         uint256[] calldata listingIds,
         address token,
         uint256 totalAmount,
+        uint256 deliveryDeadline,
         string calldata metadataURI
     ) external returns (uint256 groupId);
 
     function confirmDelivery(uint256 jobId) external;
     function initiateDispute(uint256 jobId, string calldata evidenceURI) external;
+    function cancelJob(uint256 jobId) external;
     function claimRefund(uint256 jobId) external;
 
     function getGroup(uint256 groupId) external view returns (JobGroup memory);

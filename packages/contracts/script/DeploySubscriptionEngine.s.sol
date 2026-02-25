@@ -37,7 +37,8 @@ contract DeploySubscriptionEngine is Script {
 
         vm.startBroadcast(deployerKey);
 
-        SubscriptionEngine subscriptionEngine = new SubscriptionEngine(
+        SubscriptionEngine subscriptionEngine = new SubscriptionEngine();
+        subscriptionEngine.initialize(
             lobToken,
             reputationSystem,
             sybilGuard,

@@ -36,6 +36,7 @@ contract MockEscrowEngine is IEscrowEngine {
     uint256 private _nextJobId = 1;
     mapping(uint256 => Job) private _jobs;
     mapping(uint256 => uint256) private _jobDisputeIds;
+    mapping(uint256 => address) private _jobPayers;
     IERC20 public token;
     uint256 public disputeIdCounter = 100;
 
@@ -43,7 +44,7 @@ contract MockEscrowEngine is IEscrowEngine {
         token = IERC20(_token);
     }
 
-    function createJob(uint256 listingId, address seller, uint256 amount, address _token) external returns (uint256 jobId) {
+    function createJob(uint256 listingId, address seller, uint256 amount, address _token, uint256 deliveryDeadline) external returns (uint256 jobId) {
         IERC20(_token).transferFrom(msg.sender, address(this), amount);
         jobId = _nextJobId++;
         _jobs[jobId] = Job({
@@ -59,7 +60,8 @@ contract MockEscrowEngine is IEscrowEngine {
             disputeWindowEnd: 0,
             deliveryMetadataURI: "",
             escrowType: EscrowType.SERVICE_JOB,
-            skillId: 0
+            skillId: 0,
+            deliveryDeadline: deliveryDeadline
         });
         emit JobCreated(jobId, listingId, msg.sender, seller, amount, _token, 0);
     }
@@ -80,7 +82,8 @@ contract MockEscrowEngine is IEscrowEngine {
             disputeWindowEnd: block.timestamp + 72 hours,
             deliveryMetadataURI: "",
             escrowType: EscrowType.SKILL_PURCHASE,
-            skillId: skillId
+            skillId: skillId,
+            deliveryDeadline: 0
         });
     }
 
@@ -132,6 +135,25 @@ contract MockEscrowEngine is IEscrowEngine {
         Job storage job = _jobs[jobId];
         job.status = JobStatus.Released;
         IERC20(job.token).transfer(job.seller, job.amount);
+    }
+
+    function cancelJob(uint256 jobId) external returns (uint256 refundAmount) {
+        Job storage job = _jobs[jobId];
+        require(job.buyer == msg.sender, "not buyer");
+        require(job.status == JobStatus.Active, "wrong status");
+        refundAmount = job.amount;
+        job.status = JobStatus.Resolved;
+        // Transfer refund back to buyer
+        IERC20(job.token).transfer(job.buyer, refundAmount);
+        emit JobCancelled(jobId, job.buyer, refundAmount);
+    }
+
+    function jobPayer(uint256 jobId) external view returns (address) {
+        return _jobPayers[jobId];
+    }
+
+    function setJobPayer(uint256 jobId, address payer) external {
+        _jobPayers[jobId] = payer;
     }
 
     function getJob(uint256 jobId) external view returns (Job memory) {
@@ -190,6 +212,7 @@ contract MockDisputeArbitration is IDisputeArbitration {
     function getAgreementRate(address, address) external pure returns (uint256, uint256) { return (0, 0); }
     function emergencyResolveStuckDispute(uint256) external {}
     function repanelDispute(uint256) external {}
+    function isCertified(address) external pure returns (bool) { return false; }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -231,21 +254,26 @@ contract X402CreditFacilityTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        token = new LOBToken(distributor);
+        token = new LOBToken();
+        token.initialize(distributor);
         reputation = new ReputationSystem();
-        staking = new StakingManager(address(token));
+        reputation.initialize();
+        staking = new StakingManager();
+        staking.initialize(address(token));
         sybilGuard = new MockSybilGuardForCredit();
         escrowEngine = new MockEscrowEngine(address(token));
         disputeArb = new MockDisputeArbitration();
 
-        facility = new X402CreditFacility(
+        facility = new X402CreditFacility();
+        facility.initialize(
             address(token),
             address(escrowEngine),
             address(disputeArb),
             address(reputation),
             address(staking),
             address(sybilGuard),
-            treasury
+            treasury,
+            admin
         );
 
         // Grant roles
@@ -1251,7 +1279,7 @@ contract X402CreditFacilityTest is Test {
             _advanceDelivery(draw.escrowJobId);
             vm.prank(agent);
             facility.confirmDelivery(draw.escrowJobId);
-            vm.warp(block.timestamp + 30 days + 48 hours + 1);
+            vm.warp(draw.drawnAt + 30 days + 48 hours + 1);
             facility.liquidateDraw(d);
         }
 

@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import * as readline from "readline";
 import { parseAbi, parseUnits, formatUnits, type Address } from "viem";
 import {
   ensureWorkspace,
@@ -15,6 +16,7 @@ import {
   DISPUTE_STATUS,
   RULING,
 } from "../lib/format";
+import { apiGet, apiPost } from "../lib/api";
 
 const arbAbi = parseAbi(DISPUTE_ARBITRATION_ABI as unknown as string[]);
 const tokenAbi = parseAbi(LOB_TOKEN_ABI as unknown as string[]);
@@ -486,4 +488,206 @@ export function registerArbitrateCommands(program: Command): void {
         process.exit(1);
       }
     });
+
+  // ── test (AI-generated certification exam) ──────────
+
+  arb
+    .command("test")
+    .description("Take the AI-generated arbitrator certification test")
+    .action(async () => {
+      try {
+        // ── Step 1: Generate scenario ────────────────────
+        const spin = ui.spinner(
+          "Generating your unique test scenario (this takes ~15-30 seconds)..."
+        );
+
+        let scenario: {
+          scenarioId: string;
+          title: string;
+          description: string;
+          evidenceFiles: { name: string; type: string; url: string }[];
+          mcQuestions: { question: string; options: string[] }[];
+          analysisPrompt: string;
+          rulingOptions: string[];
+          alreadyPassed?: boolean;
+          passedAt?: number;
+          score?: { mc: number; analysis: number; rulingCorrect: boolean };
+        };
+
+        try {
+          scenario = await apiGet("/api/arbitrator/test", true);
+        } catch (err) {
+          spin.fail("Failed to generate test");
+          ui.error((err as Error).message);
+          process.exit(1);
+        }
+
+        if (scenario.alreadyPassed) {
+          spin.succeed("Already certified!");
+          ui.info(`You passed the arbitrator test on ${new Date(scenario.passedAt!).toLocaleDateString()}`);
+          if (scenario.score) {
+            ui.info(`MC: ${scenario.score.mc}% | Analysis: ${scenario.score.analysis}% | Ruling: ${scenario.score.rulingCorrect ? "Correct" : "Incorrect"}`);
+          }
+          return;
+        }
+
+        spin.succeed("Test scenario generated");
+
+        // ── Step 2: Display scenario + evidence ──────────
+        console.log();
+        ui.header(scenario.title);
+        if (scenario.description) {
+          console.log(scenario.description);
+        }
+
+        console.log();
+        ui.header("Evidence Files");
+        console.log("Review these files before answering questions:\n");
+        const typeLabels: Record<string, string> = {
+          pdf: "PDF Document",
+          image: "Image",
+          csv: "CSV Spreadsheet",
+        };
+        for (const ev of scenario.evidenceFiles) {
+          const label = typeLabels[ev.type] || ev.type.toUpperCase();
+          console.log(`  [${label}] ${ev.name}`);
+          console.log(`  ${ev.url}\n`);
+        }
+
+        // Wait for user to review evidence
+        await promptLine("Press Enter when you have reviewed all evidence files...");
+
+        // ── Step 3: Multiple choice questions ────────────
+        console.log();
+        ui.header("Phase 1: Multiple Choice (80% to pass)");
+        console.log("Answer each question based on the evidence you reviewed.\n");
+
+        const mcAnswers: number[] = [];
+        for (let i = 0; i < scenario.mcQuestions.length; i++) {
+          const q = scenario.mcQuestions[i];
+          console.log(`  ${i + 1}. ${q.question}`);
+          for (let j = 0; j < q.options.length; j++) {
+            console.log(`     ${j + 1}) ${q.options[j]}`);
+          }
+
+          const answer = await promptLine(`  Your answer (1-${q.options.length}): `);
+          const parsed = parseInt(answer, 10);
+          if (isNaN(parsed) || parsed < 1 || parsed > q.options.length) {
+            ui.error(`Invalid answer. Please enter 1-${q.options.length}.`);
+            process.exit(1);
+          }
+          mcAnswers.push(parsed - 1); // Convert to 0-indexed
+          console.log();
+        }
+
+        // ── Step 4: Written analysis ─────────────────────
+        console.log();
+        ui.header("Phase 2: Written Analysis (70% to pass)");
+        console.log(scenario.analysisPrompt);
+        console.log("\nWrite your analysis (minimum 100 characters).");
+        console.log("Type your analysis and press Enter when done:\n");
+
+        const analysis = await promptLine("> ");
+        if (analysis.trim().length < 100) {
+          ui.error(
+            `Analysis too short (${analysis.trim().length} chars, need 100+). Test aborted.`
+          );
+          process.exit(1);
+        }
+
+        // ── Step 5: Mock ruling ──────────────────────────
+        console.log();
+        ui.header("Phase 3: Mock Ruling (must be correct)");
+        console.log("Based on the evidence and your analysis, cast your ruling:\n");
+        console.log("  1) BuyerWins");
+        console.log("  2) SellerWins");
+
+        const rulingInput = await promptLine("\n  Your ruling (1 or 2): ");
+        const rulingNum = parseInt(rulingInput, 10);
+        if (rulingNum !== 1 && rulingNum !== 2) {
+          ui.error("Invalid ruling. Enter 1 or 2.");
+          process.exit(1);
+        }
+        const ruling = rulingNum === 1 ? "BuyerWins" : "SellerWins";
+
+        // ── Step 6: Submit and grade ─────────────────────
+        console.log();
+        const gradeSpin = ui.spinner("Grading your submission with AI...");
+
+        let result: {
+          passed: boolean;
+          scores: { mc: number; analysis: number; rulingCorrect: boolean };
+          analysisFeedback?: string;
+          txHash?: string | null;
+        };
+
+        try {
+          result = await apiPost("/api/arbitrator/test/submit", {
+            scenarioId: scenario.scenarioId,
+            mcAnswers,
+            analysis: analysis.trim(),
+            ruling,
+          });
+        } catch (err) {
+          gradeSpin.fail("Grading failed");
+          ui.error((err as Error).message);
+          process.exit(1);
+        }
+
+        // ── Step 7: Display results ──────────────────────
+        if (result.passed) {
+          gradeSpin.succeed("TEST PASSED — You are now a certified arbitrator!");
+        } else {
+          gradeSpin.fail("TEST FAILED — Review the feedback and try again.");
+        }
+
+        console.log();
+        ui.header("Results");
+        const mcPass = result.scores.mc >= 80;
+        const analysisPass = result.scores.analysis >= 70;
+        ui.info(
+          `Multiple Choice: ${result.scores.mc}% ${mcPass ? "(PASS)" : "(FAIL — need 80%)"}`
+        );
+        ui.info(
+          `Written Analysis: ${result.scores.analysis}% ${analysisPass ? "(PASS)" : "(FAIL — need 70%)"}`
+        );
+        ui.info(
+          `Mock Ruling: ${result.scores.rulingCorrect ? "Correct (PASS)" : "Incorrect (FAIL)"}`
+        );
+
+        if (result.analysisFeedback) {
+          console.log();
+          ui.header("AI Feedback");
+          console.log(result.analysisFeedback);
+        }
+
+        if (result.txHash && result.txHash !== "already-certified") {
+          console.log();
+          ui.success(`On-chain certification TX: ${result.txHash}`);
+        }
+
+        if (!result.passed) {
+          console.log();
+          ui.info('Run "lobstr arbitrate test" again to retake.');
+          process.exit(1);
+        }
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+}
+
+/** Prompt for a single line of input via readline. */
+function promptLine(prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
 }

@@ -1,32 +1,48 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IAffiliateManager.sol";
 import "./interfaces/ISybilGuard.sol";
 
-contract AffiliateManager is IAffiliateManager, AccessControl, ReentrancyGuard, Pausable {
+contract AffiliateManager is IAffiliateManager, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant CREDITOR_ROLE = keccak256("CREDITOR_ROLE");
 
-    ISybilGuard public immutable sybilGuard;
+    ISybilGuard public sybilGuard;
 
     mapping(address => ReferralInfo) private _referrals;
     mapping(address => ReferrerStats) private _referrerStats;
     mapping(address => mapping(address => uint256)) private _claimable;
 
-    constructor(address _sybilGuard) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(address _sybilGuard) public virtual initializer {
         require(_sybilGuard != address(0), "AffiliateManager: zero sybilGuard");
+
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
         sybilGuard = ISybilGuard(_sybilGuard);
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function registerReferral(address referred) external nonReentrant whenNotPaused {
         require(referred != msg.sender, "AffiliateManager: self-referral");

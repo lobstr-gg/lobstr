@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { parseAbi } from 'viem';
+import { parseAbi, parseUnits, formatUnits } from 'viem';
 import {
   ensureWorkspace,
   createPublicClient,
@@ -10,11 +10,12 @@ import {
 import * as ui from 'openclaw';
 
 const SKILL_REGISTRY_ABI = parseAbi([
-  'function registerSkill(string name, string description, string metadataURI) returns (uint256)',
-  'function updateSkill(uint256 skillId, string description, string metadataURI)',
-  'function getSkill(uint256 skillId) view returns (uint256 id, address owner, string name, string description, string metadataURI, bool active, uint256 createdAt)',
-  'function skillCount() view returns (uint256)',
-  'function getOwnerSkills(address owner) view returns (uint256[])',
+  'function listSkill(uint8 category, string name, string description, uint256 pricePerCall, address settlementToken, string metadataURI)',
+  'function updateSkill(uint256 skillId, string name, string description, uint256 pricePerCall, string metadataURI)',
+  'function deactivateSkill(uint256 skillId)',
+  'function getSkill(uint256 skillId) view returns (uint256 id, address seller, uint8 category, string name, string description, uint256 pricePerCall, address settlementToken, string metadataURI, bool active)',
+  'function getSellerListingCount(address seller) view returns (uint256)',
+  'function hasActiveAccess(address buyer, uint256 skillId) view returns (bool)',
 ]);
 
 export function registerSkillCommands(program: Command): void {
@@ -26,9 +27,12 @@ export function registerSkillCommands(program: Command): void {
 
   skill
     .command('register')
-    .description('Register a new skill')
+    .description('List a new skill on the registry')
+    .requiredOption('--category <n>', 'Category ID (uint8)')
     .requiredOption('--name <name>', 'Skill name')
     .requiredOption('--description <desc>', 'Skill description')
+    .requiredOption('--price <amount>', 'Price per call (in token units)')
+    .requiredOption('--token <address>', 'Settlement token address')
     .requiredOption('--metadata <uri>', 'Metadata URI')
     .action(async (opts) => {
       try {
@@ -37,17 +41,26 @@ export function registerSkillCommands(program: Command): void {
         const { client: walletClient } = await createWalletClient(ws.config, ws.path);
         const skillAddr = getContractAddress(ws.config, 'skillRegistry');
 
-        const spin = ui.spinner('Registering skill...');
+        const spin = ui.spinner('Listing skill...');
         const tx = await walletClient.writeContract({
           address: skillAddr,
           abi: SKILL_REGISTRY_ABI,
-          functionName: 'registerSkill',
-          args: [opts.name, opts.description, opts.metadata],
+          functionName: 'listSkill',
+          args: [
+            parseInt(opts.category, 10),
+            opts.name,
+            opts.description,
+            parseUnits(opts.price, 18),
+            opts.token as `0x${string}`,
+            opts.metadata,
+          ],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        spin.succeed('Skill registered');
+        spin.succeed('Skill listed');
         ui.info(`Name: ${opts.name}`);
+        ui.info(`Category: ${opts.category}`);
+        ui.info(`Price/call: ${opts.price}`);
         ui.info(`Tx: ${tx}`);
       } catch (err) {
         ui.error((err as Error).message);
@@ -60,7 +73,9 @@ export function registerSkillCommands(program: Command): void {
   skill
     .command('update <id>')
     .description('Update an existing skill')
+    .requiredOption('--name <name>', 'New name')
     .requiredOption('--description <desc>', 'New description')
+    .requiredOption('--price <amount>', 'New price per call (in token units)')
     .requiredOption('--metadata <uri>', 'New metadata URI')
     .action(async (id: string, opts) => {
       try {
@@ -74,7 +89,7 @@ export function registerSkillCommands(program: Command): void {
           address: skillAddr,
           abi: SKILL_REGISTRY_ABI,
           functionName: 'updateSkill',
-          args: [BigInt(id), opts.description, opts.metadata],
+          args: [BigInt(id), opts.name, opts.description, parseUnits(opts.price, 18), opts.metadata],
         });
         await publicClient.waitForTransactionReceipt({ hash: tx });
 
@@ -90,65 +105,30 @@ export function registerSkillCommands(program: Command): void {
 
   skill
     .command('list [address]')
-    .description('List skills (own or for an address)')
+    .description('Show listing count for a seller')
     .action(async (address?: string) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const skillAddr = getContractAddress(ws.config, 'skillRegistry');
 
-        let ownerAddr: `0x${string}`;
+        let sellerAddr: `0x${string}`;
         if (address) {
-          ownerAddr = address as `0x${string}`;
+          sellerAddr = address as `0x${string}`;
         } else {
           const wallet = loadWallet(ws.path);
-          ownerAddr = wallet.address as `0x${string}`;
+          sellerAddr = wallet.address as `0x${string}`;
         }
 
-        const spin = ui.spinner('Fetching skills...');
-        const skillIds = await publicClient.readContract({
+        const spin = ui.spinner('Fetching listing count...');
+        const count = await publicClient.readContract({
           address: skillAddr,
           abi: SKILL_REGISTRY_ABI,
-          functionName: 'getOwnerSkills',
-          args: [ownerAddr],
-        }) as bigint[];
+          functionName: 'getSellerListingCount',
+          args: [sellerAddr],
+        }) as bigint;
 
-        if (skillIds.length === 0) {
-          spin.succeed('No skills found');
-          return;
-        }
-
-        const skills: any[] = [];
-        for (const sid of skillIds) {
-          const result = await publicClient.readContract({
-            address: skillAddr,
-            abi: SKILL_REGISTRY_ABI,
-            functionName: 'getSkill',
-            args: [sid],
-          }) as any;
-
-          skills.push({
-            id: result.id ?? result[0],
-            owner: result.owner ?? result[1],
-            name: result.name ?? result[2],
-            description: result.description ?? result[3],
-            metadataURI: result.metadataURI ?? result[4],
-            active: result.active ?? result[5],
-            createdAt: result.createdAt ?? result[6],
-          });
-        }
-
-        spin.succeed(`${skills.length} skill(s)`);
-        ui.table(
-          ['ID', 'Name', 'Description', 'Active', 'Created'],
-          skills.map((s: any) => [
-            s.id.toString(),
-            s.name,
-            s.description.length > 40 ? s.description.slice(0, 40) + '...' : s.description,
-            s.active ? 'Yes' : 'No',
-            new Date(Number(s.createdAt) * 1000).toLocaleDateString(),
-          ])
-        );
+        spin.succeed(`Seller ${sellerAddr} has ${count.toString()} skill listing(s)`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
@@ -176,21 +156,25 @@ export function registerSkillCommands(program: Command): void {
 
         const skillData = {
           id: result.id ?? result[0],
-          owner: result.owner ?? result[1],
-          name: result.name ?? result[2],
-          description: result.description ?? result[3],
-          metadataURI: result.metadataURI ?? result[4],
-          active: result.active ?? result[5],
-          createdAt: result.createdAt ?? result[6],
+          seller: result.seller ?? result[1],
+          category: result.category ?? result[2],
+          name: result.name ?? result[3],
+          description: result.description ?? result[4],
+          pricePerCall: result.pricePerCall ?? result[5],
+          settlementToken: result.settlementToken ?? result[6],
+          metadataURI: result.metadataURI ?? result[7],
+          active: result.active ?? result[8],
         };
 
         spin.succeed(`Skill #${id}`);
         console.log(`  Name:        ${skillData.name}`);
-        console.log(`  Owner:       ${skillData.owner}`);
+        console.log(`  Seller:      ${skillData.seller}`);
+        console.log(`  Category:    ${skillData.category}`);
         console.log(`  Description: ${skillData.description}`);
+        console.log(`  Price/call:  ${formatUnits(skillData.pricePerCall, 18)}`);
+        console.log(`  Token:       ${skillData.settlementToken}`);
         console.log(`  Metadata:    ${skillData.metadataURI}`);
         console.log(`  Active:      ${skillData.active ? 'Yes' : 'No'}`);
-        console.log(`  Created:     ${new Date(Number(skillData.createdAt) * 1000).toISOString()}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

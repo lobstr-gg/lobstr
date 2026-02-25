@@ -59,7 +59,8 @@ contract DeployBondingEngine is Script {
 
         vm.startBroadcast(deployerKey);
 
-        BondingEngine bonding = new BondingEngine(lobToken, stakingManager, sybilGuard, treasury);
+        BondingEngine bonding = new BondingEngine();
+        bonding.initialize(lobToken, stakingManager, sybilGuard, treasury);
 
         vm.stopBroadcast();
 

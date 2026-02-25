@@ -67,8 +67,10 @@ contract LightningGovernorTest is Test {
 
     function setUp() public {
         // Deploy core
-        token = new LOBToken(address(this));
-        staking = new StakingManager(address(token));
+        token = new LOBToken();
+        token.initialize(address(this));
+        staking = new StakingManager();
+        staking.initialize(address(token));
         target = new MockTarget();
 
         // Deploy LightningGovernor
@@ -76,7 +78,8 @@ contract LightningGovernorTest is Test {
         executors[0] = executor1;
         executors[1] = executor2;
         executors[2] = executor3;
-        gov = new LightningGovernor(address(staking), admin, executors, guardian);
+        gov = new LightningGovernor();
+        gov.initialize(address(staking), admin, executors, guardian);
 
         // Fund & stake Platinum users
         _fundAndStake(platinum1, PLATINUM_AMOUNT);
@@ -147,22 +150,25 @@ contract LightningGovernorTest is Test {
     function test_constructor_revertZeroStakingManager() public {
         address[] memory executors = new address[](1);
         executors[0] = executor1;
+        LightningGovernor g = new LightningGovernor();
         vm.expectRevert("LightningGovernor: zero staking manager");
-        new LightningGovernor(address(0), admin, executors, guardian);
+        g.initialize(address(0), admin, executors, guardian);
     }
 
     function test_constructor_revertZeroAdmin() public {
         address[] memory executors = new address[](1);
         executors[0] = executor1;
+        LightningGovernor g = new LightningGovernor();
         vm.expectRevert("LightningGovernor: zero admin");
-        new LightningGovernor(address(staking), address(0), executors, guardian);
+        g.initialize(address(staking), address(0), executors, guardian);
     }
 
     function test_constructor_revertZeroGuardian() public {
         address[] memory executors = new address[](1);
         executors[0] = executor1;
+        LightningGovernor g = new LightningGovernor();
         vm.expectRevert("LightningGovernor: zero guardian");
-        new LightningGovernor(address(staking), admin, executors, address(0));
+        g.initialize(address(staking), admin, executors, address(0));
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -251,7 +257,7 @@ contract LightningGovernorTest is Test {
         gov.pause();
         bytes memory data = abi.encodeWithSelector(MockTarget.pause.selector);
         vm.prank(platinum1);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         gov.createProposal(address(target), data, "Paused");
     }
 
@@ -313,7 +319,7 @@ contract LightningGovernorTest is Test {
         vm.prank(admin);
         gov.pause();
         vm.prank(platinum2);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         gov.vote(pid);
     }
 
@@ -430,7 +436,7 @@ contract LightningGovernorTest is Test {
         vm.prank(admin);
         gov.pause();
         vm.prank(executor1);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         gov.execute(pid);
     }
 

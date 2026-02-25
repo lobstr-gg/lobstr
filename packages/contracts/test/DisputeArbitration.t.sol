@@ -32,6 +32,10 @@ contract MockEscrow {
         lastResolvedJobId = jobId;
         drawCallCount++;
     }
+
+    function jobPayer(uint256) external pure returns (address) {
+        return address(0);
+    }
 }
 
 contract DisputeArbitrationTest is Test {
@@ -55,14 +59,19 @@ contract DisputeArbitrationTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
-        staking = new StakingManager(address(token));
+        token = new LOBToken();
+        token.initialize(distributor);
+        staking = new StakingManager();
+        staking.initialize(address(token));
         reputation = new ReputationSystem();
+        reputation.initialize();
         mockSybilGuard = new MockSybilGuardDA();
         mockEscrow = new MockEscrow();
         rewardDist = new RewardDistributor();
+        rewardDist.initialize();
 
-        dispute = new DisputeArbitration(
+        dispute = new DisputeArbitration();
+        dispute.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -73,6 +82,7 @@ contract DisputeArbitrationTest is Test {
         // Wire escrow + grant roles
         dispute.setEscrowEngine(address(mockEscrow));
         dispute.grantRole(dispute.ESCROW_ROLE(), address(mockEscrow));
+        dispute.grantRole(dispute.CERTIFIER_ROLE(), admin);
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute));
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));
         rewardDist.grantRole(rewardDist.DISPUTE_ROLE(), address(dispute));
@@ -94,7 +104,7 @@ contract DisputeArbitrationTest is Test {
         staking.stake(1_000 ether);
         vm.stopPrank();
 
-        // Register 3 arbitrators (Principal rank)
+        // Register 3 arbitrators (Principal rank) — _stakeArbitrator also certifies
         _stakeArbitrator(arb1, 100_000 ether);
         _stakeArbitrator(arb2, 100_000 ether);
         _stakeArbitrator(arb3, 100_000 ether);
@@ -105,6 +115,9 @@ contract DisputeArbitrationTest is Test {
         token.approve(address(dispute), amount);
         dispute.stakeAsArbitrator(amount);
         vm.stopPrank();
+
+        vm.prank(admin);
+        dispute.certifyArbitrator(arb);
     }
 
     function _sealPanel(uint256 disputeId) internal {
@@ -143,7 +156,7 @@ contract DisputeArbitrationTest is Test {
         vm.startPrank(arb4);
         token.approve(address(dispute), 1_000 ether);
 
-        vm.expectRevert("DA:below minimum stake");
+        vm.expectRevert(abi.encodeWithSignature("BelowMinStake()"));
         dispute.stakeAsArbitrator(1_000 ether);
         vm.stopPrank();
     }
@@ -205,7 +218,7 @@ contract DisputeArbitrationTest is Test {
         _sealPanel(disputeId);
 
         vm.prank(buyer);
-        vm.expectRevert("DA:not seller");
+        vm.expectRevert(abi.encodeWithSignature("NotParty()"));
         dispute.submitCounterEvidence(disputeId, "ipfs://fake");
     }
 
@@ -218,7 +231,7 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 25 hours);
 
         vm.prank(seller);
-        vm.expectRevert("DA:deadline passed");
+        vm.expectRevert(abi.encodeWithSignature("DeadlinePassed()"));
         dispute.submitCounterEvidence(disputeId, "ipfs://late");
     }
 
@@ -331,7 +344,7 @@ contract DisputeArbitrationTest is Test {
         uint256 disputeId = _createDisputeAndAdvanceToVoting();
 
         vm.prank(buyer);
-        vm.expectRevert("DA:not assigned");
+        vm.expectRevert(abi.encodeWithSignature("NotAssigned()"));
         dispute.vote(disputeId, true);
     }
 
@@ -342,7 +355,7 @@ contract DisputeArbitrationTest is Test {
         vm.startPrank(d.arbitrators[0]);
         dispute.vote(disputeId, true);
 
-        vm.expectRevert("DA:already voted");
+        vm.expectRevert(abi.encodeWithSignature("AlreadyVoted()"));
         dispute.vote(disputeId, false);
         vm.stopPrank();
     }
@@ -354,7 +367,7 @@ contract DisputeArbitrationTest is Test {
         vm.prank(d.arbitrators[0]);
         dispute.vote(disputeId, true);
 
-        vm.expectRevert("DA:voting still open");
+        vm.expectRevert(abi.encodeWithSignature("VotingOpen()"));
         dispute.executeRuling(disputeId);
     }
 
@@ -373,7 +386,7 @@ contract DisputeArbitrationTest is Test {
 
         // Revert now happens in sealPanel, not submitDispute
         vm.roll(block.number + 11);
-        vm.expectRevert("DA:not enough arbitrators");
+        vm.expectRevert(abi.encodeWithSignature("NotEnoughArbitrators()"));
         dispute.sealPanel(disputeId);
     }
 
@@ -389,7 +402,7 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 4 days);
 
         // V-001: 0-vote executeRuling now reverts — must repanel first
-        vm.expectRevert("DA:no votes, must repanel");
+        vm.expectRevert(abi.encodeWithSignature("NoVotesMustRepanel()"));
         dispute.executeRuling(disputeId);
 
         // Repanel round 1
@@ -404,7 +417,7 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 4 days);
 
         // Still reverts — need 1 more repanel
-        vm.expectRevert("DA:no votes, must repanel");
+        vm.expectRevert(abi.encodeWithSignature("NoVotesMustRepanel()"));
         dispute.executeRuling(disputeId);
 
         // Repanel round 2
@@ -420,8 +433,11 @@ contract DisputeArbitrationTest is Test {
 
         d = dispute.getDispute(disputeId);
         assertEq(uint256(d.status), uint256(IDisputeArbitration.DisputeStatus.Resolved));
+        // Defaults to Draw (neutral) when quorum not reached
         assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
+        // No slash — default refund
         assertEq(staking.getStake(seller), sellerStakeBefore);
+        assertTrue(dispute.isDefaultRefund(disputeId));
     }
 
     function test_DisputeFunctions_RevertWhenPaused() public {
@@ -442,14 +458,14 @@ contract DisputeArbitrationTest is Test {
 
         // sealPanel also reverts when paused
         vm.roll(block.number + 11);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         dispute.sealPanel(disputeId2);
 
         vm.prank(d.arbitrators[0]);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         dispute.vote(disputeId, true);
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         dispute.executeRuling(disputeId);
     }
 
@@ -460,7 +476,7 @@ contract DisputeArbitrationTest is Test {
         mockSybilGuard.setBanned(d.arbitrators[0], true);
 
         vm.prank(d.arbitrators[0]);
-        vm.expectRevert("DA:arbitrator banned");
+        vm.expectRevert(abi.encodeWithSignature("Banned()"));
         dispute.vote(disputeId, true);
     }
 
@@ -504,7 +520,7 @@ contract DisputeArbitrationTest is Test {
     //  V-003: QUORUM REQUIREMENT
     // ═══════════════════════════════════════════════════════════════
 
-    function test_ExecuteRuling_SingleVote_DrawDueToQuorum() public {
+    function test_ExecuteRuling_SingleVote_BuyerWinsDueToQuorum() public {
         uint256 disputeId = _createDisputeAndAdvanceToVoting();
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
 
@@ -520,10 +536,12 @@ contract DisputeArbitrationTest is Test {
         dispute.executeRuling(disputeId);
 
         d = dispute.getDispute(disputeId);
-        // With < 2 votes, ruling should be Draw even though buyer had majority
+        // V-001: Sub-quorum defaults to Draw — split refund
         assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
-        // No slash on Draw
+        // No slash — default refund, system failure not seller fault
         assertEq(staking.getStake(seller), sellerStakeBefore);
+        // Marked as default refund
+        assertTrue(dispute.isDefaultRefund(disputeId));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -660,7 +678,7 @@ contract DisputeArbitrationTest is Test {
     //  V-002: QUORUM FORCES DRAW REWARDS (no majority bonus)
     // ═══════════════════════════════════════════════════════════════
 
-    function test_SingleVote_DrawReward_NoMajorityBonus() public {
+    function test_SingleVote_BuyerWinsReward_WithMajorityBonus() public {
         uint256 disputeId = _createDisputeAndAdvanceToVoting();
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
 
@@ -672,15 +690,15 @@ contract DisputeArbitrationTest is Test {
 
         dispute.executeRuling(disputeId);
 
-        // Ruling should be Draw due to quorum
+        // Sub-quorum (1 of 3) defaults to Draw — no majority bonus
         d = dispute.getDispute(disputeId);
         assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
 
-        // The single voter should get base reward (not majority bonus)
+        // Draw: base reward only (no majority bonus)
         // Base: (1000 ether * 20 ether) / 1000 ether = 20 ether
-        // Principal 2x = 40 ether (NO majority bonus since it's a Draw)
+        // Principal 2x = 40 ether
         uint256 voterReward = rewardDist.claimableBalance(d.arbitrators[0], address(token));
-        assertEq(voterReward, 40 ether, "Should get base*rank only, no majority bonus");
+        assertEq(voterReward, 40 ether, "Draw: base reward with rank multiplier, no majority bonus");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -693,8 +711,10 @@ contract DisputeArbitrationTest is Test {
         // We'll create a new reward distributor with small balance
         vm.startPrank(admin);
         RewardDistributor smallRewardDist = new RewardDistributor();
+        smallRewardDist.initialize();
 
-        DisputeArbitration dispute2 = new DisputeArbitration(
+        DisputeArbitration dispute2 = new DisputeArbitration();
+        dispute2.initialize(
             address(token),
             address(staking),
             address(reputation),
@@ -703,6 +723,7 @@ contract DisputeArbitrationTest is Test {
         );
         dispute2.setEscrowEngine(address(mockEscrow));
         dispute2.grantRole(dispute2.ESCROW_ROLE(), address(mockEscrow));
+        dispute2.grantRole(dispute2.CERTIFIER_ROLE(), admin);
         staking.grantRole(staking.SLASHER_ROLE(), address(dispute2));
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute2));
         smallRewardDist.grantRole(smallRewardDist.DISPUTE_ROLE(), address(dispute2));
@@ -729,6 +750,13 @@ contract DisputeArbitrationTest is Test {
         vm.startPrank(arb3);
         token.approve(address(dispute2), 100_000 ether);
         dispute2.stakeAsArbitrator(100_000 ether);
+        vm.stopPrank();
+
+        // Certify arbitrators on dispute2
+        vm.startPrank(admin);
+        dispute2.certifyArbitrator(arb1);
+        dispute2.certifyArbitrator(arb2);
+        dispute2.certifyArbitrator(arb3);
         vm.stopPrank();
 
         // Fund reward distributor with only 10 LOB
@@ -817,7 +845,7 @@ contract DisputeArbitrationTest is Test {
 
     function test_PauseArbitrator_RevertNotActive() public {
         vm.prank(arb4);
-        vm.expectRevert("DA:not active");
+        vm.expectRevert(abi.encodeWithSignature("NotActive()"));
         dispute.pauseAsArbitrator();
     }
 
@@ -852,7 +880,7 @@ contract DisputeArbitrationTest is Test {
         dispute.removeArbitrator(arb1);
 
         vm.prank(arb1);
-        vm.expectRevert("DA:removed while paused");
+        vm.expectRevert(abi.encodeWithSignature("RemovedWhilePaused()"));
         dispute.unpauseAsArbitrator();
     }
 
@@ -942,7 +970,7 @@ contract DisputeArbitrationTest is Test {
         dispute.executeRuling(disputeId);
 
         // Try to finalize during appeal window
-        vm.expectRevert("DA:appeal window active");
+        vm.expectRevert(abi.encodeWithSignature("AppealWindowActive()"));
         dispute.finalizeRuling(disputeId);
     }
 
@@ -1012,7 +1040,7 @@ contract DisputeArbitrationTest is Test {
 
         vm.startPrank(seller);
         token.approve(address(dispute), 500 ether);
-        vm.expectRevert("DA:appeal window closed");
+        vm.expectRevert(abi.encodeWithSignature("AppealWindowClosed()"));
         dispute.appealRuling(disputeId);
         vm.stopPrank();
     }
@@ -1027,7 +1055,7 @@ contract DisputeArbitrationTest is Test {
 
         vm.startPrank(outsider);
         token.approve(address(dispute), 500 ether);
-        vm.expectRevert("DA:not a party");
+        vm.expectRevert(abi.encodeWithSignature("NotParty()"));
         dispute.appealRuling(disputeId);
         vm.stopPrank();
     }
@@ -1263,17 +1291,14 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 4 days);
         dispute.executeRuling(disputeId);
 
-        // Non-voters got slashed 0.5% each: 100000 * 50 / 10000 = 500
-        // 100000 - 500 = 99500 — still Principal (100k threshold)
-        // So rank unchanged for Principal arbs. The deactivation test requires
-        // an arb right at the threshold. We'll test the rank update directly.
+        // Non-voters got slashed 50% each: 100000 * 5000 / 10000 = 50000
+        // 100000 - 50000 = 50000 — below Principal threshold, should be Senior now
         IDisputeArbitration.ArbitratorInfo memory arbInfo = dispute.getArbitratorInfo(d.arbitrators[1]);
-        // 100000 - 500 = 99500, below Principal threshold, should be Senior now
         assertEq(uint256(arbInfo.rank), uint256(IDisputeArbitration.ArbitratorRank.Senior));
     }
 
     function test_SlashNoShow_UpdatesRank_PrincipalToSenior() public {
-        // After no-show slash on 100k arb: 100000 - 500 = 99500 → Senior
+        // After no-show slash on 100k arb: 100000 - 50000 = 50000 → Senior
         uint256 disputeId = _createDisputeAndAdvanceToVoting();
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
 
@@ -1287,7 +1312,7 @@ contract DisputeArbitrationTest is Test {
         // Non-voters should have been downranked from Principal to Senior
         IDisputeArbitration.ArbitratorInfo memory info1 = dispute.getArbitratorInfo(d.arbitrators[1]);
         assertEq(uint256(info1.rank), uint256(IDisputeArbitration.ArbitratorRank.Senior));
-        assertEq(info1.stake, 99_500 ether);
+        assertEq(info1.stake, 50_000 ether);
 
         IDisputeArbitration.ArbitratorInfo memory info2 = dispute.getArbitratorInfo(d.arbitrators[2]);
         assertEq(uint256(info2.rank), uint256(IDisputeArbitration.ArbitratorRank.Senior));
@@ -1329,7 +1354,7 @@ contract DisputeArbitrationTest is Test {
         uint256 disputeId = dispute.submitDispute(1, buyer, seller, 100 ether, address(token), "ipfs://evidence");
 
         vm.roll(block.number + 5); // Only 5 blocks, need 10
-        vm.expectRevert("DA:seal delay not met");
+        vm.expectRevert(abi.encodeWithSignature("SealDelay()"));
         dispute.sealPanel(disputeId);
     }
 
@@ -1339,7 +1364,7 @@ contract DisputeArbitrationTest is Test {
 
         _sealPanel(disputeId);
 
-        vm.expectRevert("DA:wrong status");
+        vm.expectRevert(abi.encodeWithSignature("WrongStatus()"));
         dispute.sealPanel(disputeId);
     }
 
@@ -1349,7 +1374,7 @@ contract DisputeArbitrationTest is Test {
 
         // Don't seal panel — try counter-evidence directly
         vm.prank(seller);
-        vm.expectRevert("DA:wrong status");
+        vm.expectRevert(abi.encodeWithSignature("WrongStatus()"));
         dispute.submitCounterEvidence(disputeId, "ipfs://counter");
     }
 
@@ -1378,7 +1403,7 @@ contract DisputeArbitrationTest is Test {
 
         // Roll to exactly panelSealBlock — should revert with strict >
         vm.roll(block.number + 10);
-        vm.expectRevert("DA:seal delay not met");
+        vm.expectRevert(abi.encodeWithSignature("SealDelay()"));
         dispute.sealPanel(disputeId);
     }
 
@@ -1412,7 +1437,7 @@ contract DisputeArbitrationTest is Test {
 
         // sealPanel should revert (not enough arbitrators)
         vm.roll(block.number + 11);
-        vm.expectRevert("DA:not enough arbitrators");
+        vm.expectRevert(abi.encodeWithSignature("NotEnoughArbitrators()"));
         dispute.sealPanel(disputeId);
 
         // Warp past 7 day timeout
@@ -1423,10 +1448,11 @@ contract DisputeArbitrationTest is Test {
 
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
         assertEq(uint256(d.status), uint256(IDisputeArbitration.DisputeStatus.Resolved));
+        // V-001: Defaults to Draw — split refund
         assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
         assertEq(d.appealDeadline, 0);
 
-        // Escrow released as Draw (50/50 split)
+        // Escrow released as Draw (split refund)
         assertEq(mockEscrow.drawCallCount(), 1);
     }
 
@@ -1442,7 +1468,7 @@ contract DisputeArbitrationTest is Test {
         // Only 6 days — not enough
         vm.warp(block.timestamp + 6 days);
 
-        vm.expectRevert("DA:timeout not reached");
+        vm.expectRevert(abi.encodeWithSignature("DeadlineNotPassed()"));
         dispute.emergencyResolveStuckDispute(disputeId);
     }
 
@@ -1452,7 +1478,7 @@ contract DisputeArbitrationTest is Test {
 
         vm.warp(block.timestamp + 7 days + 1);
 
-        vm.expectRevert("DA:not stuck");
+        vm.expectRevert(abi.encodeWithSignature("WrongStatus()"));
         dispute.emergencyResolveStuckDispute(disputeId);
     }
 
@@ -1469,7 +1495,7 @@ contract DisputeArbitrationTest is Test {
         dispute.emergencyResolveStuckDispute(disputeId);
 
         // Second call reverts — status is now Resolved, not PanelPending
-        vm.expectRevert("DA:not stuck");
+        vm.expectRevert(abi.encodeWithSignature("WrongStatus()"));
         dispute.emergencyResolveStuckDispute(disputeId);
     }
 
@@ -1493,6 +1519,7 @@ contract DisputeArbitrationTest is Test {
 
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
         assertEq(uint256(d.status), uint256(IDisputeArbitration.DisputeStatus.Resolved));
+        // V-001: Defaults to Draw
         assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
     }
 
@@ -1508,11 +1535,11 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 7 days + 1);
         dispute.emergencyResolveStuckDispute(disputeId);
 
-        // Escrow released once
+        // Escrow released once (as Draw)
         assertEq(mockEscrow.drawCallCount(), 1);
 
         // finalizeRuling should revert — escrow already released
-        vm.expectRevert("DA:escrow already released");
+        vm.expectRevert(abi.encodeWithSignature("EscrowReleased()"));
         dispute.finalizeRuling(disputeId);
     }
 
@@ -1669,7 +1696,7 @@ contract DisputeArbitrationTest is Test {
 
         // Seal too early — revert
         vm.roll(block.number + 5);
-        vm.expectRevert("DA:seal delay not met");
+        vm.expectRevert(abi.encodeWithSignature("SealDelay()"));
         dispute.sealPanel(appealId);
 
         // Seal after delay — succeeds, goes to Voting (skips evidence)
@@ -1720,8 +1747,8 @@ contract DisputeArbitrationTest is Test {
 
         dispute.repanelDispute(disputeId);
 
-        // All 3 no-shows slashed 0.5%
-        uint256 expectedSlash = (arb0StakeBefore * 50) / 10000;
+        // All 3 no-shows slashed 50%
+        uint256 expectedSlash = (arb0StakeBefore * 5000) / 10000;
         assertEq(
             dispute.getArbitratorInfo(d.arbitrators[0]).stake,
             arb0StakeBefore - expectedSlash,
@@ -1740,7 +1767,7 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 4 days);
 
         // Can't repanel — votes were cast (use executeRuling instead)
-        vm.expectRevert("DA:votes were cast");
+        vm.expectRevert(abi.encodeWithSignature("VotesCast()"));
         dispute.repanelDispute(disputeId);
     }
 
@@ -1751,20 +1778,95 @@ contract DisputeArbitrationTest is Test {
         // Repanel twice (MAX_REPANELS = 2)
         for (uint256 i = 0; i < 2; i++) {
             _sealPanel(disputeId);
-            vm.warp(block.timestamp + 25 hours);
+            IDisputeArbitration.Dispute memory dLoop = dispute.getDispute(disputeId);
+            vm.warp(dLoop.counterEvidenceDeadline + 1);
             dispute.advanceToVoting(disputeId);
-            vm.warp(block.timestamp + 4 days);
+            dLoop = dispute.getDispute(disputeId);
+            vm.warp(dLoop.votingDeadline + 1);
             dispute.repanelDispute(disputeId);
         }
 
         // Third repanel reverts
         _sealPanel(disputeId);
-        vm.warp(block.timestamp + 25 hours);
+        IDisputeArbitration.Dispute memory dFinal = dispute.getDispute(disputeId);
+        vm.warp(dFinal.counterEvidenceDeadline + 1);
         dispute.advanceToVoting(disputeId);
+        dFinal = dispute.getDispute(disputeId);
+        vm.warp(dFinal.votingDeadline + 1);
+
+        vm.expectRevert(abi.encodeWithSignature("MaxRepanels()"));
+        dispute.repanelDispute(disputeId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  V-001: DEFAULT REFUND — SUB-QUORUM + EMERGENCY
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_SubQuorum_BuyerWins_NoSellerSlash() public {
+        uint256 disputeId = _createDisputeAndAdvanceToVoting();
+        IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
+
+        // 1 vote for buyer (sub-quorum)
+        vm.prank(d.arbitrators[0]);
+        dispute.vote(disputeId, true);
+
         vm.warp(block.timestamp + 4 days);
 
-        vm.expectRevert("DA:max repanels reached");
-        dispute.repanelDispute(disputeId);
+        uint256 sellerStakeBefore = staking.getStake(seller);
+
+        dispute.executeRuling(disputeId);
+
+        d = dispute.getDispute(disputeId);
+        assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
+        // Seller stake unchanged — default refund, not a guilty verdict
+        assertEq(staking.getStake(seller), sellerStakeBefore);
+        assertTrue(dispute.isDefaultRefund(disputeId));
+
+        // Finalize — still no slash
+        vm.warp(block.timestamp + 49 hours);
+        dispute.finalizeRuling(disputeId);
+        assertEq(staking.getStake(seller), sellerStakeBefore);
+    }
+
+    function test_EmergencyResolve_BuyerWins_NoSlash() public {
+        vm.prank(arb1);
+        dispute.unstakeAsArbitrator(100_000 ether);
+        vm.prank(arb2);
+        dispute.unstakeAsArbitrator(100_000 ether);
+
+        vm.prank(address(mockEscrow));
+        uint256 disputeId = dispute.submitDispute(1, buyer, seller, 100 ether, address(token), "ipfs://evidence");
+
+        uint256 sellerStakeBefore = staking.getStake(seller);
+
+        vm.warp(block.timestamp + 7 days + 1);
+        dispute.emergencyResolveStuckDispute(disputeId);
+
+        IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
+        assertEq(uint256(d.ruling), uint256(IDisputeArbitration.Ruling.Draw));
+        // Seller stake unchanged — emergency default refund
+        assertEq(staking.getStake(seller), sellerStakeBefore);
+        assertTrue(dispute.isDefaultRefund(disputeId));
+    }
+
+    function test_DefaultRefund_SkipsReputationImpact() public {
+        uint256 disputeId = _createDisputeAndAdvanceToVoting();
+        IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
+
+        // 1 vote for buyer (sub-quorum → default refund)
+        vm.prank(d.arbitrators[0]);
+        dispute.vote(disputeId, true);
+
+        vm.warp(block.timestamp + 4 days);
+
+        // Get seller dispute losses before
+        uint256 lostBefore = reputation.getReputationData(seller).disputesLost;
+
+        dispute.executeRuling(disputeId);
+
+        // Disputes lost unchanged — default refund doesn't record seller dispute loss
+        uint256 lostAfter = reputation.getReputationData(seller).disputesLost;
+        assertEq(lostAfter, lostBefore, "No reputation impact on default refund");
     }
 
     function test_V001_emergencyResolve_revertsWithSufficientPool() public {
@@ -1775,7 +1877,77 @@ contract DisputeArbitrationTest is Test {
         vm.warp(block.timestamp + 7 days + 1);
 
         // Reverts — pool is sufficient, should seal panel instead
-        vm.expectRevert("DA:pool sufficient, seal panel");
+        vm.expectRevert(abi.encodeWithSignature("PoolSufficient()"));
         dispute.emergencyResolveStuckDispute(disputeId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ARBITRATOR COMPETENCY CERTIFICATION
+    // ═══════════════════════════════════════════════════════════════
+
+    function test_CertifyArbitrator() public {
+        _stakeArbitrator(arb4, 100_000 ether);
+        assertTrue(dispute.isCertified(arb4), "should be certified after _stakeArbitrator");
+    }
+
+    function test_RevokeCertification() public {
+        _stakeArbitrator(arb4, 100_000 ether);
+        assertTrue(dispute.isCertified(arb4));
+
+        vm.prank(admin);
+        dispute.revokeCertification(arb4);
+
+        assertFalse(dispute.isCertified(arb4));
+    }
+
+    function test_UncertifiedArbitrator_SkippedInPanelSelection() public {
+        // Add arb4 as a 4th certified arbitrator
+        _stakeArbitrator(arb4, 100_000 ether);
+
+        // Revoke arb1's certification — still staked and active, just not certified
+        vm.prank(admin);
+        dispute.revokeCertification(arb1);
+
+        // Create dispute — arb1 should NOT be on the panel (uncertified)
+        vm.prank(address(mockEscrow));
+        uint256 disputeId = dispute.submitDispute(1, buyer, seller, 100 ether, address(token), "ipfs://evidence");
+
+        _sealPanel(disputeId);
+
+        IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
+        assertTrue(d.arbitrators[0] != arb1, "uncertified arb1 must not be arb[0]");
+        assertTrue(d.arbitrators[1] != arb1, "uncertified arb1 must not be arb[1]");
+        assertTrue(d.arbitrators[2] != arb1, "uncertified arb1 must not be arb[2]");
+    }
+
+    function test_CertifyArbitrator_RevertNotActive() public {
+        // arb4 hasn't staked — not an active arbitrator
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSignature("NotActive()"));
+        dispute.certifyArbitrator(arb4);
+    }
+
+    function test_CertifyArbitrator_RevertNotCertifierRole() public {
+        _stakeArbitrator(arb4, 100_000 ether);
+
+        // Random address tries to certify — should fail
+        address outsider = makeAddr("outsider");
+        vm.prank(outsider);
+        vm.expectRevert();
+        dispute.certifyArbitrator(arb4);
+    }
+
+    function test_PanelSelection_FailsIfNotEnoughCertified() public {
+        // Revoke certification from arb2 — only arb1 and arb3 are certified
+        vm.prank(admin);
+        dispute.revokeCertification(arb2);
+
+        // 3 staked + active, but only 2 certified → panel selection should fail
+        vm.prank(address(mockEscrow));
+        uint256 disputeId = dispute.submitDispute(1, buyer, seller, 100 ether, address(token), "ipfs://evidence");
+
+        vm.roll(block.number + 11);
+        vm.expectRevert(abi.encodeWithSignature("PanelSelectionFailed()"));
+        dispute.sealPanel(disputeId);
     }
 }

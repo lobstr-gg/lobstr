@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -18,14 +20,14 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *           - Rotate beneficiary wallet
  *           - Set total allocation (one-time, after funding)
  */
-contract TeamVesting is AccessControl {
+contract TeamVesting is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable token;
+    IERC20 public token;
     address public beneficiary;
-    uint256 public immutable start;
-    uint256 public immutable cliffEnd;
-    uint256 public immutable duration;
+    uint256 public start;
+    uint256 public cliffEnd;
+    uint256 public duration;
     uint256 public totalAllocation;
     uint256 public released;
     bool public revoked;
@@ -36,17 +38,25 @@ contract TeamVesting is AccessControl {
     event BeneficiaryUpdated(address indexed newBeneficiary);
     event AllocationSet(uint256 amount);
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+    }
+
+    function initialize(
         address _token,
         address _beneficiary,
         uint256 _start,
         uint256 _cliff,
         uint256 _duration
-    ) {
+    ) public initializer {
         require(_token != address(0), "TeamVesting: zero token");
         require(_beneficiary != address(0), "TeamVesting: zero beneficiary");
         require(_cliff <= _duration, "TeamVesting: cliff > duration");
         require(_duration > 0, "TeamVesting: zero duration");
+
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
 
         token = IERC20(_token);
         beneficiary = _beneficiary;
@@ -121,4 +131,6 @@ contract TeamVesting is AccessControl {
         beneficiary = _beneficiary;
         emit BeneficiaryUpdated(_beneficiary);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 }

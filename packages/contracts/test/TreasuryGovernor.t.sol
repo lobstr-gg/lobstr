@@ -39,7 +39,8 @@ contract TreasuryGovernorTest is Test {
     function setUp() public {
         // Deploy tokens
         vm.startPrank(distributor);
-        lob = new LOBToken(distributor);
+        lob = new LOBToken();
+        lob.initialize(distributor);
         vm.stopPrank();
 
         vm.prank(deployer);
@@ -52,7 +53,8 @@ contract TreasuryGovernorTest is Test {
         signers[2] = signer3;
 
         vm.prank(deployer);
-        treasury = new TreasuryGovernor(signers, 2, address(lob));
+        treasury = new TreasuryGovernor();
+        treasury.initialize(signers, 2, address(lob));
 
         // Fund treasury with LOB
         vm.prank(distributor);
@@ -79,8 +81,9 @@ contract TreasuryGovernorTest is Test {
         signers[0] = makeAddr("a");
         signers[1] = makeAddr("b");
 
+        TreasuryGovernor t = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: min 3 signers");
-        new TreasuryGovernor(signers, 2, address(lob));
+        t.initialize(signers, 2, address(lob));
     }
 
     function test_constructor_validates_max_signers() public {
@@ -89,8 +92,9 @@ contract TreasuryGovernorTest is Test {
             signers[i] = address(uint160(100 + i));
         }
 
+        TreasuryGovernor t = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: max 9 signers");
-        new TreasuryGovernor(signers, 2, address(lob));
+        t.initialize(signers, 2, address(lob));
     }
 
     function test_constructor_rejects_duplicate_signers() public {
@@ -99,8 +103,9 @@ contract TreasuryGovernorTest is Test {
         signers[1] = makeAddr("b");
         signers[2] = makeAddr("a"); // duplicate
 
+        TreasuryGovernor t = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: duplicate signer");
-        new TreasuryGovernor(signers, 2, address(lob));
+        t.initialize(signers, 2, address(lob));
     }
 
     function test_constructor_sets_roles_correctly() public {
@@ -127,8 +132,9 @@ contract TreasuryGovernorTest is Test {
         signers[1] = address(0);
         signers[2] = makeAddr("c");
 
+        TreasuryGovernor t = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: zero signer");
-        new TreasuryGovernor(signers, 2, address(lob));
+        t.initialize(signers, 2, address(lob));
     }
 
     function test_constructor_rejects_invalid_approval_threshold() public {
@@ -138,12 +144,14 @@ contract TreasuryGovernorTest is Test {
         signers[2] = makeAddr("c");
 
         // requiredApprovals = 1 (below minimum of 2)
+        TreasuryGovernor t = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: invalid approval threshold");
-        new TreasuryGovernor(signers, 1, address(lob));
+        t.initialize(signers, 1, address(lob));
 
         // requiredApprovals = 4 (exceeds signer count)
+        TreasuryGovernor t2 = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: invalid approval threshold");
-        new TreasuryGovernor(signers, 4, address(lob));
+        t2.initialize(signers, 4, address(lob));
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -514,22 +522,23 @@ contract TreasuryGovernorTest is Test {
         uint256 streamAmount = 30_000 ether;
         uint256 duration = 30 days;
 
+        uint256 start = 1; // Foundry default timestamp
         uint256 sid = _createStream(recipient, address(lob), streamAmount, duration, "grant");
 
         // First claim at day 10
-        vm.warp(block.timestamp + 10 days);
+        vm.warp(start + 10 days);
         vm.prank(recipient);
         treasury.claimStream(sid);
         assertEq(lob.balanceOf(recipient), 10_000 ether);
 
         // Second claim at day 20
-        vm.warp(block.timestamp + 10 days);
+        vm.warp(start + 20 days);
         vm.prank(recipient);
         treasury.claimStream(sid);
         assertEq(lob.balanceOf(recipient), 20_000 ether);
 
         // Final claim at day 30
-        vm.warp(block.timestamp + 10 days);
+        vm.warp(start + 30 days);
         vm.prank(recipient);
         treasury.claimStream(sid);
         assertEq(lob.balanceOf(recipient), 30_000 ether);

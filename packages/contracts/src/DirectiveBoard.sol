@@ -1,21 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IDirectiveBoard.sol";
 
 /**
  * @title DirectiveBoard
- * @notice On-chain directive posting for governance → agent communication.
+ * @notice On-chain directive posting for governance -> agent communication.
  *         Posters (governance, mods, admin) create directives; executors
- *         (agents) mark them as executed. Lazy expiry — no gas cost for
+ *         (agents) mark them as executed. Lazy expiry -- no gas cost for
  *         time-based expiration.
  */
-contract DirectiveBoard is AccessControl, IDirectiveBoard {
+contract DirectiveBoard is
+    IDirectiveBoard,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    AccessControlUpgradeable
+{
     bytes32 public constant POSTER_ROLE = keccak256("POSTER_ROLE");
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
-    address public immutable sybilGuard;
+    address public sybilGuard;
 
     uint256 private _nextDirectiveId = 1;
 
@@ -23,11 +32,25 @@ contract DirectiveBoard is AccessControl, IDirectiveBoard {
     mapping(address => uint256[]) private _activeByTarget;
     mapping(DirectiveType => uint256[]) private _activeByType;
 
-    constructor(address _sybilGuard) {
-        require(_sybilGuard != address(0), "DirectiveBoard: zero sybilGuard");
-        sybilGuard = _sybilGuard;
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
     }
+
+    function initialize(address _sybilGuard, address initialOwner) public virtual initializer {
+        require(_sybilGuard != address(0), "DirectiveBoard: zero sybilGuard");
+
+        __Ownable_init(initialOwner);
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+
+        _nextDirectiveId = 1;
+
+        sybilGuard = _sybilGuard;
+        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function postDirective(
         DirectiveType directiveType,

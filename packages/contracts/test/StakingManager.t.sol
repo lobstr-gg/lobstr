@@ -21,8 +21,10 @@ contract StakingManagerTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken(distributor);
-        staking = new StakingManager(address(token));
+        token = new LOBToken();
+        token.initialize(distributor);
+        staking = new StakingManager();
+        staking.initialize(address(token));
         staking.grantRole(staking.SLASHER_ROLE(), slasher);
         vm.stopPrank();
 
@@ -203,7 +205,7 @@ contract StakingManagerTest is Test {
 
         vm.startPrank(alice);
         token.approve(address(staking), 100 ether);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         staking.stake(100 ether);
         vm.stopPrank();
     }
@@ -218,7 +220,7 @@ contract StakingManagerTest is Test {
         staking.pause();
 
         vm.prank(alice);
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert("EnforcedPause()");
         staking.requestUnstake(500 ether);
     }
 

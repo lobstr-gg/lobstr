@@ -207,11 +207,11 @@ export function useWalletJobs(address?: string) {
         const results = await publicClient!.multicall({
           contracts: jobIds.map((id) => ({
             address: contracts!.escrowEngine,
-            abi: EscrowEngineABI,
+            abi: EscrowEngineABI as readonly unknown[],
             functionName: "getJob",
             args: [id],
           })),
-        });
+        } as any);
 
         if (cancelled) return;
 
