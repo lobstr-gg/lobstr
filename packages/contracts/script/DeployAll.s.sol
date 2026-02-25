@@ -45,7 +45,7 @@ import "../src/verifiers/Groth16VerifierV4.sol";
  *    17.  AirdropClaimV3 (ZK workspaceHash + milestones)
  *    18.  TeamVesting (3yr vest, 6mo cliff)
  *    19.  Role grants + admin transfer
- *    20.  Token distribution (580K direct to agents, rest to TeamVesting)
+ *    20.  Token distribution (750K direct to agents, rest to TeamVesting)
  *
  *   Required .env variables:
  *     PRIVATE_KEY,
@@ -89,10 +89,10 @@ contract DeployAllScript is Script {
     uint256 constant LP_ALLOC       = 150_000_000 ether; // 15%
 
     // ── Agent allocations (carved out of TEAM_ALLOC) ─────────────
-    uint256 constant SENTINEL_ALLOC = 250_000 ether; // Titus: 100K platinum + 100K services + 50K buffer
-    uint256 constant ARBITER_ALLOC  = 175_000 ether; // Solomon: 100K platinum + 25K senior arb + 50K buffer
-    uint256 constant STEWARD_ALLOC  = 155_000 ether; // Daniel: 100K platinum + 5K junior arb + 50K buffer
-    uint256 constant AGENT_TOTAL    = 580_000 ether; // Sum of agent allocations
+    uint256 constant SENTINEL_ALLOC = 250_000 ether; // Titus: 100K platinum stake + 100K principal arb + 50K buffer
+    uint256 constant ARBITER_ALLOC  = 250_000 ether; // Solomon: 100K platinum stake + 100K principal arb + 50K buffer
+    uint256 constant STEWARD_ALLOC  = 250_000 ether; // Daniel: 100K platinum stake + 100K principal arb + 50K buffer
+    uint256 constant AGENT_TOTAL    = 750_000 ether; // Sum of agent allocations
 
     // ── Airdrop claim window ─────────────────────────────────────
     // Ends 2026-12-31 23:59:00 MST (UTC-7) = 2027-01-01 06:59:00 UTC
@@ -425,13 +425,13 @@ contract DeployAllScript is Script {
         token.transfer(sentinel, SENTINEL_ALLOC);
         console.log("Transferred 250K LOB to Sentinel (Titus):", sentinel);
         token.transfer(arbiter, ARBITER_ALLOC);
-        console.log("Transferred 175K LOB to Arbiter (Solomon):", arbiter);
+        console.log("Transferred 250K LOB to Arbiter (Solomon):", arbiter);
         token.transfer(steward, STEWARD_ALLOC);
-        console.log("Transferred 155K LOB to Steward (Daniel):", steward);
+        console.log("Transferred 250K LOB to Steward (Daniel):", steward);
 
         token.transfer(address(teamVesting), TEAM_ALLOC - AGENT_TOTAL);
         teamVesting.setTotalAllocation(TEAM_ALLOC - AGENT_TOTAL);
-        console.log("Transferred remaining team LOB to TeamVesting (minus 580K agent alloc)");
+        console.log("Transferred remaining team LOB to TeamVesting (minus 750K agent alloc)");
 
         // 150M → LP wallet
         token.transfer(lpWallet, LP_ALLOC);
@@ -471,8 +471,8 @@ contract DeployAllScript is Script {
         console.log("TOKEN DISTRIBUTION:");
         console.log("  AirdropClaimV3:   400M LOB (40%)");
         console.log("  TreasuryGovernor: 300M LOB (30%)");
-        console.log("  TeamVesting:      149.42M LOB (15% minus agent allocs)");
-        console.log("  Agent direct:     580K LOB (Sentinel 250K, Arbiter 175K, Steward 155K)");
+        console.log("  TeamVesting:      149.25M LOB (15% minus agent allocs)");
+        console.log("  Agent direct:     750K LOB (Sentinel 250K, Arbiter 250K, Steward 250K)");
         console.log("  LP Wallet:        150M LOB (15%)");
         console.log("");
         console.log("AIRDROP:");

@@ -179,11 +179,14 @@ These grants require TreasuryGovernor multisig approval since deployer already r
 5. DisputeArbitration.setProtectedArbiter(ARBITER_ADDRESS, true)
 6. DisputeArbitration.setProtectedArbiter(STEWARD_ADDRESS, true)
 7. SybilGuard.grantRole(WATCHER_ROLE, SENTINEL_ADDRESS)
-8. SybilGuard.grantRole(JUDGE_ROLE, ARBITER_ADDRESS)
-9. SybilGuard.grantRole(JUDGE_ROLE, STEWARD_ADDRESS)
-10. RolePayroll.setFounderAgent(SENTINEL_ADDRESS, true)
-11. RolePayroll.setFounderAgent(ARBITER_ADDRESS, true)
-12. RolePayroll.setFounderAgent(STEWARD_ADDRESS, true)
+8. SybilGuard.grantRole(WATCHER_ROLE, ARBITER_ADDRESS)
+9. SybilGuard.grantRole(WATCHER_ROLE, STEWARD_ADDRESS)
+10. SybilGuard.grantRole(JUDGE_ROLE, SENTINEL_ADDRESS)
+11. SybilGuard.grantRole(JUDGE_ROLE, ARBITER_ADDRESS)
+12. SybilGuard.grantRole(JUDGE_ROLE, STEWARD_ADDRESS)
+13. RolePayroll.setFounderAgent(SENTINEL_ADDRESS, true)
+14. RolePayroll.setFounderAgent(ARBITER_ADDRESS, true)
+15. RolePayroll.setFounderAgent(STEWARD_ADDRESS, true)
 ```
 
 ### 3.3 Treasury Allowances
@@ -254,25 +257,25 @@ These grants require TreasuryGovernor multisig approval since deployer already r
 
 ### 6.1 Fund Agent Wallets
 
-- [ ] Agents receive LOB directly from DeployAll (580K total):
+- [ ] Agents receive LOB directly from DeployAll (750K total):
   - Sentinel (Titus): 250K LOB
-  - Arbiter (Solomon): 175K LOB
-  - Steward (Daniel): 155K LOB
+  - Arbiter (Solomon): 250K LOB
+  - Steward (Daniel): 250K LOB
 
-### 6.2 Agent Staking
+### 6.2 Agent Staking (StakingManager — Platinum tier)
 
-- [ ] Each agent stakes for Principal rank (100K LOB):
+- [ ] Each agent stakes 100K LOB for Platinum staking tier:
 ```
 1. LOBToken.approve(StakingManager, 100_000 ether)
 2. StakingManager.stake(100_000 ether)
 ```
 
-### 6.3 Arbitrator Registration
+### 6.3 Arbitrator Registration (DisputeArbitration — per-agent rank)
 
-- [ ] Each agent stakes as arbitrator in DisputeArbitration:
+- [ ] Each agent stakes 100K LOB into DisputeArbitration for Principal rank:
 ```
-1. LOBToken.approve(DisputeArbitration, 100_000 ether)
-2. DisputeArbitration.stakeAsArbitrator(100_000 ether)
+LOBToken.approve(DisputeArbitration, 100_000 ether)
+DisputeArbitration.stakeAsArbitrator(100_000 ether)
 ```
 (Certification + protection already done in Phase 3.2)
 

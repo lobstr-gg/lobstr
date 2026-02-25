@@ -13,17 +13,17 @@ import "../src/TreasuryGovernor.sol";
  *
  *   Phase 1 (run tonight from Signer 1 = deployer):
  *     - Transfer LOB from distribution wallet to each agent
- *     - Create 4 admin proposals on TreasuryGovernor for SybilGuard roles
+ *     - Create 6 admin proposals on TreasuryGovernor for SybilGuard roles
  *
  *   Phase 2 (run tonight from Signer 2):
- *     - Approve all 4 admin proposals → triggers 24h timelock
+ *     - Approve all 6 admin proposals → triggers 24h timelock
  *
  *   Phase 3 (run from each agent wallet):
  *     - Approve LOB spend to StakingManager
  *     - Stake LOB
  *
  *   Phase 4 (run 24h later from any signer):
- *     - Execute all 4 admin proposals → WATCHER + JUDGE roles granted
+ *     - Execute all 6 admin proposals → WATCHER + JUDGE roles granted to all agents
  *
  *   Usage:
  *     # Phase 1: Signer 1 funds agents + creates proposals
@@ -78,9 +78,9 @@ abstract contract AgentConfig {
     address constant STEWARD  = 0x443c4ff3CAa0E344b10CA19779B2E8AB1ACcd672;
 
     // Staking amounts
-    uint256 constant SENTINEL_STAKE = 5_000 ether;   // Junior (Bronze+)
-    uint256 constant ARBITER_STAKE  = 25_000 ether;   // Senior (Gold)
-    uint256 constant STEWARD_STAKE  = 5_000 ether;    // Junior (Bronze+)
+    uint256 constant SENTINEL_STAKE = 100_000 ether;  // Principal
+    uint256 constant ARBITER_STAKE  = 100_000 ether;  // Principal
+    uint256 constant STEWARD_STAKE  = 100_000 ether;  // Principal
 
     // SybilGuard role hashes
     bytes32 constant WATCHER_ROLE = keccak256("WATCHER_ROLE");
@@ -110,7 +110,7 @@ contract Phase1_CreateProposals is Script, AgentConfig {
         // Transfer LOB to Arbiter
         if (lob.balanceOf(ARBITER) < ARBITER_STAKE) {
             lob.transfer(ARBITER, ARBITER_STAKE);
-            console.log("Sent 25,000 LOB to Arbiter:", ARBITER);
+            console.log("Sent 100,000 LOB to Arbiter:", ARBITER);
         } else {
             console.log("Arbiter already funded");
         }
@@ -118,12 +118,12 @@ contract Phase1_CreateProposals is Script, AgentConfig {
         // Transfer LOB to Steward
         if (lob.balanceOf(STEWARD) < STEWARD_STAKE) {
             lob.transfer(STEWARD, STEWARD_STAKE);
-            console.log("Sent 5,000 LOB to Steward:", STEWARD);
+            console.log("Sent 100,000 LOB to Steward:", STEWARD);
         } else {
             console.log("Steward already funded");
         }
 
-        // ── Create 4 admin proposals for SybilGuard roles ───────────
+        // ── Create 6 admin proposals for SybilGuard roles ───────────
         // Proposal 1: Grant WATCHER_ROLE to Sentinel
         bytes memory watcherCalldata = abi.encodeWithSelector(
             bytes4(keccak256("grantRole(bytes32,address)")),
@@ -176,16 +176,42 @@ contract Phase1_CreateProposals is Script, AgentConfig {
         );
         console.log("Admin Proposal", p4, "created: JUDGE_ROLE -> Steward");
 
+        // Proposal 5: Grant WATCHER_ROLE to Arbiter
+        bytes memory watcherCalldata2 = abi.encodeWithSelector(
+            bytes4(keccak256("grantRole(bytes32,address)")),
+            WATCHER_ROLE,
+            ARBITER
+        );
+        uint256 p5 = gov.createAdminProposal(
+            SYBIL_GUARD,
+            watcherCalldata2,
+            "Grant WATCHER_ROLE to Arbiter (Solomon)"
+        );
+        console.log("Admin Proposal", p5, "created: WATCHER_ROLE -> Arbiter");
+
+        // Proposal 6: Grant WATCHER_ROLE to Steward
+        bytes memory watcherCalldata3 = abi.encodeWithSelector(
+            bytes4(keccak256("grantRole(bytes32,address)")),
+            WATCHER_ROLE,
+            STEWARD
+        );
+        uint256 p6 = gov.createAdminProposal(
+            SYBIL_GUARD,
+            watcherCalldata3,
+            "Grant WATCHER_ROLE to Steward (Daniel)"
+        );
+        console.log("Admin Proposal", p6, "created: WATCHER_ROLE -> Steward");
+
         vm.stopBroadcast();
 
         console.log("");
         console.log("========== PHASE 1 COMPLETE ==========");
-        console.log("4 admin proposals created (auto-approved by Signer 1)");
+        console.log("6 admin proposals created (auto-approved by Signer 1)");
         console.log("LOB sent to Arbiter and Steward");
         console.log("");
         console.log("NEXT: Run Phase2_ApproveProposals with SIGNER_2_KEY");
-        console.log("  Proposal IDs:", p1, p2);
-        console.log("                ", p3, p4);
+        console.log("  Proposal IDs:", p1, p2, p3);
+        console.log("                ", p4, p5, p6);
     }
 }
 
@@ -200,10 +226,10 @@ contract Phase2_ApproveProposals is Script, AgentConfig {
 
         TreasuryGovernor gov = TreasuryGovernor(TREASURY_GOV);
 
-        // Approve proposals 1-4 (adjust IDs if these aren't the first admin proposals)
+        // Approve proposals 1-6 (adjust IDs if these aren't the first admin proposals)
         uint256 startId = vm.envOr("FIRST_PROPOSAL_ID", uint256(1));
 
-        for (uint256 i = 0; i < 4; i++) {
+        for (uint256 i = 0; i < 6; i++) {
             uint256 pid = startId + i;
             gov.approveAdminProposal(pid);
             console.log("Approved admin proposal", pid, "-> 24h timelock started");
@@ -213,7 +239,7 @@ contract Phase2_ApproveProposals is Script, AgentConfig {
 
         console.log("");
         console.log("========== PHASE 2 COMPLETE ==========");
-        console.log("All 4 proposals approved. 24h timelock started.");
+        console.log("All 6 proposals approved. 24h timelock started.");
         console.log("Execute after:", block.timestamp + 24 hours);
         console.log("");
         console.log("NEXT: Run Phase3 scripts to stake from each agent wallet");
@@ -285,7 +311,7 @@ contract Phase4_ExecuteProposals is Script, AgentConfig {
 
         uint256 startId = vm.envOr("FIRST_PROPOSAL_ID", uint256(1));
 
-        for (uint256 i = 0; i < 4; i++) {
+        for (uint256 i = 0; i < 6; i++) {
             uint256 pid = startId + i;
             gov.executeAdminProposal(pid);
             console.log("Executed admin proposal", pid);
@@ -297,8 +323,8 @@ contract Phase4_ExecuteProposals is Script, AgentConfig {
         console.log("========== PHASE 4 COMPLETE ==========");
         console.log("All SybilGuard roles granted!");
         console.log("  Sentinel: WATCHER_ROLE + JUDGE_ROLE");
-        console.log("  Arbiter:  JUDGE_ROLE");
-        console.log("  Steward:  JUDGE_ROLE");
+        console.log("  Arbiter:  WATCHER_ROLE + JUDGE_ROLE");
+        console.log("  Steward:  WATCHER_ROLE + JUDGE_ROLE");
         console.log("");
         console.log("Protocol is fully operational.");
     }

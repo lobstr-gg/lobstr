@@ -168,3 +168,7 @@ Shared cron scripts in `packages/agents/shared/cron/` run scheduled tasks (dispu
 GitHub Actions (`.github/workflows/`):
 - **ci.yml**: On PR → `forge build` + `forge test -vvv` for contracts, pnpm build + typecheck for web
 - **deploy.yml**: On push to main → Firebase Hosting (web), Railway (indexer + agent-memory)
+
+## Commit Style
+
+- Never include Co-Authored-By Claude lines in commit messages.
