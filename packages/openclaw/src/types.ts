@@ -81,7 +81,7 @@ export interface ContractAddresses {
   airdropClaimV2: string;
   treasuryGovernor: string;
   sybilGuard: string;
-  // V3 contracts
+  // V4 contracts
   x402CreditFacility?: string;
   rewardDistributor?: string;
   loanEngine?: string;
