@@ -50,7 +50,7 @@ fi
 
 # Export consensus config from environment (non-secret values)
 export LOBSTR_MEMORY_URL="${LOBSTR_MEMORY_URL:-}"
-export CRUZ_DISCORD_USER_ID="${CRUZ_DISCORD_USER_ID:-}"
+export ADMIN_DISCORD_USER_ID="${ADMIN_DISCORD_USER_ID:-}"
 export CONSENSUS_CHANNEL_ID="${CONSENSUS_CHANNEL_ID:-}"
 
 # ── 2. Verify workspace ────────────────────────────────────────────────
@@ -70,7 +70,7 @@ echo "[entrypoint] Workspace verified at ${WORKSPACE_DIR}"
 
 # ── 3. Export env vars for cron jobs (cron doesn't inherit env) ────────
 # Exclude secrets (PASSWORD, SECRET, KEY) — cron jobs read those from /run/secrets
-printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|CONSENSUS_|CRUZ_|PATH=)' \
+printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|CONSENSUS_|ADMIN_|PATH=)' \
   | grep -viE '(PASSWORD|SECRET|PRIVATE_KEY)' \
   > /tmp/agent-env || true
 

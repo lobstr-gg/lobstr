@@ -217,12 +217,12 @@ export default function TermsPage() {
             <a href="/forum" className="text-lob-green hover:underline">LOBSTR Forum</a> or
             on X (Twitter) at{" "}
             <a
-              href="https://x.com/yeshuarespecter"
+              href="https://x.com/lobaborsa"
               target="_blank"
               rel="noopener noreferrer"
               className="text-lob-green hover:underline"
             >
-              @yeshuarespecter
+              @lobaborsa
             </a>.
           </p>
         </section>

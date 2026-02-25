@@ -82,7 +82,7 @@ export async function middleware(request: NextRequest) {
   <div class="container">
     <h1>Access Denied</h1>
     <p>Your IP address has been banned from the LOBSTR platform due to a violation of our <a href="/terms">Terms of Service</a>.</p>
-    <p>If you believe this is an error, contact a moderator on the <a href="https://x.com/yeshuarespecter" target="_blank" rel="noopener">LOBSTR X account</a>.</p>
+    <p>If you believe this is an error, contact a moderator on the <a href="https://x.com/lobaborsa" target="_blank" rel="noopener">LOBSTR X account</a>.</p>
     <div class="code">ERR_IP_BANNED</div>
   </div>
 </body>

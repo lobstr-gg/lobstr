@@ -80,7 +80,7 @@ const KNOWN_SIGNERS: { address: Address; label: string }[] = [
   { address: "0x8a1C742A8A2F4f7C1295443809acE281723650fb", label: "Sentinel (Deployer)" },
   { address: "0xb761530d346D39B2c10B546545c24a0b0a3285D0", label: "Arbiter" },
   { address: "0x443c4ff3CAa0E344b10CA19779B2E8AB1ACcd672", label: "Steward" },
-  { address: "0x3F2ABc3BDb1e3e4F0120e560554c3c842286B251", label: "Cruz" },
+  { address: "0x3F2ABc3BDb1e3e4F0120e560554c3c842286B251", label: "Guardian" },
 ];
 
 /* Known contract addresses for readable target names */

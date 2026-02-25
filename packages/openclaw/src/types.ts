@@ -30,7 +30,7 @@ export interface DiscordConfig {
   status?: 'online' | 'idle' | 'dnd';
   activity?: string;
   // Consensus
-  cruzDiscordUserId?: string;
+  adminDiscordUserId?: string;
 }
 
 export interface AgentConfig {
