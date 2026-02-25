@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { keccak256, toBytes, parseAbi, type Address } from "viem";
+import { keccak256, toBytes, parseAbi, encodeFunctionData, type Address } from "viem";
 import {
   ensureWorkspace,
   createPublicClient,
@@ -9,7 +9,7 @@ import {
 } from "openclaw";
 import * as ui from "openclaw";
 
-// Minimal ABI for AccessControl + Pausable
+// Minimal ABI for AccessControl + Pausable + Ownable + UUPS
 const ACCESS_CONTROL_ABI = parseAbi([
   "function grantRole(bytes32 role, address account)",
   "function revokeRole(bytes32 role, address account)",
@@ -19,6 +19,11 @@ const ACCESS_CONTROL_ABI = parseAbi([
   "function pause()",
   "function unpause()",
   "function paused() view returns (bool)",
+  "function owner() view returns (address)",
+  "function transferOwnership(address newOwner)",
+  "function renounceOwnership()",
+  "function upgradeTo(address newImplementation)",
+  "function upgradeToAndCall(address newImplementation, bytes data)",
 ]);
 
 // Map of contract name -> config key for getContractAddress
@@ -372,6 +377,273 @@ export function registerAdminCommands(program: Command): void {
 
         spin.succeed("Contract status");
         ui.table(["Contract", "Address", "Status"], results);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── transfer-ownership ─────────────────────────────
+
+  admin
+    .command("transfer-ownership")
+    .description("Transfer ownership of a contract to a new address")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--new-owner <address>", "Address of the new owner")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey as any);
+        const newOwner = opts.newOwner as Address;
+
+        // Check current owner
+        let currentOwner: string;
+        try {
+          currentOwner = await publicClient.readContract({
+            address: contractAddr,
+            abi: ACCESS_CONTROL_ABI,
+            functionName: "owner",
+          }) as string;
+          ui.info(`Current owner: ${currentOwner}`);
+        } catch {
+          ui.error(`${opts.contract} does not have an owner() function (not Ownable)`);
+          process.exit(1);
+        }
+
+        const spin = ui.spinner(`Transferring ownership to ${newOwner.slice(0, 10)}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "transferOwnership",
+          args: [newOwner],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed("Ownership transferred");
+        ui.info(`Contract: ${opts.contract} (${contractAddr})`);
+        ui.info(`New owner: ${newOwner}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── renounce-ownership ─────────────────────────────
+
+  admin
+    .command("renounce-ownership")
+    .description("Renounce ownership of a contract (irreversible — no future owner)")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey as any);
+
+        const spin = ui.spinner(`Renouncing ownership of ${opts.contract}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: "renounceOwnership",
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`Ownership renounced on ${opts.contract} — contract is now ownerless`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── upgrade ────────────────────────────────────────
+
+  admin
+    .command("upgrade")
+    .description("Upgrade a UUPS proxy contract to a new implementation")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--implementation <address>", "Address of the new implementation contract")
+    .option("--calldata <hex>", "Initialization calldata for upgradeToAndCall (0x...)")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey as any);
+        const newImpl = opts.implementation as Address;
+
+        // Verify implementation has code
+        const code = await publicClient.getCode({ address: newImpl });
+        if (!code || code === "0x") {
+          ui.error(`No contract code at ${newImpl} — is the implementation deployed?`);
+          process.exit(1);
+        }
+
+        let tx: `0x${string}`;
+        if (opts.calldata) {
+          const spin = ui.spinner(`Upgrading ${opts.contract} to ${newImpl.slice(0, 10)}... (with init call)`);
+          tx = await walletClient.writeContract({
+            address: contractAddr,
+            abi: ACCESS_CONTROL_ABI,
+            functionName: "upgradeToAndCall",
+            args: [newImpl, opts.calldata as `0x${string}`],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: tx });
+          spin.succeed(`${opts.contract} upgraded with initialization`);
+        } else {
+          const spin = ui.spinner(`Upgrading ${opts.contract} to ${newImpl.slice(0, 10)}...`);
+          tx = await walletClient.writeContract({
+            address: contractAddr,
+            abi: ACCESS_CONTROL_ABI,
+            functionName: "upgradeTo",
+            args: [newImpl],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: tx });
+          spin.succeed(`${opts.contract} upgraded`);
+        }
+
+        ui.info(`Contract: ${opts.contract} (${contractAddr})`);
+        ui.info(`New implementation: ${newImpl}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── call ───────────────────────────────────────────
+
+  admin
+    .command("call")
+    .description("Execute an arbitrary function call on a LOBSTR contract")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--signature <sig>", 'Function signature, e.g. "setFee(uint256)"')
+    .option("--args <values>", "Space-separated arguments")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(ws.config, ws.path);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey as any);
+        const sig = opts.signature.trim();
+        const rawArgs = (opts.args || "").trim();
+        const argValues = rawArgs ? rawArgs.split(/\s+/) : [];
+
+        // Parse argument types from signature to cast values
+        const typeMatch = sig.match(/\(([^)]*)\)/);
+        const types = typeMatch && typeMatch[1] ? typeMatch[1].split(",").map((t: string) => t.trim()) : [];
+
+        const castArgs = argValues.map((val: string, i: number) => {
+          const type = types[i] || "";
+          if (type.startsWith("uint") || type.startsWith("int")) return BigInt(val);
+          if (type === "bool") return val === "true";
+          return val; // address, bytes, string — pass as-is
+        });
+
+        const funcName = sig.split("(")[0];
+        const abi = parseAbi([`function ${sig}`]);
+
+        const spin = ui.spinner(`Calling ${funcName} on ${opts.contract}...`);
+        const tx = await walletClient.writeContract({
+          address: contractAddr,
+          abi,
+          functionName: funcName,
+          args: castArgs.length > 0 ? castArgs : undefined,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+
+        spin.succeed(`${funcName} executed on ${opts.contract}`);
+        ui.info(`Contract: ${opts.contract} (${contractAddr})`);
+        ui.info(`Function: ${sig}`);
+        if (rawArgs) ui.info(`Args: ${rawArgs}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── read ───────────────────────────────────────────
+
+  admin
+    .command("read")
+    .description("Read a view/pure function on a LOBSTR contract")
+    .requiredOption("--contract <name>", `Contract name: ${Object.keys(CONTRACT_MAP).join(", ")}`)
+    .requiredOption("--signature <sig>", 'Function signature, e.g. "owner() returns (address)"')
+    .option("--args <values>", "Space-separated arguments")
+    .action(async (opts) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+
+        const configKey = CONTRACT_MAP[opts.contract];
+        if (!configKey) {
+          ui.error(`Unknown contract: ${opts.contract}. Options: ${Object.keys(CONTRACT_MAP).join(", ")}`);
+          process.exit(1);
+        }
+
+        const contractAddr = getContractAddress(ws.config, configKey as any);
+        const sig = opts.signature.trim();
+        const rawArgs = (opts.args || "").trim();
+        const argValues = rawArgs ? rawArgs.split(/\s+/) : [];
+
+        // Ensure it's marked as view for parseAbi
+        const abiSig = sig.includes("view") || sig.includes("pure") ? sig : sig.replace(")", ") view");
+        const typeMatch = sig.match(/\(([^)]*)\)/);
+        const types = typeMatch && typeMatch[1] ? typeMatch[1].split(",").map((t: string) => t.trim()) : [];
+
+        const castArgs = argValues.map((val: string, i: number) => {
+          const type = types[i] || "";
+          if (type.startsWith("uint") || type.startsWith("int")) return BigInt(val);
+          if (type === "bool") return val === "true";
+          return val;
+        });
+
+        const funcName = sig.split("(")[0];
+        const abi = parseAbi([`function ${abiSig}`]);
+
+        const spin = ui.spinner(`Reading ${funcName} on ${opts.contract}...`);
+        const result = await publicClient.readContract({
+          address: contractAddr,
+          abi,
+          functionName: funcName,
+          args: castArgs.length > 0 ? castArgs : undefined,
+        });
+
+        spin.succeed(`${funcName} on ${opts.contract}`);
+        ui.info(`Result: ${String(result)}`);
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);
