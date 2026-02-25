@@ -19137,7 +19137,7 @@ export const LightningGovernorABI = [
   }
 ] as const;
 
-export const AirdropClaimV3ABI = [
+export const AirdropClaimABI = [
   {
     "type": "constructor",
     "inputs": [],
@@ -33213,4 +33213,4 @@ export const AffiliateManagerABI = [
   }
 ] as const;
 
-export { AirdropClaimV3ABI as AirdropClaimABI };
+// AirdropClaimABI exported inline above

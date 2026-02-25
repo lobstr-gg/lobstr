@@ -3,14 +3,14 @@
 import { useReadContract, useWriteContract, useAccount } from "wagmi";
 import { type Address } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
-import { AirdropClaimV3ABI as AirdropClaimABI } from "@/config/abis";
+import { AirdropClaimABI } from "@/config/abis";
 
 function useContracts() {
   return getContracts(CHAIN.id);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  Milestone enum (matches IAirdropClaimV3.Milestone)
+//  Milestone enum (matches IAirdropClaim.Milestone)
 // ═══════════════════════════════════════════════════════════════════════
 
 export enum Milestone {

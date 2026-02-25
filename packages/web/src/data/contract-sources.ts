@@ -2400,8 +2400,8 @@ contract AirdropClaim is IAirdropClaim, AccessControl, ReentrancyGuard, Pausable
 }`,
   },
   {
-    name: "AirdropClaimV2",
-    fileName: "AirdropClaimV2.sol",
+    name: "AirdropClaim",
+    fileName: "AirdropClaim.sol",
     description:
       "V2 airdrop with Groth16 zero-knowledge proof verification for Sybil-resistant distribution.",
     lines: 233,

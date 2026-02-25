@@ -79,7 +79,7 @@ const FAQ = [
   },
   {
     q: "What happens to unclaimed tokens?",
-    a: "Unclaimed tokens remain in the AirdropClaimV3 contract. The claim window is set at deployment. After it closes, no new claims can be submitted. Milestone completions have no deadline -- they can be triggered at any time after claiming.",
+    a: "Unclaimed tokens remain in the AirdropClaim contract. The claim window is set at deployment. After it closes, no new claims can be submitted. Milestone completions have no deadline -- they can be triggered at any time after claiming.",
   },
 ];
 

@@ -38,7 +38,7 @@ export function useProtocolMetrics() {
     },
   });
 
-  // On-chain: AirdropClaimV3.totalClaimed()
+  // On-chain: AirdropClaim.totalClaimed()
   const airdropClaimed = useReadContract({
     address: contracts?.airdropClaim,
     abi: AirdropClaimABI,

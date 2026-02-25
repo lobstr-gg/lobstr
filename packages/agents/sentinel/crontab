@@ -25,3 +25,9 @@
 # V3 cron jobs
 15 */4 * * *  /opt/cron/reward-claimer.sh         # MEDIUM: every 4 hours at :15
 30 */6 * * *  /opt/cron/insurance-monitor.sh       # LOW: every 6 hours at :30
+
+# Anti-gaming monitoring (Sentinel = moderator-primary → mod-activity & collusion at HIGH)
+0 */6 * * *   /opt/cron/collusion-scan.sh >> /var/log/agent/collusion-scan.log 2>&1       # HIGH: every 6 hours
+0 */12 * * *  /opt/cron/mod-activity.sh >> /var/log/agent/mod-activity.log 2>&1            # HIGH: every 12 hours
+0 3 * * 1     /opt/cron/arb-health.sh >> /var/log/agent/arb-health.log 2>&1               # MEDIUM: weekly Monday 03:00
+0 4 * * 1     /opt/cron/vote-pattern.sh >> /var/log/agent/vote-pattern.log 2>&1            # MEDIUM: weekly Monday 04:00

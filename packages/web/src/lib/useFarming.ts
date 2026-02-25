@@ -4,10 +4,15 @@ import { useReadContract, useWriteContract } from "wagmi";
 import { type Address } from "viem";
 
 import { getContracts, CHAIN } from "@/config/contracts";
+import { ZERO_ADDRESS } from "@/config/contract-addresses";
 import { LiquidityMiningABI, LOBTokenABI } from "@/config/abis";
 
 function useContracts() {
   return getContracts(CHAIN.id);
+}
+
+function isFarmingLive(contracts: ReturnType<typeof useContracts>) {
+  return !!contracts && contracts.liquidityMining !== ZERO_ADDRESS;
 }
 
 // ── READ hooks ──────────────────────────────────────────────────────────
@@ -20,7 +25,7 @@ export function useLPEarned(user?: `0x${string}`) {
     abi: LiquidityMiningABI,
     functionName: "earned",
     args: user ? [user] : undefined,
-    query: { enabled: !!user && !!contracts },
+    query: { enabled: !!user && isFarmingLive(contracts) },
   });
 }
 
@@ -32,7 +37,7 @@ export function useLPBalance(user?: `0x${string}`) {
     abi: LiquidityMiningABI,
     functionName: "balanceOf",
     args: user ? [user] : undefined,
-    query: { enabled: !!user && !!contracts },
+    query: { enabled: !!user && isFarmingLive(contracts) },
   });
 }
 
@@ -43,7 +48,7 @@ export function useLPTotalSupply() {
     address: contracts?.liquidityMining,
     abi: LiquidityMiningABI,
     functionName: "totalSupply",
-    query: { enabled: !!contracts },
+    query: { enabled: isFarmingLive(contracts) },
   });
 }
 
@@ -55,7 +60,7 @@ export function useBoostMultiplier(user?: `0x${string}`) {
     abi: LiquidityMiningABI,
     functionName: "getBoostMultiplier",
     args: user ? [user] : undefined,
-    query: { enabled: !!user && !!contracts },
+    query: { enabled: !!user && isFarmingLive(contracts) },
   });
 }
 
@@ -66,7 +71,7 @@ export function useLPRewardRate() {
     address: contracts?.liquidityMining,
     abi: LiquidityMiningABI,
     functionName: "rewardRate",
-    query: { enabled: !!contracts },
+    query: { enabled: isFarmingLive(contracts) },
   });
 }
 
@@ -77,7 +82,7 @@ export function useLPPeriodFinish() {
     address: contracts?.liquidityMining,
     abi: LiquidityMiningABI,
     functionName: "periodFinish",
-    query: { enabled: !!contracts },
+    query: { enabled: isFarmingLive(contracts) },
   });
 }
 
@@ -88,7 +93,7 @@ export function useLPTokenAddress() {
     address: contracts?.liquidityMining,
     abi: LiquidityMiningABI,
     functionName: "lpToken",
-    query: { enabled: !!contracts },
+    query: { enabled: isFarmingLive(contracts) },
   });
 }
 
@@ -111,7 +116,7 @@ export function useLPAllowance(owner?: `0x${string}`, lpTokenAddress?: Address) 
     abi: LOBTokenABI, // ERC-20 compatible
     functionName: "allowance",
     args: owner && contracts ? [owner, contracts.liquidityMining] : undefined,
-    query: { enabled: !!owner && !!lpTokenAddress && !!contracts },
+    query: { enabled: !!owner && !!lpTokenAddress && isFarmingLive(contracts) },
   });
 }
 
@@ -122,12 +127,12 @@ export function useApproveLPToken() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
   const fn = async (lpTokenAddress: Address, amount: bigint) => {
-    if (!contracts) throw new Error("Contracts not loaded");
+    if (!isFarmingLive(contracts)) throw new Error("LP farming is not yet available");
     return writeContractAsync({
       address: lpTokenAddress,
       abi: LOBTokenABI, // ERC-20 compatible
       functionName: "approve",
-      args: [contracts.liquidityMining, amount],
+      args: [contracts!.liquidityMining, amount],
     });
   };
   return { fn, isPending, isError, error, reset };
@@ -138,9 +143,9 @@ export function useStakeLP() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
   const fn = async (amount: bigint) => {
-    if (!contracts) throw new Error("Contracts not loaded");
+    if (!isFarmingLive(contracts)) throw new Error("LP farming is not yet available");
     return writeContractAsync({
-      address: contracts.liquidityMining as Address,
+      address: contracts!.liquidityMining as Address,
       abi: LiquidityMiningABI,
       functionName: "stake",
       args: [amount],
@@ -154,9 +159,9 @@ export function useWithdrawLP() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
   const fn = async (amount: bigint) => {
-    if (!contracts) throw new Error("Contracts not loaded");
+    if (!isFarmingLive(contracts)) throw new Error("LP farming is not yet available");
     return writeContractAsync({
-      address: contracts.liquidityMining as Address,
+      address: contracts!.liquidityMining as Address,
       abi: LiquidityMiningABI,
       functionName: "withdraw",
       args: [amount],
@@ -170,9 +175,9 @@ export function useGetLPReward() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
   const fn = async () => {
-    if (!contracts) throw new Error("Contracts not loaded");
+    if (!isFarmingLive(contracts)) throw new Error("LP farming is not yet available");
     return writeContractAsync({
-      address: contracts.liquidityMining as Address,
+      address: contracts!.liquidityMining as Address,
       abi: LiquidityMiningABI,
       functionName: "getReward",
     });
@@ -185,9 +190,9 @@ export function useExitLP() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
   const fn = async () => {
-    if (!contracts) throw new Error("Contracts not loaded");
+    if (!isFarmingLive(contracts)) throw new Error("LP farming is not yet available");
     return writeContractAsync({
-      address: contracts.liquidityMining as Address,
+      address: contracts!.liquidityMining as Address,
       abi: LiquidityMiningABI,
       functionName: "exit",
     });
@@ -200,9 +205,9 @@ export function useEmergencyWithdraw() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
   const fn = async () => {
-    if (!contracts) throw new Error("Contracts not loaded");
+    if (!isFarmingLive(contracts)) throw new Error("LP farming is not yet available");
     return writeContractAsync({
-      address: contracts.liquidityMining as Address,
+      address: contracts!.liquidityMining as Address,
       abi: LiquidityMiningABI,
       functionName: "emergencyWithdraw",
     });

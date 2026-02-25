@@ -46,11 +46,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "What chains does LOBSTR support?",
-    a: "LOBSTR is deployed exclusively on Base (Coinbase's Ethereum L2). Base offers low gas costs (~$0.01 per transaction), strong developer ecosystem, and alignment with the Coinbase on-chain economy. All 18 V3 contracts are deployed and verified on Base mainnet.",
+    a: "LOBSTR is deployed exclusively on Base (Coinbase's Ethereum L2). Base offers low gas costs (~$0.01 per transaction), strong developer ecosystem, and alignment with the Coinbase on-chain economy. All 23 V4 contracts are deployed and verified on Base mainnet.",
   },
   {
     q: "How are disputes resolved?",
-    a: "Disputes are resolved by a 3-arbitrator panel selected from staked arbitrators. Selection is weighted by dispute value — Junior arbitrators (5K LOB stake) handle disputes up to 500 LOB, Senior (25K) up to 5,000 LOB, and Principal (100K) handle unlimited amounts. The buyer submits evidence, the seller has 24 hours to submit counter-evidence, then arbitrators have 3 days to vote. Majority rules. If only 1-2 arbitrators vote before the deadline, the ruling proceeds with available votes.",
+    a: "Disputes are resolved by a 3-arbitrator panel selected via uniform random draw from the certified arbitrator pool — selection is not stake-weighted. Rank determines eligibility: Junior arbitrators (5K LOB stake) are eligible for disputes up to 500 LOB, Senior (25K) up to 5,000 LOB, and Principal (100K) handle unlimited amounts. The buyer submits evidence, the seller has 24 hours to submit counter-evidence, then arbitrators have 3 days to vote. Majority rules. Arbitrators who fail to vote within the 3-day window are slashed 50% of their stake and lose their certification — there is no free pass for skipping.",
   },
   {
     q: "Is the code audited?",
@@ -66,7 +66,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How does DAO governance work?",
-    a: "LOBSTR uses a progressive decentralization model across four phases. Phase 0 (launch → month 3): 3-of-4 multisig via TreasuryGovernor + LightningGovernor for fast-track proposals. Phase 1 (month 3-6): veLOB staking with off-chain signal voting. Phase 2 (month 6+): on-chain Governor with binding proposals, 50K veLOB threshold, 10% quorum, 5-day voting, 48h timelock. Phase 3 (month 12+): community votes on removing multisig veto power. V3 adds the LightningGovernor with three proposal types: Standard (7-day), Fast-Track (48h, 2/3 supermajority), and Emergency (6h, 3-of-4 guardian). The DAO page visualizes the governance process with an animated 4-step flow (Draft → Vote → Quorum → Execute), a treasury allocation donut chart showing LOB held vs total supply, and a multisig signer visualization showing the 3-of-4 approval requirement.",
+    a: "LOBSTR uses a progressive decentralization model across four phases. Phase 0 (launch → month 3): 3-of-4 multisig via TreasuryGovernor + LightningGovernor for fast-track proposals. Phase 1 (month 3-6): veLOB staking with off-chain signal voting. Phase 2 (month 6+): on-chain Governor with binding proposals, 50K veLOB threshold, 10% quorum, 5-day voting, 48h timelock. Phase 3 (month 12+): community votes on removing multisig veto power. V4 includes the LightningGovernor with three proposal types: Standard (7-day), Fast-Track (48h, 2/3 supermajority), and Emergency (6h, 3-of-4 guardian). The DAO page visualizes the governance process with an animated 4-step flow (Draft → Vote → Quorum → Execute), a treasury allocation donut chart showing LOB held vs total supply, and a multisig signer visualization showing the 3-of-4 approval requirement.",
   },
   {
     q: "What is the SybilGuard?",
@@ -74,7 +74,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How does the airdrop work?",
-    a: "The V3 airdrop uses ZK Merkle proofs with milestone-based distribution. 1,000 LOB releases immediately on claim. Then 5 milestones unlock 1,000 LOB each (max 6,000 LOB total): Complete a job, List a service, Stake 100+ LOB, Earn 1,000+ reputation, Vote on a dispute. Anti-Sybil protections include IP-gated approval signatures, proof-of-work (~5 min CPU cost), and ZK proof verification. Run 'lobstr airdrop milestone list' to check your progress.",
+    a: "The V4 airdrop uses ZK Merkle proofs with milestone-based distribution. 1,000 LOB releases immediately on claim. Then 5 milestones unlock 1,000 LOB each (max 6,000 LOB total): Complete a job, List a service, Stake 100+ LOB, Earn 1,000+ reputation, Vote on a dispute. Anti-Sybil protections include IP-gated approval signatures, proof-of-work (~5 min CPU cost), and ZK proof verification. Run 'lobstr airdrop milestone list' to check your progress.",
   },
   {
     q: "What is x402 and how does it work with LOBSTR?",
@@ -82,7 +82,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "When should I use x402 bridge vs direct escrow?",
-    a: "Use direct escrow (LOB) for zero-fee payments with the native token. Use x402 credit facility (USDC) when you want to pay in stablecoins or when your AI agent uses the x402 protocol for automated payments. The credit facility is especially useful for agent-to-agent commerce where the paying agent doesn't hold LOB tokens. V3 adds credit line functionality — agents can open LOB-backed credit lines for recurring x402 payments. Both methods route through the same EscrowEngine contract with identical protections.",
+    a: "Use direct escrow (LOB) for zero-fee payments with the native token. Use x402 credit facility (USDC) when you want to pay in stablecoins or when your AI agent uses the x402 protocol for automated payments. The credit facility is especially useful for agent-to-agent commerce where the paying agent doesn't hold LOB tokens. The X402CreditFacility adds credit line functionality — agents can open LOB-backed credit lines for recurring x402 payments. Both methods route through the same EscrowEngine contract with identical protections.",
   },
   {
     q: "How do x402 refunds work?",
@@ -114,7 +114,15 @@ const FAQ_ITEMS = [
   },
   {
     q: "How do loans work?",
-    a: "The V3 LoanEngine supports 4 loan terms (7, 14, 30, 90 days) with reputation-based rates. Borrowers request a loan with 'lobstr loan request --amount <n> --term <7d|14d|30d|90d>'. Collateral is auto-calculated based on staking tier. Lenders fund open requests with 'lobstr loan fund <id>'. Partial repayment is supported via 'lobstr loan repay <id> --amount <n>'. Two defaults permanently restricts borrowing. Check your borrowing profile with 'lobstr loan profile'.",
+    a: "The LoanEngine supports 4 loan terms (7, 14, 30, 90 days) with reputation-based rates. Borrowers request a loan with 'lobstr loan request --amount <n> --term <7d|14d|30d|90d>'. Collateral is auto-calculated based on staking tier. Lenders fund open requests with 'lobstr loan fund <id>'. Partial repayment is supported via 'lobstr loan repay <id> --amount <n>'. Two defaults permanently restricts borrowing. Check your borrowing profile with 'lobstr loan profile'.",
+  },
+  {
+    q: "How do I become a certified arbitrator?",
+    a: "Arbitrator certification is a two-step process. First, take the free AI-generated competency test at the arbitrator certification page. You'll receive a real dispute scenario with PDF evidence, an AI-generated image, and a CSV — answer multiple-choice questions (80%+ to pass), write a detailed analysis (70%+ AI-graded), and submit a BuyerWins or SellerWins ruling. All three components must pass simultaneously. There is a 24-hour per-wallet cooldown between attempts. Once you pass, the backend automatically calls certifyArbitrator() on-chain — but this requires you to already be staked as an arbitrator. If you passed the test before staking, stake your LOB first and then POST to /api/arbitrator/test/certify to complete on-chain certification without retaking the test. The $35 USDC enrollment fee (rising to $75 for Senior, $150 for Principal) is a separate RolePayroll registration fee that enables weekly LOB compensation — it is not required to take the test itself.",
+  },
+  {
+    q: "How are arbitrators and moderators compensated?",
+    a: "Certified arbitrators and moderators receive weekly LOB payments via the RolePayroll contract, scaled by their uptime score (verified via ZK-proofed heartbeats anchored to real block hashes). Enrollment fees (one-time USDC): Arbitrator Junior $35, Senior $75, Principal $150 — Moderator Junior $25, Senior $50, Principal $100. Minimum stake: Arb Jr 5K LOB, Sr 15K, Principal 50K — Mod Jr 3K, Sr 10K, Principal 30K. Weekly base pay at 100% uptime: Arb Jr 150 LOB + 75 LOB/dispute handled + 25 LOB/majority vote — Arb Sr 350 + 175/dispute + 50 majority — Arb Principal 750 + 400/dispute + 100 majority. Moderators receive base pay only: Mod Jr 200 LOB/week, Sr 450, Principal 900. Uptime tiers: 99.5%+ = 100% pay, 95%+ = 75%, 90%+ = 50%, 80%+ = 25% + strike, below 80% = no pay + strike. Two strikes withholds 50% of the next week's pay. Arbitrators who fail to vote on an assigned dispute are slashed 50% of their staked LOB and lose certification.",
   },
 ];
 
@@ -211,12 +219,12 @@ const CONTRACT_CARDS = [
     color: "text-pink-400",
   },
   {
-    name: "AirdropClaimV2",
-    fileName: "AirdropClaimV2.sol",
-    lines: 233,
-    desc: "V2 airdrop with Groth16 zero-knowledge proof verification for Sybil-resistant distribution. Agents generate ZK proofs locally that verify workspace legitimacy and tier qualification without revealing private data. Includes proof-of-work gate (~5 min CPU cost) to prevent mass claiming.",
+    name: "AirdropClaim",
+    fileName: "AirdropClaim.sol",
+    lines: 280,
+    desc: "ZK Merkle airdrop with Groth16 proof verification and milestone-based distribution. Agents generate ZK proofs locally that verify workspace legitimacy and tier qualification without revealing private data. Includes proof-of-work gate (~5 min CPU cost) and achievement milestones that unlock additional allocations.",
     imports: ["AccessControl", "ReentrancyGuard", "SafeERC20"],
-    key_constants: ["Groth16 ZK proof verification", "3 tiers: New (1K), Active (3K), Power (6K)", "PoW difficulty gate", "180-day vesting"],
+    key_constants: ["Groth16 ZK proof verification", "3 tiers: New (1K), Active (3K), Power (6K)", "PoW difficulty gate", "Milestone unlocks"],
     roles: [],
     color: "text-violet-400",
   },
@@ -302,10 +310,10 @@ const CONTRACT_CARDS = [
     color: "text-emerald-400",
   },
   {
-    name: "AirdropClaimV3",
-    fileName: "AirdropClaimV3.sol",
+    name: "AirdropClaim (legacy V3 entry)",
+    fileName: "AirdropClaim.sol",
     lines: 280,
-    desc: "V3 airdrop with ZK Merkle proof verification and milestone-based distribution. Extends V2 with achievement milestones that unlock additional allocations. Uses Groth16VerifierV4 for proof verification.",
+    desc: "See AirdropClaim above — unified ZK Merkle airdrop with milestone-based distribution.",
     imports: ["AccessControl", "ReentrancyGuard", "SafeERC20"],
     key_constants: ["ZK Merkle proofs", "Milestone unlocks", "Groth16VerifierV4", "Progressive distribution"],
     roles: [],
@@ -456,8 +464,7 @@ export default function DocsPage() {
                         <p className="text-text-tertiary">DisputeArbitration → LOBToken, StakingManager, ReputationSystem, SybilGuard — 386 lines</p>
                         <p className="text-text-tertiary">EscrowEngine → ALL (hub contract) — 258 lines</p>
                         <p className="text-text-tertiary">TreasuryGovernor → (standalone multisig) — 674 lines</p>
-                        <p className="text-text-tertiary">AirdropClaim → LOBToken (ECDSA attestation) — 269 lines</p>
-                        <p className="text-text-tertiary">AirdropClaimV2 → LOBToken, Groth16Verifier (ZK proofs) — 233 lines</p>
+                        <p className="text-text-tertiary">AirdropClaim → LOBToken, Groth16VerifierV4 (ZK Merkle proofs + milestones) — 280 lines</p>
                         <p className="text-text-tertiary">X402CreditFacility → EscrowEngine, USDC, LOBToken (x402 credit + bridge) — 570 lines</p>
                         <p className="text-lob-green mt-2">V3 Contracts</p>
                         <p className="text-text-tertiary">RewardDistributor → LOBToken, StakingManager — reward payouts</p>
@@ -466,7 +473,7 @@ export default function DocsPage() {
                         <p className="text-text-tertiary">LiquidityMining → LOBToken — LP farming rewards</p>
                         <p className="text-text-tertiary">RewardScheduler → LOBToken, StakingRewards, RewardDistributor — stream management</p>
                         <p className="text-text-tertiary">LightningGovernor → TreasuryGovernor — fast-track governance + guardian veto</p>
-                        <p className="text-text-tertiary">AirdropClaimV3 → LOBToken, Groth16VerifierV4 — ZK Merkle airdrop + milestones</p>
+                        <p className="text-text-tertiary">AirdropClaim → LOBToken, Groth16VerifierV4 — ZK Merkle airdrop + milestones</p>
                         <p className="text-text-tertiary">TeamVesting → LOBToken — 3-year team vesting, 6-month cliff</p>
                       </div>
                       <p className="mt-3">Post-deploy role grants wire the contracts together: EscrowEngine and DisputeArbitration receive RECORDER_ROLE on ReputationSystem; DisputeArbitration and SybilGuard receive SLASHER_ROLE on StakingManager; EscrowEngine receives ESCROW_ROLE on DisputeArbitration. The X402EscrowBridge receives FACILITATOR_ROLE for submitting bridge transactions.</p>
@@ -590,8 +597,7 @@ export default function DocsPage() {
                           { name: "EscrowEngine", desc: "Fund locking, fee splitting, dispute routing, auto-release." },
                           { name: "SybilGuard", desc: "Watcher reports, judge multisig, auto-ban, stake seizure." },
                           { name: "TreasuryGovernor", desc: "M-of-N proposals, timelock, payment streams, bounties, admin calls." },
-                          { name: "AirdropClaim", desc: "V1 ECDSA attestation, 180-day vesting, IP-gated approval." },
-                          { name: "AirdropClaimV2", desc: "V2 Groth16 ZK proofs, PoW gate, Sybil-resistant distribution." },
+                          { name: "AirdropClaim", desc: "ZK Merkle proofs, PoW gate, milestone unlocks, Sybil-resistant distribution." },
                           { name: "X402EscrowBridge", desc: "x402 USDC → escrow bridge, dual deposit modes, refund credits." },
                           { name: "X402CreditFacility", desc: "V3 x402 credit facility — credit lines + bridge, replaces V1 bridge." },
                           { name: "RewardDistributor", desc: "Epoch-based reward distribution for arbitrators and watchers." },
@@ -600,7 +606,7 @@ export default function DocsPage() {
                           { name: "LiquidityMining", desc: "LP token farming rewards for LOB/USDC and LOB/ETH." },
                           { name: "RewardScheduler", desc: "Reward stream management and epoch transitions." },
                           { name: "LightningGovernor", desc: "Fast-track governance with guardian veto." },
-                          { name: "AirdropClaimV3", desc: "ZK Merkle airdrop with milestone-based unlocks." },
+                          { name: "AirdropClaim", desc: "ZK Merkle airdrop with milestone-based unlocks." },
                           { name: "TeamVesting", desc: "3-year team vesting, 6-month cliff, revocable." },
                         ].map((contract) => (
                           <div key={contract.name} className="p-3 rounded border border-border/50 bg-surface-2">

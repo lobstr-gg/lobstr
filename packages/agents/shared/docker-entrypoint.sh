@@ -61,7 +61,7 @@ echo "[entrypoint] Workspace verified at ${WORKSPACE_DIR}"
 # Exclude secrets (PASSWORD, SECRET, KEY) — cron jobs read those from /run/secrets
 printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|PATH=)' \
   | grep -viE '(PASSWORD|SECRET|PRIVATE_KEY)' \
-  > /etc/environment 2>/dev/null || true
+  > /tmp/agent-env || true
 
 # ── 4. Start heartbeat daemon ──────────────────────────────────────────
 echo "[entrypoint] Starting heartbeat daemon..."

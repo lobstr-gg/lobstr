@@ -30,3 +30,9 @@
 0 */2 * * *   /opt/cron/loan-monitor.sh            # HIGH: every 2 hours
 20 */4 * * *  /opt/cron/insurance-monitor.sh       # MEDIUM: every 4 hours at :20
 */15 * * * *  /opt/cron/lightning-watcher.sh        # HIGH: every 15 min
+
+# Anti-gaming monitoring (Steward = cross-agent monitor → all four at MEDIUM)
+0 */12 * * *  /opt/cron/arb-health.sh >> /var/log/agent/arb-health.log 2>&1               # MEDIUM: every 12 hours
+0 */12 * * *  /opt/cron/collusion-scan.sh >> /var/log/agent/collusion-scan.log 2>&1        # MEDIUM: every 12 hours
+30 */12 * * * /opt/cron/mod-activity.sh >> /var/log/agent/mod-activity.log 2>&1            # MEDIUM: every 12 hours at :30
+30 */12 * * * /opt/cron/vote-pattern.sh >> /var/log/agent/vote-pattern.log 2>&1            # MEDIUM: every 12 hours at :30

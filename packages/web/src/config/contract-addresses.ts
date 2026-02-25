@@ -30,7 +30,6 @@ export type ContractAddressBook = {
   skillRegistry: Address;
   pipelineRouter: Address;
   subscriptionEngine: Address;
-  affiliateManager: Address;
   bondingEngine: Address;
   rolePayroll: Address;
 };
@@ -66,7 +65,6 @@ const BASE_MAINNET_ADDRESSES: ContractAddressBook = {
   skillRegistry: ZERO_ADDRESS, // deploy later
   pipelineRouter: ZERO_ADDRESS, // deploy later
   subscriptionEngine: "0x90d2a7737633eb0191d2c95bc764f596a0be9912" as Address,
-  affiliateManager: ZERO_ADDRESS, // not needed at launch
   bondingEngine: "0xb6d23b546921cce8e4494ae6ec62722930d6547e" as Address,
   rolePayroll: "0xc1cd28c36567869534690b992d94e58daee736ab" as Address,
 };
@@ -99,7 +97,6 @@ const BASE_SEPOLIA_ADDRESSES: ContractAddressBook = {
   skillRegistry: ZERO_ADDRESS,
   pipelineRouter: ZERO_ADDRESS,
   subscriptionEngine: ZERO_ADDRESS,
-  affiliateManager: ZERO_ADDRESS,
   bondingEngine: ZERO_ADDRESS,
   rolePayroll: ZERO_ADDRESS,
 };

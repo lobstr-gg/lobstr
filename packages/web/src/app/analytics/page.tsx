@@ -206,9 +206,9 @@ const CONTRACT_INFO: {
     desc: "ZK proof verification for privacy-preserving attestations",
   },
   {
-    name: "Airdrop Claim V2",
-    key: "AirdropClaimV2",
-    desc: "Merkle-proof airdrop with tiered allocations and claim window",
+    name: "Airdrop Claim",
+    key: "AirdropClaim",
+    desc: "ZK Merkle-proof airdrop with tiered allocations and milestone unlocks",
   },
 ];
 

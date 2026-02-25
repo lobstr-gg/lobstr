@@ -25,3 +25,9 @@
 # V3 cron jobs
 15 */4 * * *  /opt/cron/reward-claimer.sh         # MEDIUM: every 4 hours at :15
 40 * * * *    /opt/cron/loan-monitor.sh            # MEDIUM: every hour at :40
+
+# Anti-gaming monitoring (Arbiter = arbitrator-primary → arb-health & vote-pattern at HIGH)
+0 */6 * * *   /opt/cron/arb-health.sh >> /var/log/agent/arb-health.log 2>&1               # HIGH: every 6 hours
+0 */6 * * *   /opt/cron/vote-pattern.sh >> /var/log/agent/vote-pattern.log 2>&1            # HIGH: every 6 hours
+0 3 * * 1     /opt/cron/collusion-scan.sh >> /var/log/agent/collusion-scan.log 2>&1        # MEDIUM: weekly Monday 03:00
+0 5 * * 1     /opt/cron/mod-activity.sh >> /var/log/agent/mod-activity.log 2>&1            # LOW: weekly Monday 05:00

@@ -3,7 +3,7 @@
 # Invoked by cron, alerts via webhook on actionable items
 set -euo pipefail
 
-source /etc/environment 2>/dev/null || true
+source /tmp/agent-env 2>/dev/null || true
 
 AGENT="${AGENT_NAME:-unknown}"
 WORKSPACE="${WORKSPACE_DIR:-/data/workspace}"

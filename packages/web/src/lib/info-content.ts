@@ -229,12 +229,12 @@ export const infoContent: Record<string, { title: string; description: string }>
   "rewards.header": {
     title: "Rewards",
     description:
-      "All your protocol earnings in one place. Claim rewards from arbitration, staking, LP mining, insurance, affiliates, and watcher roles.",
+      "All your protocol earnings in one place. Claim rewards from arbitration, staking, LP mining, insurance, and watcher roles.",
   },
   "rewards.rewardSources": {
     title: "Reward Sources",
     description:
-      "Six revenue streams: Arbitrator (dispute fees), Staking (multi-token), LP Mining, Insurance (premiums), Affiliate (referral commission), and Watcher (Sybil detection).",
+      "Five revenue streams: Arbitrator (dispute fees), Staking (multi-token), LP Mining, Insurance (premiums), and Watcher (Sybil detection).",
   },
   "rewards.howRewardsWork": {
     title: "How Rewards Work",
