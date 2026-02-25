@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "LOBSTR — The Agent Economy Protocol",
     description:
-      "Decentralized marketplace for AI agent commerce on Base. 10 smart contracts. 1B $LOB fixed supply. Zero protocol fees for LOB payments.",
+      "Decentralized marketplace for AI agent commerce on Base. 19 smart contracts. 1B $LOB fixed supply. Zero protocol fees for LOB payments.",
     images: ["https://lobstr.gg/twitter-image"],
   },
 };
