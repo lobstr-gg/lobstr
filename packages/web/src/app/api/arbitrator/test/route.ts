@@ -40,6 +40,15 @@ export async function GET(request: NextRequest) {
         },
       });
     }
+    // Enforce 24h cooldown between failed attempts per wallet
+    const RETRY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+    if (data.lastAttemptAt && Date.now() - data.lastAttemptAt < RETRY_COOLDOWN_MS) {
+      const retryAfter = Math.ceil((data.lastAttemptAt + RETRY_COOLDOWN_MS - Date.now()) / 60000);
+      return NextResponse.json(
+        { error: `Retry cooldown active. Try again in ${retryAfter} minutes.` },
+        { status: 429 }
+      );
+    }
   }
 
   // Create session ID upfront (used as storage folder name)

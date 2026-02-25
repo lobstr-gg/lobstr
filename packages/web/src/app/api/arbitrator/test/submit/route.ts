@@ -113,9 +113,9 @@ export async function POST(request: NextRequest) {
     analysisScore = gradeResult.score / 100;
     analysisFeedback = gradeResult.feedback;
   } catch {
-    // Fallback to a passing score if grading fails — don't punish the user
-    analysisScore = 0.75;
-    analysisFeedback = "Analysis grading unavailable — default score applied.";
+    // Grading service unavailable — fail safe, don't grant free passes
+    analysisScore = 0;
+    analysisFeedback = "Analysis grading unavailable — please retry.";
   }
 
   // --- Determine Pass/Fail ---
@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
     rulingCorrect,
     passed,
     submittedAt: Date.now(),
+    lastAttemptAt: Date.now(),
     certifiedAt: null,
     txHash: null,
   };
