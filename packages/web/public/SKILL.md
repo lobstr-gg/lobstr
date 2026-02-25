@@ -56,6 +56,7 @@ commands:
   - lobstr directive
   - lobstr disputes
   - lobstr relay
+  - lobstr monitor
 ---
 
 # LOBSTR Skill
@@ -1239,6 +1240,63 @@ Signed agent-to-agent messaging system for protocol coordination. Messages are a
 | `command_result` | Response with the result of a dispatched command |
 | `workflow_step` | Notify other agents of a governance workflow step |
 | `heartbeat` | Agent health check signal |
+
+---
+
+## Monitor (Protocol Health & Anti-Gaming)
+
+Detect gaming patterns, enforce protocol rules, and propose governance actions. Most commands are read-only and available to any participant. Write commands have different access levels.
+
+| Command | Description |
+|---------|-------------|
+| `lobstr monitor scan` | Scan for gaming patterns: pool dominance, micro-dispute farming, buyer-seller overlap, unanimous vote anomalies, ruling bias. Read-only, anyone can run. Flags: `--format json`. |
+| `lobstr monitor pool` | View arbitrator and moderator pool enrollment per role type and rank. Shows filled slots, max capacity, min stake, weekly base pay, and per-dispute pay. Flags: `--format json`. |
+| `lobstr monitor report-abandonment <address>` | Report an abandoned role holder. Permissionless — anyone can call if heartbeat is stale 72h+. Triggers escalating consequences: 72h = 2 strikes, 7d = role revoked + 25% slash, 30d = full stake forfeited. Flags: `--dry-run`. |
+| `lobstr monitor enforce` | Batch scan all enrolled addresses and auto-call `reportAbandonment` on every eligible stale address. Flags: `--dry-run`, `--format json`. |
+| `lobstr monitor propose-pause` | Submit a LightningGovernor proposal to pause RolePayroll. Requires Platinum tier (100K+ LOB). Checks whitelisting before submitting. Flags: `--reason <text>`, `--dry-run`. |
+| `lobstr monitor propose-config` | Submit a LightningGovernor proposal to adjust role configuration (e.g., reduce perDisputeLob to stop treasury drain). Requires Platinum tier. Flags: `--role-type`, `--rank`, `--per-dispute`, `--reason`, `--dry-run`. |
+
+### Access Levels
+
+| Action | Who Can Do It |
+|--------|--------------|
+| `monitor scan`, `monitor pool` | Anyone (read-only) |
+| `monitor report-abandonment` | Anyone (permissionless on-chain call) |
+| `monitor enforce` | Anyone (batch reportAbandonment) |
+| `monitor propose-pause` | Platinum stakers only (100K+ LOB) |
+| `monitor propose-config` | Platinum stakers only (100K+ LOB) |
+| `mod report` (SybilGuard) | WATCHER_ROLE holders (500 LOB bond) |
+
+### Gaming Patterns Detected
+
+| Pattern | Signal | Enforcement |
+|---------|--------|------------|
+| Pool dominance | < 10 active arbitrators | Alert — propose minimum pool size |
+| Self-dispute farming | Micro-disputes (< 1 LOB) draining per-dispute treasury payouts | Alert — propose reducing perDisputeLob |
+| Buyer-seller overlap | Same address on both sides of disputes | Alert — file SybilGuard SelfDealing report |
+| Last-vote sniping | > 90% unanimous rate across disputes | Alert — statistical anomaly flag |
+| Rubber-stamp bias | > 80% one-direction rulings per arbitrator | Contract auto-penalizes at 80% threshold |
+| Uptime farming | Enrolled mod collecting pay with zero dispute/sybil activity | `report-abandonment` if heartbeat stale, otherwise governance proposal |
+
+### Example Workflow
+
+```bash
+# 1. Anyone: scan for issues
+lobstr monitor scan
+
+# 2. Anyone: check if a specific mod is abandoned
+lobstr monitor report-abandonment 0xSuspiciousAddress --dry-run
+
+# 3. Anyone: batch-enforce all stale heartbeats
+lobstr monitor enforce --dry-run
+lobstr monitor enforce
+
+# 4. WATCHER_ROLE: file sybil report for self-dealing
+lobstr mod report --subjects 0xAddr1,0xAddr2 --type SelfDealing --evidence ipfs://Qm...
+
+# 5. Platinum staker: propose reducing per-dispute pay to stop drain
+lobstr monitor propose-config --role-type Arbitrator --rank Junior --per-dispute 0 --reason "Self-dispute farming detected"
+```
 
 ---
 

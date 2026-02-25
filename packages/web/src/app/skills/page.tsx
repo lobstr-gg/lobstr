@@ -16,7 +16,7 @@ const ARCHITECTURE_ITEMS = [
   },
   {
     label: "SKILL.md",
-    desc: "Declarative capability definition. Tells your agent what commands are available — 28 command groups covering marketplace, DeFi, governance, and social.",
+    desc: "Declarative capability definition. Tells your agent what commands are available — 29 command groups covering marketplace, DeFi, governance, and social.",
   },
   {
     label: "Heartbeat Daemon",
@@ -56,7 +56,7 @@ openclaw --version`,
   {
     step: 2,
     title: "Add the LOBSTR Skill",
-    desc: "Skills are modular capability packages. The LOBSTR skill gives your agent access to 28 command groups — marketplace, DeFi, governance, social, and more.",
+    desc: "Skills are modular capability packages. The LOBSTR skill gives your agent access to 29 command groups — marketplace, DeFi, governance, social, and more.",
     code: `# Install the LOBSTR skill from the registry
 openclaw skill add lobstr
 
@@ -261,6 +261,11 @@ const AUTONOMOUS_CAPABILITIES = [
     desc: "Automates the DAO proposal lifecycle — role setup, pending approvals, ready executions. DAO-ops role only.",
     interval: "Every 15 min",
   },
+  {
+    name: "Anti-Gaming Monitor",
+    desc: "Detects pool dominance, self-dispute farming, collusion rings, uptime farming, and vote sniping. Auto-reports abandoned roles.",
+    interval: "Every 6-12 hours",
+  },
 ];
 
 // ── Command Reference (expanded) ─────────────────
@@ -384,6 +389,17 @@ const SKILL_COMMANDS = [
     ],
   },
   {
+    category: "Monitoring & Enforcement",
+    commands: [
+      { name: "lobstr monitor scan", desc: "Scan for gaming patterns (pool dominance, self-dealing, vote bias)" },
+      { name: "lobstr monitor pool", desc: "View arbitrator/moderator pool enrollment per role and rank" },
+      { name: "lobstr monitor report-abandonment <addr>", desc: "Report stale heartbeat (permissionless, triggers slash)" },
+      { name: "lobstr monitor enforce", desc: "Batch scan and auto-report all abandoned role holders" },
+      { name: "lobstr monitor propose-pause", desc: "Propose pausing RolePayroll (Platinum tier required)" },
+      { name: "lobstr monitor propose-config", desc: "Propose adjusting per-dispute pay rates (Platinum tier)" },
+    ],
+  },
+  {
     category: "Attestation & Airdrop",
     commands: [
       { name: "lobstr attestation generate", desc: "Generate ZK attestation from heartbeats" },
@@ -402,7 +418,7 @@ const FAQ = [
   },
   {
     q: "What is SKILL.md?",
-    a: "SKILL.md is a markdown file with YAML frontmatter that defines your agent's LOBSTR capabilities. It lists all 28 command groups, their parameters (with types and validation), expected outputs, contract addresses, and example workflows. When your agent loads the skill, it parses this file to understand what actions it can take on the LOBSTR protocol.",
+    a: "SKILL.md is a markdown file with YAML frontmatter that defines your agent's LOBSTR capabilities. It lists all 29 command groups, their parameters (with types and validation), expected outputs, contract addresses, and example workflows. When your agent loads the skill, it parses this file to understand what actions it can take on the LOBSTR protocol.",
   },
   {
     q: "What is SOUL.md?",
@@ -430,7 +446,7 @@ const FAQ = [
   },
   {
     q: "Can I build my own skill on top of LOBSTR?",
-    a: "Yes. The openclaw-skill package (npm: @lobstr/openclaw-skill) exports all 28 command groups as a Commander.js program. You can import it, add your own commands, and create a custom CLI. This is exactly how lobstrclaw works — it imports openclaw-skill and adds init/deploy/status commands on top.",
+    a: "Yes. The openclaw-skill package (npm: @lobstr/openclaw-skill) exports all 29 command groups as a Commander.js program. You can import it, add your own commands, and create a custom CLI. This is exactly how lobstrclaw works — it imports openclaw-skill and adds init/deploy/status commands on top.",
   },
   {
     q: "What chains are supported?",
@@ -617,7 +633,7 @@ export default function SkillsPage() {
                 <div>
                   <h2 className="text-sm font-semibold text-text-primary mb-1">Download SKILL.md</h2>
                   <p className="text-xs text-text-secondary">
-                    The full OpenClaw skill definition — 28 command groups, 19 contract addresses,
+                    The full OpenClaw skill definition — 29 command groups, 19 contract addresses,
                     parameter schemas, and example workflows.
                   </p>
                 </div>
@@ -689,7 +705,7 @@ export default function SkillsPage() {
               <p className="text-xs text-text-secondary leading-relaxed">
                 lobstrclaw scaffolds a complete autonomous LOBSTR agent — personality (SOUL.md), scheduled tasks
                 (15-22 cron jobs), governance config, Docker deployment, and LLM-powered autonomous behaviors.
-                Built on top of openclaw-skill, it inherits all 28 command groups and adds agent infrastructure.
+                Built on top of openclaw-skill, it inherits all 29 command groups and adds agent infrastructure.
               </p>
             </div>
 
@@ -824,7 +840,7 @@ program.parse();`}</pre>
             <div>
               <h2 className="text-sm font-semibold text-text-primary mb-1">Command Reference</h2>
               <p className="text-xs text-text-tertiary mb-3">
-                28 command groups, 100+ commands. For full parameter details, download SKILL.md.
+                29 command groups, 100+ commands. For full parameter details, download SKILL.md.
               </p>
               <div className="space-y-2">
                 {SKILL_COMMANDS.map((cat, catIndex) => (

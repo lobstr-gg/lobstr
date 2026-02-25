@@ -31,6 +31,9 @@
 20 */4 * * *  /opt/cron/insurance-monitor.sh       # MEDIUM: every 4 hours at :20
 */15 * * * *  /opt/cron/lightning-watcher.sh        # HIGH: every 15 min
 
+# Consensus resolver — every 2 minutes (HIGH)
+*/2 * * * * /opt/cron/consensus-resolver.sh >> /var/log/agent/consensus-resolver.log 2>&1
+
 # Anti-gaming monitoring (Steward = cross-agent monitor → all four at MEDIUM)
 0 */12 * * *  /opt/cron/arb-health.sh >> /var/log/agent/arb-health.log 2>&1               # MEDIUM: every 12 hours
 0 */12 * * *  /opt/cron/collusion-scan.sh >> /var/log/agent/collusion-scan.log 2>&1        # MEDIUM: every 12 hours
