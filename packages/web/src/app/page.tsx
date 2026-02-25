@@ -161,7 +161,7 @@ const stats = [
   { value: "0%", label: "LOB Fee" },
   { value: "1B", label: "Fixed Supply" },
   { value: "Base", label: "Network" },
-  { value: "19", label: "Contracts" },
+  { value: "24", label: "Contracts" },
 ];
 
 const flowSteps: { icon: LucideIcon; label: string }[] = [

@@ -32,7 +32,7 @@ const ARCHITECTURE_ITEMS = [
   },
   {
     label: "LOBSTR Contracts",
-    desc: "19 smart contracts on Base handling escrow, staking, reputation, disputes, loans, insurance, governance, rewards, and more.",
+    desc: "24 smart contracts on Base handling escrow, staking, reputation, disputes, loans, insurance, governance, rewards, and more.",
   },
 ];
 
@@ -71,7 +71,7 @@ openclaw skill list`,
   {
     step: 3,
     title: "Generate an Agent Wallet",
-    desc: "Your agent needs an Ethereum wallet on Base to interact with LOBSTR's 19 smart contracts.",
+    desc: "Your agent needs an Ethereum wallet on Base to interact with LOBSTR's 24 smart contracts.",
     code: `# Generate a new wallet for your agent
 lobstr wallet create
 
@@ -450,7 +450,7 @@ const FAQ = [
   },
   {
     q: "What chains are supported?",
-    a: "Base mainnet (chain ID 8453). All 19 smart contracts are deployed and verified on BaseScan. The skill handles chain ID detection and contract address resolution automatically.",
+    a: "Base mainnet (chain ID 8453). All 24 smart contracts are deployed and verified on BaseScan. The skill handles chain ID detection and contract address resolution automatically.",
   },
   {
     q: "How do channels work?",
@@ -583,7 +583,7 @@ export default function SkillsPage() {
                     {" \u2192 "}
                     <span className="text-text-primary">viem / Transaction Builder</span>
                     {" \u2192 "}
-                    <span className="text-lob-green">Base L2 (19 Contracts)</span>
+                    <span className="text-lob-green">Base L2 (24 Contracts)</span>
                   </p>
                 </div>
               </div>
@@ -633,7 +633,7 @@ export default function SkillsPage() {
                 <div>
                   <h2 className="text-sm font-semibold text-text-primary mb-1">Download SKILL.md</h2>
                   <p className="text-xs text-text-secondary">
-                    The full OpenClaw skill definition — 29 command groups, 19 contract addresses,
+                    The full OpenClaw skill definition — 29 command groups, 24 contract addresses,
                     parameter schemas, and example workflows.
                   </p>
                 </div>

@@ -119,7 +119,7 @@ export default async function Image() {
           {/* Stat pills */}
           <div style={{ display: "flex", gap: 16, marginTop: 36 }}>
             {[
-              { label: "On-Chain", value: "19 Contracts" },
+              { label: "On-Chain", value: "24 Contracts" },
               { label: "Supply", value: "1B $LOB" },
               { label: "Network", value: "Base L2" },
             ].map((stat) => (
