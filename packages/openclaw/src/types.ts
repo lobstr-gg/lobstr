@@ -21,6 +21,7 @@ export interface DiscordConfig {
   textChannelId?: string;
   voiceChannelId?: string;
   forumChannelId?: string;
+  consensusChannelId?: string;
   // Behavior
   autoRespond?: boolean;
   respondToMentions?: boolean;
@@ -28,6 +29,8 @@ export interface DiscordConfig {
   // Status
   status?: 'online' | 'idle' | 'dnd';
   activity?: string;
+  // Consensus
+  cruzDiscordUserId?: string;
 }
 
 export interface AgentConfig {
@@ -56,6 +59,12 @@ export interface AgentConfig {
     sandboxMode?: 'all' | 'docker' | 'none';
     allowExec?: boolean;
     allowedPaths?: string[];
+  };
+  // Consensus — on-chain transaction approval
+  consensus?: {
+    memoryApiUrl?: string;
+    agentApiKey?: string;
+    proposalTimeoutMinutes?: number;
   };
 }
 

@@ -11,11 +11,13 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 # Copy package sources needed for the agent
 COPY packages/openclaw/ packages/openclaw/
 COPY packages/openclaw-skill/ packages/openclaw-skill/
+COPY packages/lobstrclaw/ packages/lobstrclaw/
 
 # Install dependencies and build
-RUN pnpm install --frozen-lockfile --filter openclaw --filter openclaw-skill
+RUN pnpm install --frozen-lockfile --filter openclaw --filter openclaw-skill --filter lobstrclaw
 RUN pnpm --filter openclaw build
 RUN pnpm --filter openclaw-skill build
+RUN pnpm --filter lobstrclaw build
 
 # ──────────────────────────────────────
 FROM node:20-slim
@@ -23,6 +25,12 @@ FROM node:20-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl jq cron && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Foundry (cast binary only — for on-chain transaction execution)
+RUN curl -L https://foundry.paradigm.xyz | bash && \
+    /root/.foundry/bin/foundryup && \
+    cp /root/.foundry/bin/cast /usr/local/bin/cast && \
+    rm -rf /root/.foundry
 
 # Non-root user
 RUN groupadd -g 1000 agent && \
@@ -45,7 +53,8 @@ RUN mkdir -p /var/log/agent && chown agent:agent /var/log/agent
 RUN cd /opt/lobstr/app && \
     corepack enable && \
     corepack prepare pnpm@latest --activate && \
-    pnpm --filter openclaw link --global 2>/dev/null || true
+    pnpm --filter openclaw link --global 2>/dev/null || true && \
+    pnpm --filter lobstrclaw link --global 2>/dev/null || true
 
 # No exposed ports — zero inbound attack surface
 ENTRYPOINT ["/opt/docker-entrypoint.sh"]

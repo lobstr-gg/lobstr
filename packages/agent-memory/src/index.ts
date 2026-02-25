@@ -243,6 +243,40 @@ app.get("/proposals/:id", authenticate, (req: Request, res: Response) => {
     .catch((err: any) => res.status(500).json({ error: err.message }));
 });
 
+app.patch("/proposals/:id/status", authenticate, (req: Request, res: Response) => {
+  const id = param(req, "id");
+  const { status } = req.body;
+  if (!status) { res.status(400).json({ error: "Missing 'status'" }); return; }
+
+  db.updateProposalStatus(id, status)
+    .then((row) => row ? res.json(row) : res.status(404).json({ error: "Proposal not found" }))
+    .catch((err: any) => res.status(500).json({ error: err.message }));
+});
+
+// ── Transaction executions ──────────────────────────────────────
+app.post("/executions", authenticate, (req: Request, res: Response) => {
+  const { proposal_id, tx_hash, chain_id, target, function_sig, args, value, status, gas_used, block_number, error } = req.body;
+  if (!proposal_id || !chain_id || !target) {
+    res.status(400).json({ error: "Missing required fields: proposal_id, chain_id, target" });
+    return;
+  }
+
+  db.createTxExecution(
+    proposal_id, tx_hash || null, chain_id, target,
+    function_sig || null, args || null, value || '0',
+    status || 'pending', gas_used || null, block_number || null, error || null
+  )
+    .then((row) => res.status(201).json(row))
+    .catch((err: any) => res.status(500).json({ error: err.message }));
+});
+
+app.get("/executions/:proposalId", authenticate, (req: Request, res: Response) => {
+  const proposalId = param(req, "proposalId");
+  db.getTxExecutionByProposal(proposalId)
+    .then((row) => row ? res.json(row) : res.status(404).json({ error: "No execution found" }))
+    .catch((err: any) => res.status(500).json({ error: err.message }));
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════════════════════════

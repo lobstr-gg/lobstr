@@ -29,8 +29,9 @@ export async function connectDiscord(token: string, config: DiscordConfig): Prom
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildMessageReactions,
     ],
-    partials: [Partials.Channel, Partials.Message, Partials.User],
+    partials: [Partials.Channel, Partials.Message, Partials.User, Partials.Reaction],
   });
 
   return new Promise((resolve, reject) => {

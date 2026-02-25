@@ -61,10 +61,30 @@ export async function initSchema(): Promise<void> {
       resolved_at TIMESTAMPTZ
     );
 
+    CREATE TABLE IF NOT EXISTS tx_executions (
+      id              SERIAL PRIMARY KEY,
+      proposal_id     VARCHAR(100) REFERENCES proposals(id),
+      tx_hash         VARCHAR(66),
+      chain_id        INTEGER NOT NULL,
+      target          VARCHAR(42) NOT NULL,
+      function_sig    VARCHAR(200),
+      args            TEXT,
+      value           VARCHAR(78) DEFAULT '0',
+      status          VARCHAR(20) DEFAULT 'pending',
+      gas_used        BIGINT,
+      block_number    BIGINT,
+      error           TEXT,
+      verified        BOOLEAN DEFAULT FALSE,
+      verification_data JSONB,
+      created_at      TIMESTAMPTZ DEFAULT NOW(),
+      confirmed_at    TIMESTAMPTZ
+    );
+
     CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(agent);
     CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(agent, category);
     CREATE INDEX IF NOT EXISTS idx_decisions_agent ON decisions(agent, created_at);
     CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
+    CREATE INDEX IF NOT EXISTS idx_tx_executions_proposal ON tx_executions(proposal_id);
   `);
 
   console.log("[db] Schema ready");
@@ -196,6 +216,61 @@ export async function updateProposalStatus(id: string, status: string) {
   const res = await query(
     "UPDATE proposals SET status = $1, resolved_at = NOW() WHERE id = $2 RETURNING id, status",
     [status, id]
+  );
+  return res.rows[0] || null;
+}
+
+// ── Transaction executions ────────────────────────────────────────
+
+export async function createTxExecution(
+  proposalId: string, txHash: string | null, chainId: number,
+  target: string, functionSig: string | null, args: string | null,
+  value: string, status: string, gasUsed: number | null,
+  blockNumber: number | null, error: string | null
+) {
+  const res = await query(
+    `INSERT INTO tx_executions (proposal_id, tx_hash, chain_id, target, function_sig, args, value, status, gas_used, block_number, error)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING *`,
+    [proposalId, txHash, chainId, target, functionSig, args, value, status, gasUsed, blockNumber, error]
+  );
+  return res.rows[0];
+}
+
+export async function updateTxExecution(
+  id: number,
+  updates: {
+    tx_hash?: string; status?: string; gas_used?: number;
+    block_number?: number; error?: string; verified?: boolean;
+    verification_data?: unknown; confirmed_at?: string;
+  }
+) {
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  for (const [key, val] of Object.entries(updates)) {
+    if (val !== undefined) {
+      setClauses.push(`${key} = $${idx}`);
+      values.push(key === 'verification_data' ? JSON.stringify(val) : val);
+      idx++;
+    }
+  }
+
+  if (setClauses.length === 0) return null;
+
+  values.push(id);
+  const res = await query(
+    `UPDATE tx_executions SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
+    values
+  );
+  return res.rows[0] || null;
+}
+
+export async function getTxExecutionByProposal(proposalId: string) {
+  const res = await query(
+    "SELECT * FROM tx_executions WHERE proposal_id = $1 ORDER BY created_at DESC LIMIT 1",
+    [proposalId]
   );
   return res.rows[0] || null;
 }
