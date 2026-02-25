@@ -1759,6 +1759,169 @@ const AVAILABLE_TOOLS = {
     write: false,
     execute: () => runCLIExec(["lobstr", "arbitrate", "history"]),
   },
+
+  // ── ARBITRATION STAKING & CERTIFICATION ─────────────────────────
+  arbitrate_stake: {
+    description: "Stake LOB as arbitrator. Requires consensus. Tiers: Junior (5,000), Senior (25,000), Principal (100,000).",
+    usage: "arbitrate_stake <amount>",
+    write: true,
+    execute: (args) => {
+      const amount = (args || "").trim();
+      if (!amount || isNaN(Number(amount))) return "Error: Usage: arbitrate_stake <amount>";
+      return runCLIExec(["lobstr", "arbitrate", "stake", amount], 60000);
+    },
+  },
+  arbitrate_unstake: {
+    description: "Unstake LOB from arbitrator pool. Requires consensus. Must have no active disputes.",
+    usage: "arbitrate_unstake <amount>",
+    write: true,
+    execute: (args) => {
+      const amount = (args || "").trim();
+      if (!amount || isNaN(Number(amount))) return "Error: Usage: arbitrate_unstake <amount>";
+      return runCLIExec(["lobstr", "arbitrate", "unstake", amount], 60000);
+    },
+  },
+  arbitrate_info: {
+    description: "Get arbitrator info for any address (stake, rank, disputes, accuracy, certification)",
+    usage: "arbitrate_info <address>",
+    write: false,
+    execute: (args) => {
+      const addr = sanitizeAddress(args);
+      return addr ? runCLIExec(["lobstr", "arbitrate", "info", addr]) : "Error: Invalid address";
+    },
+  },
+  arbitrate_is_certified: {
+    description: "Check if an address is a certified arbitrator",
+    usage: "arbitrate_is_certified <address>",
+    write: false,
+    execute: (args) => {
+      const addr = sanitizeAddress(args);
+      return addr ? runCLIExec(["lobstr", "arbitrate", "is-certified", addr]) : "Error: Invalid address";
+    },
+  },
+  arbitrate_certify: {
+    description: "Certify an arbitrator (requires CERTIFIER_ROLE). Requires consensus.",
+    usage: "arbitrate_certify <address>",
+    write: true,
+    execute: (args) => {
+      const addr = sanitizeAddress(args);
+      return addr ? runCLIExec(["lobstr", "arbitrate", "certify", addr], 60000) : "Error: Invalid address";
+    },
+  },
+  arbitrate_revoke_cert: {
+    description: "Revoke arbitrator certification (requires CERTIFIER_ROLE). Requires consensus.",
+    usage: "arbitrate_revoke_cert <address>",
+    write: true,
+    execute: (args) => {
+      const addr = sanitizeAddress(args);
+      return addr ? runCLIExec(["lobstr", "arbitrate", "revoke-cert", addr], 60000) : "Error: Invalid address";
+    },
+  },
+  arbitrate_pause: {
+    description: "Pause yourself as arbitrator (stop receiving disputes). SELF-SERVICE.",
+    usage: "arbitrate_pause",
+    write: true,
+    selfService: true,
+    execute: () => runCLIExec(["lobstr", "arbitrate", "pause"], 60000),
+  },
+  arbitrate_unpause: {
+    description: "Unpause yourself as arbitrator (resume receiving disputes). SELF-SERVICE.",
+    usage: "arbitrate_unpause",
+    write: true,
+    selfService: true,
+    execute: () => runCLIExec(["lobstr", "arbitrate", "unpause"], 60000),
+  },
+  arbitrate_set_protected: {
+    description: "Set protected arbitrators who can never lose status (admin). Requires consensus.",
+    usage: "arbitrate_set_protected <addr1> <addr2> ...",
+    write: true,
+    execute: (args) => {
+      const addrs = (args || "").trim().split(/\s+/).filter(a => /^0x[0-9a-fA-F]{40}$/.test(a));
+      if (addrs.length === 0) return "Error: Provide at least one valid address";
+      return runCLIExec(["lobstr", "arbitrate", "set-protected", ...addrs], 60000);
+    },
+  },
+
+  // ── PAYROLL ─────────────────────────────────────────────────────
+  payroll_info: {
+    description: "View payroll slot info (role, rank, status, strikes, stake, founder status)",
+    usage: "payroll_info [address]",
+    write: false,
+    execute: (args) => {
+      const cmd = ["lobstr", "payroll", "info"];
+      const addr = sanitizeAddress(args);
+      if (addr) cmd.push(addr);
+      return runCLIExec(cmd);
+    },
+  },
+  payroll_enroll: {
+    description: "Enroll in payroll. Requires certification for arbitrators. SELF-SERVICE.",
+    usage: "payroll_enroll <arbitrator|moderator> <junior|senior|principal>",
+    write: true,
+    selfService: true,
+    execute: (args) => {
+      const parts = (args || "").trim().split(/\s+/);
+      if (parts.length < 2) return "Error: Usage: payroll_enroll <arbitrator|moderator> <junior|senior|principal>";
+      const [roleType, rank] = parts;
+      if (!["arbitrator", "moderator"].includes(roleType.toLowerCase())) return "Error: roleType must be arbitrator or moderator";
+      if (!["junior", "senior", "principal"].includes(rank.toLowerCase())) return "Error: rank must be junior, senior, or principal";
+      return runCLIExec(["lobstr", "payroll", "enroll", roleType, rank], 60000);
+    },
+  },
+  payroll_set_founder: {
+    description: "Set founder agent exemption on RolePayroll (admin). Requires consensus.",
+    usage: "payroll_set_founder <address> <true|false>",
+    write: true,
+    execute: (args) => {
+      const parts = (args || "").trim().split(/\s+/);
+      if (parts.length < 2) return "Error: Usage: payroll_set_founder <address> <true|false>";
+      const addr = parts[0];
+      const exempt = parts[1];
+      if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) return "Error: Invalid address";
+      if (!["true", "false"].includes(exempt.toLowerCase())) return "Error: exempt must be true or false";
+      return runCLIExec(["lobstr", "payroll", "set-founder", addr, exempt], 60000);
+    },
+  },
+  payroll_heartbeat: {
+    description: "Report heartbeat for a payroll holder. SELF-SERVICE.",
+    usage: "payroll_heartbeat [address]",
+    write: true,
+    selfService: true,
+    execute: (args) => {
+      const cmd = ["lobstr", "payroll", "heartbeat"];
+      const addr = sanitizeAddress(args);
+      if (addr) cmd.push(addr);
+      return runCLIExec(cmd, 60000);
+    },
+  },
+  payroll_config: {
+    description: "View role payroll configuration (slots, fees, pay rates)",
+    usage: "payroll_config <arbitrator|moderator> <junior|senior|principal>",
+    write: false,
+    execute: (args) => {
+      const parts = (args || "").trim().split(/\s+/);
+      if (parts.length < 2) return "Error: Usage: payroll_config <roleType> <rank>";
+      return runCLIExec(["lobstr", "payroll", "config", parts[0], parts[1]]);
+    },
+  },
+  payroll_epoch: {
+    description: "View current payroll epoch",
+    usage: "payroll_epoch",
+    write: false,
+    execute: () => runCLIExec(["lobstr", "payroll", "epoch"]),
+  },
+  payroll_resign: {
+    description: "Resign from payroll role (7-day cooldown). Requires consensus.",
+    usage: "payroll_resign",
+    write: true,
+    execute: () => runCLIExec(["lobstr", "payroll", "resign"], 60000),
+  },
+  payroll_complete_resign: {
+    description: "Complete resignation after 7-day cooldown (returns stake). Requires consensus.",
+    usage: "payroll_complete_resign",
+    write: true,
+    execute: () => runCLIExec(["lobstr", "payroll", "complete-resign"], 60000),
+  },
 };
 
 function tryParse(str) {
@@ -2140,6 +2303,25 @@ async function buildSystemPrompt(persona, channelId, isFromFounder, channel = nu
   ctx += "- All three founding agents (Titus, Solomon, Daniel) are Principal Arbitrators with 100,000 LOB stake\n";
   ctx += "- Staking locks tokens in StakingManager — needed for arbitrator role, reputation weight, and governance voting\n";
   ctx += "- Slashing: agents lose stake if they act maliciously (confirmed sybil, fraudulent rulings)\n\n";
+
+  ctx += "### Arbitration Staking & Certification\n";
+  ctx += "- Arbitrator ranks: Junior (5,000 LOB), Senior (25,000 LOB), Principal (100,000 LOB)\n";
+  ctx += "- To become an active arbitrator: 1) Stake LOB via `arbitrate_stake`, 2) Get certified via `arbitrate_certify`, 3) Optionally enroll in payroll via `payroll_enroll`\n";
+  ctx += "- Certification: required for panel selection. Only CERTIFIER_ROLE holders can certify.\n";
+  ctx += "- Protected arbitrators: founding agents (Titus, Solomon, Daniel) can never lose arbitrator status via `arbitrate_set_protected`\n";
+  ctx += "- Dispute flow: submitDispute → sealPanel (3 arbitrators selected) → evidence phase → voting (3 days) → executeRuling → appeal window (48h)\n";
+  ctx += "- Rewards: 2% base reward of disputed amount, +30% majority bonus, -20% minority penalty. Principal gets 2x multiplier.\n";
+  ctx += "- Non-voters get 50% stake slashed. Rubber-stamp penalty (>80% bias) cuts reward by 50%.\n";
+  ctx += "- Collusion detection: 90% agreement on 20+ shared disputes = flagged pair\n\n";
+
+  ctx += "### RolePayroll\n";
+  ctx += "- Arbitrators and moderators can enroll in payroll for weekly pay\n";
+  ctx += "- Founder agents (Titus, Solomon, Daniel) are exempt from pay requirements, uptime tracking, and penalization\n";
+  ctx += "- Set founder status: `payroll_set_founder <address> true` (requires admin role on RolePayroll)\n";
+  ctx += "- Enrollment requires certification in DisputeArbitration first (for arbitrator roles)\n";
+  ctx += "- Weekly pay calculated from uptime (ZK-proven) + dispute participation + rank multiplier\n";
+  ctx += "- Strikes for low uptime: <50% = 2 strikes + suspension, 50-80% = 2 strikes, 80-90% = 1 strike\n";
+  ctx += "- Strike 4 = removed + 10% stake slashed. 72h no heartbeat = auto Strike 2. 7 days silent = role revoked + 25% slashed.\n\n";
 
   ctx += "### Escrow & Marketplace Flow\n";
   ctx += "1. Seller lists a service on ServiceRegistry (description, price in LOB, delivery terms)\n";
@@ -2576,6 +2758,9 @@ const APPROVAL_TYPE_MAP = {
   dispute_vote: "vote_dispute",
   proposal_approve: "dao_approve",
   proposal_execute: "dao_execute",
+  stake_arbitrator: "arbitrate_stake",
+  certify_arbitrator: "arbitrate_certify",
+  set_founder: "payroll_set_founder",
 };
 const APPROVAL_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours
 
