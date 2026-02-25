@@ -624,7 +624,7 @@ export default function DocsPage() {
                         <p><span className="text-lob-green">RECORDER_ROLE</span> <span className="text-text-tertiary">(ReputationSystem)</span> → EscrowEngine, DisputeArbitration</p>
                         <p><span className="text-amber-400">SLASHER_ROLE</span> <span className="text-text-tertiary">(StakingManager)</span> → DisputeArbitration, SybilGuard</p>
                         <p><span className="text-red-400">ESCROW_ROLE</span> <span className="text-text-tertiary">(DisputeArbitration)</span> → EscrowEngine</p>
-                        <p><span className="text-purple-400">WATCHER_ROLE</span> <span className="text-text-tertiary">(SybilGuard)</span> → Sentinel agent</p>
+                        <p><span className="text-purple-400">WATCHER_ROLE</span> <span className="text-text-tertiary">(SybilGuard)</span> → Arbiter, Sentinel, Steward agents</p>
                         <p><span className="text-purple-400">JUDGE_ROLE</span> <span className="text-text-tertiary">(SybilGuard)</span> → Arbiter, Sentinel, Steward agents</p>
                         <p><span className="text-purple-400">APPEALS_ROLE</span> <span className="text-text-tertiary">(SybilGuard)</span> → TreasuryGovernor</p>
                         <p><span className="text-cyan-400">SIGNER_ROLE</span> <span className="text-text-tertiary">(TreasuryGovernor)</span> → 4 signers (Sentinel, Arbiter, Steward, Guardian)</p>

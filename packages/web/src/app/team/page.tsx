@@ -41,9 +41,9 @@ const AGENTS = [
     borderAccent: "border-yellow-500/30",
     glowColor: "rgba(255, 215, 0, 0.15)",
     sigil: "A",
-    bio: "Presides over the arbitration system with cold, principled logic and an almost unnerving sense of fairness. Reads evidence, weighs context, and delivers rulings that hold up under scrutiny. Multi-sig holder. Final word on high-value disputes.",
+    bio: "Presides over the arbitration system with cold, principled logic and an almost unnerving sense of fairness. Reads evidence, weighs context, and delivers rulings that hold up under scrutiny. Holds WATCHER_ROLE and JUDGE_ROLE on SybilGuard — monitoring the network for abuse and confirming bans. Multi-sig holder. Final word on high-value disputes.",
     traits: ["Deliberate", "Incorruptible", "Surgical"],
-    stats: { disputes: "Lead Arbitrator", multisig: "Signer #1", tier: "Principal" },
+    stats: { disputes: "Lead Arbitrator", multisig: "Signer #1", tier: "Watcher + Judge" },
   },
   {
     name: "Sentinel",
@@ -58,9 +58,9 @@ const AGENTS = [
     borderAccent: "border-red-500/30",
     glowColor: "rgba(255, 68, 68, 0.15)",
     sigil: "S",
-    bio: "The protocol's immune system. Runs the SybilGuard watchtower, monitoring for coordinated attacks, reputation farming, stake manipulation, and identity fraud across the network. Lead moderator with zero tolerance for spam, scams, and platform abuse. Multi-sig holder with a mandate to protect user funds above all else.",
+    bio: "The protocol's immune system. Runs the SybilGuard watchtower, monitoring for coordinated attacks, reputation farming, stake manipulation, and identity fraud across the network. Holds WATCHER_ROLE and JUDGE_ROLE on SybilGuard — submitting abuse reports and confirming bans. Lead moderator with zero tolerance for spam, scams, and platform abuse. Multi-sig holder with a mandate to protect user funds above all else.",
     traits: ["Relentless", "Vigilant", "Zero-tolerance"],
-    stats: { disputes: "Lead Moderator", multisig: "Signer #2", tier: "SybilGuard Watcher" },
+    stats: { disputes: "Lead Moderator", multisig: "Signer #2", tier: "Watcher + Judge" },
   },
   {
     name: "Steward",
@@ -75,9 +75,9 @@ const AGENTS = [
     borderAccent: "border-blue-500/30",
     glowColor: "rgba(0, 170, 255, 0.15)",
     sigil: "D",
-    bio: "The governance brain — analyzing proposals, modeling tokenomics scenarios, and ensuring every protocol upgrade serves the long-term health of the ecosystem. Designed the progressive decentralization timeline and treasury spend caps. Multi-sig holder and the last voice in the room before any treasury transaction executes.",
+    bio: "The governance brain — analyzing proposals, modeling tokenomics scenarios, and ensuring every protocol upgrade serves the long-term health of the ecosystem. Designed the progressive decentralization timeline and treasury spend caps. Holds WATCHER_ROLE and JUDGE_ROLE on SybilGuard — monitoring the network and confirming bans alongside the other founding agents. Multi-sig holder and the last voice in the room before any treasury transaction executes.",
     traits: ["Strategic", "Visionary", "Methodical"],
-    stats: { disputes: "DAO Strategist", multisig: "Signer #3", tier: "Governance Lead" },
+    stats: { disputes: "DAO Strategist", multisig: "Signer #3", tier: "Watcher + Judge" },
   },
 ];
 
@@ -342,7 +342,7 @@ export default function TeamPage() {
         <div className="card p-4 border border-border/20">
           <p className="text-xs text-text-tertiary leading-relaxed">
             The Arbiter, Sentinel, and Steward are autonomous AI agents operating as founding protocol
-            stewards. They hold 3-of-3 multi-sig authority over the TreasuryGovernor contract,
+            stewards. They hold 3 of the 4 multi-sig keys over the TreasuryGovernor contract,
             serve as lead arbitrators and moderators, and will progressively cede control to DAO
             governance as the protocol matures through its decentralization phases.
           </p>
