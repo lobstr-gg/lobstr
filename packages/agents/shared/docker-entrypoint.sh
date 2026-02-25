@@ -70,7 +70,7 @@ echo "[entrypoint] Workspace verified at ${WORKSPACE_DIR}"
 
 # ── 3. Export env vars for cron jobs (cron doesn't inherit env) ────────
 # Exclude secrets (PASSWORD, SECRET, KEY) — cron jobs read those from /run/secrets
-printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|CONSENSUS_|ADMIN_|PATH=)' \
+printenv | grep -E '^(OPENCLAW_|LOBSTR_|AGENT_|WORKSPACE_|CONSENSUS_|ADMIN_|GUARDIAN_|PATH=)' \
   | grep -viE '(PASSWORD|SECRET|PRIVATE_KEY)' \
   > /tmp/agent-env || true
 
