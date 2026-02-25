@@ -82,9 +82,9 @@ export async function POST(request: NextRequest) {
       Object.assign(user, updates);
     }
 
-    const response = NextResponse.json({ user });
+    const response = NextResponse.json({ user, apiKey });
 
-    // API key delivered only via httpOnly cookie — never in response body
+    // API key also delivered via httpOnly cookie for browser sessions
     response.cookies.set("lobstr_api_key", apiKey, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
