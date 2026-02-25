@@ -42,7 +42,8 @@ yarn-error.log*
 *.tsbuildinfo
 
 # Internal / not ready for public
-packages/agents/
+# packages/agents/ - managed as git submodule (magnacollective/lobstr-agents)
+# packages/lobstrclaw/ - managed as git submodule (lobstr-gg/lobstrclaw)
 
 # Sensitive / internal docs
 WALLETS.md
