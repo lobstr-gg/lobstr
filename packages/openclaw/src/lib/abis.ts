@@ -100,7 +100,12 @@ export const DISPUTE_ARBITRATION_ABI = [
   'function emergencyResolveStuckDispute(uint256 disputeId)',
   'function repanelDispute(uint256 disputeId)',
   'function pauseAsArbitrator()',
+  'function unpauseAsArbitrator()',
   'function removeArbitrator(address arbitrator)',
+  'function certifyArbitrator(address arb)',
+  'function revokeCertification(address arb)',
+  'function isCertified(address arb) view returns (bool)',
+  'function setProtectedArbitrators(address[] arbitrators)',
   'function getDispute(uint256 disputeId) view returns (uint256 id, uint256 jobId, address buyer, address seller, uint256 amount, address token, string buyerEvidenceURI, string sellerEvidenceURI, uint8 status, uint8 ruling, uint256 createdAt, uint256 counterEvidenceDeadline, uint256 votingDeadline, uint8 votesForBuyer, uint8 votesForSeller, uint8 totalVotes)',
   'function getArbitratorInfo(address arbitrator) view returns (uint256 stake, uint8 rank, uint256 disputesHandled, uint256 majorityVotes, bool active)',
   'event DisputeCreated(uint256 indexed disputeId, uint256 indexed jobId, address indexed buyer, address seller, uint256 amount)',
@@ -115,6 +120,7 @@ export const DISPUTE_ARBITRATION_ABI = [
   'event DisputeRepaneled(uint256 indexed disputeId)',
   'event ArbitratorCertified(address indexed arbitrator)',
   'event CertificationRevoked(address indexed arbitrator)',
+  'event ProtectedArbitratorsSet(address[] arbitrators)',
 ] as const;
 
 export const TREASURY_GOVERNOR_ABI = [
@@ -276,6 +282,7 @@ export const ROLE_PAYROLL_ABI = [
   'function reportAbandonment(address holder)',
   'function resign()',
   'function completeResignation()',
+  'function setFounderAgent(address agent, bool exempt)',
   'function currentEpoch() view returns (uint256)',
   'function genesisEpoch() view returns (uint256)',
   'function getRoleSlot(address holder) view returns (uint8 roleType, uint8 rank, uint8 status, uint256 enrolledAt, uint256 suspendedUntil, uint8 strikes, uint256 stakedAmount)',

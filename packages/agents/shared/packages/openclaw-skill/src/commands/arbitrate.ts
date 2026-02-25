@@ -486,4 +486,240 @@ export function registerArbitrateCommands(program: Command): void {
         process.exit(1);
       }
     });
+
+  // ── info <address> ───────────────────────────────
+
+  arb
+    .command("info <address>")
+    .description("Get arbitrator info for any address")
+    .action(async (addr: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner("Loading arbitrator info...");
+        const info = (await publicClient.readContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "getArbitratorInfo",
+          args: [addr as Address],
+        })) as [bigint, number, bigint, bigint, boolean];
+
+        const certified = (await publicClient.readContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "isCertified",
+          args: [addr as Address],
+        })) as boolean;
+
+        spin.succeed(`Arbitrator info for ${addr}`);
+        ui.info(`Stake: ${formatLob(info[0])}`);
+        ui.info(`Rank: ${ARBITRATOR_RANK[info[1]] || "None"}`);
+        ui.info(`Disputes handled: ${info[2].toString()}`);
+        ui.info(`Majority votes: ${info[3].toString()}`);
+        ui.info(`Active: ${info[4] ? "Yes" : "No"}`);
+        ui.info(`Certified: ${certified ? "Yes" : "No"}`);
+
+        if (info[2] > 0n) {
+          const accuracy = Number((info[3] * 100n) / info[2]);
+          ui.info(`Accuracy: ${accuracy}%`);
+        }
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── is-certified [address] ───────────────────────
+
+  arb
+    .command("is-certified [address]")
+    .description("Check if an address is a certified arbitrator")
+    .action(async (addr?: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        let target: Address;
+        if (addr) {
+          target = addr as Address;
+        } else {
+          const { address } = await createWalletClient(ws.config, ws.path);
+          target = address;
+        }
+
+        const spin = ui.spinner("Checking certification...");
+        const certified = (await publicClient.readContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "isCertified",
+          args: [target],
+        })) as boolean;
+
+        spin.succeed(`${target}: ${certified ? "CERTIFIED" : "NOT CERTIFIED"}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── certify <address> ────────────────────────────
+
+  arb
+    .command("certify <address>")
+    .description("Certify an arbitrator (requires CERTIFIER_ROLE)")
+    .action(async (addr: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner(`Certifying ${addr}...`);
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "certifyArbitrator",
+          args: [addr as Address],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed(`Certified arbitrator ${addr}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── revoke-cert <address> ────────────────────────
+
+  arb
+    .command("revoke-cert <address>")
+    .description("Revoke arbitrator certification (requires CERTIFIER_ROLE)")
+    .action(async (addr: string) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner(`Revoking certification for ${addr}...`);
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "revokeCertification",
+          args: [addr as Address],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed(`Revoked certification for ${addr}`);
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── pause ────────────────────────────────────────
+
+  arb
+    .command("pause")
+    .description("Pause yourself as arbitrator (temporarily stop receiving disputes)")
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner("Pausing as arbitrator...");
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "pauseAsArbitrator",
+          args: [],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed("Paused as arbitrator — you will not be assigned new disputes");
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── unpause ──────────────────────────────────────
+
+  arb
+    .command("unpause")
+    .description("Unpause yourself as arbitrator (resume receiving disputes)")
+    .action(async () => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner("Unpausing as arbitrator...");
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "unpauseAsArbitrator",
+          args: [],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed("Unpaused as arbitrator — you will be assigned disputes again");
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  // ── set-protected <addresses...> ─────────────────
+
+  arb
+    .command("set-protected <addresses...>")
+    .description("Set protected arbitrators who can never lose status (requires DEFAULT_ADMIN_ROLE)")
+    .action(async (addresses: string[]) => {
+      try {
+        const ws = ensureWorkspace();
+        const publicClient = createPublicClient(ws.config);
+        const { client: walletClient } = await createWalletClient(
+          ws.config,
+          ws.path
+        );
+        const arbAddr = getContractAddress(ws.config, "disputeArbitration");
+
+        const spin = ui.spinner(`Setting ${addresses.length} protected arbitrator(s)...`);
+        const tx = await walletClient.writeContract({
+          address: arbAddr,
+          abi: arbAbi,
+          functionName: "setProtectedArbitrators",
+          args: [addresses as Address[]],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: tx });
+        spin.succeed(`Set ${addresses.length} protected arbitrator(s)`);
+        for (const a of addresses) {
+          ui.info(`  ${a}`);
+        }
+        ui.info(`Tx: ${tx}`);
+      } catch (err) {
+        ui.error((err as Error).message);
+        process.exit(1);
+      }
+    });
 }
