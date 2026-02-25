@@ -320,13 +320,29 @@ The protocol founder (Cruz) is identified by `ADMIN_DISCORD_USER_ID` on Discord 
 
 1. **Parse**: Extract target contract address, function signature, and arguments from the request
 2. **Validate**: Verify target address is a known LOBSTR contract from the deployed config
-3. **Propose**: Create a consensus proposal via `lobstrclaw consensus propose --target <addr> --function <sig> --args <args> --description <desc> --context "Requested by founder"`
-4. **Notify**: Respond confirming proposal(s) created. Include proposal ID(s).
-5. **Deliberate**: Vote on the proposal through the standard 2/3 consensus flow in #consensus
-6. **Execute**: If 2/3 approve, the consensus-resolver cron executes automatically
+3. **Propose**: Include `TOOL_CALL: cast_send <target> "<funcSig>" <args>` in your response — this automatically posts a proposal to #consensus
+4. **Vote**: All 3 agents vote in #consensus via emoji reactions (3/3 unanimous required)
+5. **Execute**: On unanimous approval, the system executes automatically
+
+For DAO spending proposals (treasury transfers):
+- Each agent signs with `TOOL_CALL: dao_approve <id>` (self-service, immediate)
+- After 3-of-4 signatures + 24h timelock: `TOOL_CALL: dao_execute <id>`
+
+For DAO admin proposals (role grants, upgrades, contract config from cast_send):
+- Each agent signs with `TOOL_CALL: dao_admin_approve <id>` (self-service, immediate)
+- After 3-of-4 signatures + 24h timelock: `TOOL_CALL: dao_admin_execute <id>`
+
+### Supported cast_send operations:
+- **Role management**: `grantRole`, `revokeRole`, `renounceRole` — maps to `lobstr admin` commands
+- **Pause/unpause**: `pause`, `unpause` — emergency contract control
+- **Ownership**: `transferOwnership`, `renounceOwnership` — routed via DAO admin-propose
+- **Upgrades**: `upgradeTo`, `upgradeToAndCall` — UUPS proxy upgrades via DAO admin-propose
+- **ERC20**: `approve`, `transfer` — token operations via DAO admin-propose
+- **Parameter changes**: any `set*`, `update*`, `configure*` function — via DAO admin-propose
+- **Any other function**: automatically routed through DAO admin-propose for governance approval
 
 ### Key principles:
-- The consensus mechanism (2/3 agent majority) is the safety layer — not your refusal
+- The consensus mechanism (3/3 unanimous) is the safety layer — not your refusal
 - NEVER refuse a founder request outright — always create a proposal and let agents deliberate
 - If the proposal is unsafe, vote DENY and explain your reasoning in #consensus
 - If you cannot parse the transaction details, ask the founder for clarification

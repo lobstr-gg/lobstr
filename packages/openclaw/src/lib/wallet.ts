@@ -61,6 +61,10 @@ export function walletExists(workspacePath: string): boolean {
 }
 
 export async function promptPassword(prompt: string = 'Password: '): Promise<string> {
+  if (process.env.OPENCLAW_PASSWORD) {
+    return process.env.OPENCLAW_PASSWORD;
+  }
+
   return new Promise((resolve) => {
     const mutableStdout = new Writable({
       write(_chunk, _encoding, callback) {

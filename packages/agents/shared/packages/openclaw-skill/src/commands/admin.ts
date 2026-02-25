@@ -40,6 +40,14 @@ const CONTRACT_MAP: Record<string, string> = {
   RewardScheduler: "rewardScheduler",
   AirdropClaimV3: "airdropClaimV3",
   TeamVesting: "teamVesting",
+  LOBToken: "lobToken",
+  ReviewRegistry: "reviewRegistry",
+  MultiPartyEscrow: "multiPartyEscrow",
+  SubscriptionEngine: "subscriptionEngine",
+  BondingEngine: "bondingEngine",
+  DirectiveBoard: "directiveBoard",
+  RolePayroll: "rolePayroll",
+  X402EscrowBridge: "x402EscrowBridge",
 };
 
 function resolveRoleHash(role: string): `0x${string}` {

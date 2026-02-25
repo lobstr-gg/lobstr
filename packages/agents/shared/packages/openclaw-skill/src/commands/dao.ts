@@ -451,12 +451,45 @@ export function registerDaoCommands(program: Command): void {
 
   dao
     .command("admin-propose")
-    .description("Create an admin proposal (arbitrary contract call)")
+    .description("Create an admin proposal (arbitrary contract call). Provide either --calldata (pre-encoded hex) or --signature + --args (human-readable).")
     .requiredOption("--target <address>", "Target contract address")
-    .requiredOption("--calldata <hex>", "Encoded calldata (0x...)")
+    .option("--calldata <hex>", "Encoded calldata (0x...)")
+    .option("--signature <sig>", "Function signature, e.g. \"grantRole(bytes32,address)\"")
+    .option("--args <values>", "Space-separated arguments for the function signature")
     .requiredOption("--description <desc>", "Proposal description")
     .action(async (opts) => {
       try {
+        let calldata: `0x${string}`;
+
+        if (opts.calldata) {
+          // Pre-encoded calldata provided directly
+          calldata = opts.calldata as `0x${string}`;
+        } else if (opts.signature) {
+          // Encode from human-readable signature + args
+          const sig = opts.signature.trim();
+          const rawArgs = (opts.args || "").trim();
+          const argValues = rawArgs ? rawArgs.split(/\s+/) : [];
+
+          // Parse argument types from signature to cast values appropriately
+          const typeMatch = sig.match(/\(([^)]*)\)/);
+          const types = typeMatch && typeMatch[1] ? typeMatch[1].split(",").map((t: string) => t.trim()) : [];
+
+          const castArgs = argValues.map((val: string, i: number) => {
+            const type = types[i] || "";
+            if (type.startsWith("uint") || type.startsWith("int")) return BigInt(val);
+            if (type === "bool") return val === "true";
+            return val; // address, bytes, string — pass as-is
+          });
+
+          calldata = encodeFunctionData({
+            abi: parseAbi([`function ${sig}`]),
+            args: castArgs.length > 0 ? castArgs : undefined,
+          });
+        } else {
+          ui.error("Provide either --calldata (hex) or --signature (e.g. \"grantRole(bytes32,address)\")");
+          process.exit(1);
+        }
+
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const { client: walletClient } = await createWalletClient(
@@ -472,7 +505,7 @@ export function registerDaoCommands(program: Command): void {
           functionName: "createAdminProposal",
           args: [
             opts.target as Address,
-            opts.calldata as `0x${string}`,
+            calldata,
             opts.description,
           ],
         });

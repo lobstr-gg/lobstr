@@ -497,6 +497,36 @@ function sanitizePostId(input) {
   return /^[a-zA-Z0-9_-]+$/.test(c) && c.length <= 50 ? c : null;
 }
 
+// Reverse lookup: contract address → contract name for lobstr admin CLI
+const KNOWN_CONTRACTS = {
+  "0x6a9ebf62c198c252be0c814224518b2def93a937": "LOBToken",
+  "0x21e96019dd46e07b694ee28999b758e3c156b7c2": "ReputationSystem",
+  "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408": "StakingManager",
+  "0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27": "TreasuryGovernor",
+  "0xeb8b276fccbb982c55d1a18936433ed875783ffe": "RewardDistributor",
+  "0xb216314338f291a0458e1d469c1c904ec65f1b21": "SybilGuard",
+  "0xcfbdfad104b8339187af3d84290b59647cf4da74": "ServiceRegistry",
+  "0x5a5c510db582546ef17177a62a604cbafceba672": "DisputeArbitration",
+  "0xada65391bb0e1c7db6e0114b3961989f3f3221a1": "EscrowEngine",
+  "0x472ec915cd56ef94e0a163a74176ef9a336cdbe9": "LoanEngine",
+  "0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca": "X402CreditFacility",
+  "0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323": "StakingRewards",
+  "0xcae6aec8d63479bde5c0969241c959b402f5647d": "LightningGovernor",
+  "0xc7917624fa0cf6f4973b887de5e670d7661ef297": "AirdropClaimV3",
+  "0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d": "TeamVesting",
+  "0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65": "InsurancePool",
+  "0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d": "ReviewRegistry",
+  "0x9812384d366337390dbaeb192582d6dab989319d": "MultiPartyEscrow",
+  "0x90d2a7737633eb0191d2c95bc764f596a0be9912": "SubscriptionEngine",
+  "0xb6d23b546921cce8e4494ae6ec62722930d6547e": "BondingEngine",
+  "0xa30a2da1016a6beb573f4d4529a0f68257ed0aed": "DirectiveBoard",
+  "0xc1cd28c36567869534690b992d94e58daee736ab": "RolePayroll",
+  "0x62baf62c541fa1c1d11c4a9dad733db47485ca12": "X402EscrowBridge",
+};
+function resolveContractName(address) {
+  return KNOWN_CONTRACTS[(address || "").toLowerCase()] || null;
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // WRITE ACTION — AGENT CONSENSUS SYSTEM
 // ═══════════════════════════════════════════════════════════════════
@@ -884,6 +914,134 @@ const AVAILABLE_TOOLS = {
     },
   },
 
+  // ── ON-CHAIN WRITE (consensus required) ──────────────────────
+  cast_send: {
+    description: "Send an on-chain transaction to a LOBSTR contract. Requires 3/3 crew consensus. Supports: grantRole, revokeRole, renounceRole, transferOwnership, renounceOwnership, upgradeTo, upgradeToAndCall, pause, unpause, approve (ERC20), transfer (ERC20), and arbitrary calls via DAO admin-propose. Usage: cast_send <target_address> \"<functionSig(argTypes)>\" <arg1> <arg2> ...",
+    usage: "cast_send <target> \"<funcSig>\" [args...]",
+    write: true,
+    execute: (args) => {
+      // Parse: first token is target address, second is quoted funcSig, rest are args
+      const trimmed = (args || "").trim();
+      // Match target address
+      const addrMatch = trimmed.match(/^(0x[a-fA-F0-9]{40})\s+/);
+      if (!addrMatch) return "Error: First argument must be a valid contract address (0x...)";
+      const target = addrMatch[1];
+      const rest = trimmed.slice(addrMatch[0].length);
+
+      // Match function signature — either quoted or unquoted
+      const sigMatch = rest.match(/^"([^"]+)"\s*(.*)$/) || rest.match(/^(\S+\([^)]*\))\s*(.*)$/);
+      if (!sigMatch) return "Error: Second argument must be a function signature, e.g. \"grantRole(bytes32,address)\"";
+      const funcSig = sigMatch[1];
+      const funcArgs = sigMatch[2].trim();
+      const argParts = funcArgs ? funcArgs.split(/\s+/).filter(Boolean) : [];
+
+      // Validate target is a known LOBSTR contract for safety
+      const contractName = resolveContractName(target);
+      if (!contractName) return `Error: Target ${target} is not a known LOBSTR contract. Supported contracts: ${Object.values(KNOWN_CONTRACTS).join(", ")}`;
+
+      // Map known function signatures to lobstr CLI subcommands
+      const funcName = funcSig.split("(")[0];
+
+      // ── Role management: grantRole, revokeRole, renounceRole ──
+      if (funcName === "grantRole" || funcName === "revokeRole" || funcName === "renounceRole") {
+        if (argParts.length < (funcName === "renounceRole" ? 1 : 2)) {
+          return `Error: ${funcName} requires role${funcName !== "renounceRole" ? " and account" : ""} arguments`;
+        }
+        const role = argParts[0];
+        const account = funcName === "renounceRole" ? undefined : sanitizeAddress(argParts[1]);
+        if (funcName !== "renounceRole" && !account) return "Error: Invalid account address";
+
+        const subCmd = funcName === "grantRole" ? "grant-role"
+          : funcName === "revokeRole" ? "revoke-role" : "renounce-role";
+
+        const cmd = ["lobstr", "admin", subCmd, "--contract", contractName, "--role", role];
+        if (account) cmd.push("--account", account);
+        return runCLIExec(cmd, 60000);
+      }
+
+      // ── Pause/unpause ──
+      if (funcName === "pause" || funcName === "unpause") {
+        return runCLIExec(["lobstr", "admin", funcName, "--contract", contractName], 60000);
+      }
+
+      // ── Ownership: transferOwnership, renounceOwnership ──
+      if (funcName === "transferOwnership") {
+        const newOwner = sanitizeAddress(argParts[0]);
+        if (!newOwner) return "Error: transferOwnership requires a valid address argument";
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", "transferOwnership(address)",
+          "--args", newOwner,
+          "--description", `Transfer ownership of ${contractName} to ${newOwner}`], 60000);
+      }
+      if (funcName === "renounceOwnership") {
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", "renounceOwnership()",
+          "--description", `Renounce ownership of ${contractName}`], 60000);
+      }
+
+      // ── UUPS Proxy upgrades: upgradeTo, upgradeToAndCall ──
+      if (funcName === "upgradeTo") {
+        const newImpl = sanitizeAddress(argParts[0]);
+        if (!newImpl) return "Error: upgradeTo requires a valid implementation address";
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", "upgradeTo(address)",
+          "--args", newImpl,
+          "--description", `Upgrade ${contractName} implementation to ${newImpl}`], 60000);
+      }
+      if (funcName === "upgradeToAndCall") {
+        const newImpl = sanitizeAddress(argParts[0]);
+        if (!newImpl) return "Error: upgradeToAndCall requires an implementation address and calldata";
+        const calldata = argParts[1] || "0x";
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", "upgradeToAndCall(address,bytes)",
+          "--args", `${newImpl} ${calldata}`,
+          "--description", `Upgrade ${contractName} to ${newImpl} with initialization call`], 60000);
+      }
+
+      // ── ERC20: approve, transfer ──
+      if (funcName === "approve") {
+        const spender = sanitizeAddress(argParts[0]);
+        const amount = argParts[1];
+        if (!spender || !amount) return "Error: approve requires spender address and amount";
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", "approve(address,uint256)",
+          "--args", `${spender} ${amount}`,
+          "--description", `Approve ${spender} to spend ${amount} on ${contractName}`], 60000);
+      }
+      if (funcName === "transfer") {
+        const recipient = sanitizeAddress(argParts[0]);
+        const amount = argParts[1];
+        if (!recipient || !amount) return "Error: transfer requires recipient address and amount";
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", "transfer(address,uint256)",
+          "--args", `${recipient} ${amount}`,
+          "--description", `Transfer ${amount} from ${contractName} to ${recipient}`], 60000);
+      }
+
+      // ── Parameter setters: setFee, setParameter, setConfig, etc. ──
+      if (funcName.startsWith("set") || funcName.startsWith("update") || funcName.startsWith("configure")) {
+        return runCLIExec(["lobstr", "dao", "admin-propose",
+          "--target", target,
+          "--signature", funcSig,
+          "--args", funcArgs,
+          "--description", `Call ${funcName} on ${contractName} with args: ${funcArgs}`], 60000);
+      }
+
+      // ── Generic fallback: route any other function through DAO admin-propose ──
+      return runCLIExec(["lobstr", "dao", "admin-propose",
+        "--target", target,
+        "--signature", funcSig,
+        ...(funcArgs ? ["--args", funcArgs] : []),
+        "--description", `Call ${funcName} on ${contractName}${funcArgs ? ` with args: ${funcArgs}` : ""}`], 60000);
+    },
+  },
+
   // ── WRITE TOOLS (founder approval required) ─────────────────
   confirm_report: {
     description: "[SENTINEL] Confirm a sybil report. SELF-SERVICE — executes immediately.",
@@ -953,11 +1111,10 @@ const AVAILABLE_TOOLS = {
     },
   },
   dao_approve: {
-    description: "[STEWARD] Approve an on-chain DAO governance proposal (numeric ID only, NOT forum posts). SELF-SERVICE — executes immediately.",
+    description: "Approve an on-chain DAO governance proposal (numeric ID only, NOT forum posts). SELF-SERVICE — executes immediately. All 3 agents are multisig signers.",
     usage: "dao_approve <proposal_id>",
     write: true,
     selfService: true,
-    agent: "steward",
     execute: (args) => {
       const id = sanitizeNumeric(args);
       if (!id) return "Error: Invalid proposal ID";
@@ -965,10 +1122,9 @@ const AVAILABLE_TOOLS = {
     },
   },
   dao_execute: {
-    description: "[STEWARD] Execute an approved on-chain DAO proposal after timelock (numeric ID only) — requires crew consensus",
+    description: "Execute an approved on-chain DAO proposal after timelock (numeric ID only) — requires crew consensus. All 3 agents are multisig signers.",
     usage: "dao_execute <proposal_id>",
     write: true,
-    agent: "steward",
     execute: (args) => {
       const id = sanitizeNumeric(args);
       if (!id) return "Error: Invalid proposal ID";
@@ -976,15 +1132,35 @@ const AVAILABLE_TOOLS = {
     },
   },
   dao_cancel: {
-    description: "[STEWARD] Cancel an on-chain DAO proposal (numeric ID only). SELF-SERVICE — executes immediately.",
+    description: "Cancel an on-chain DAO proposal (numeric ID only). SELF-SERVICE — executes immediately. All 3 agents have Guardian cancel power.",
     usage: "dao_cancel <proposal_id>",
     write: true,
     selfService: true,
-    agent: "steward",
     execute: (args) => {
       const id = sanitizeNumeric(args);
       if (!id) return "Error: Invalid proposal ID";
       return runCLIExec(["lobstr", "dao", "cancel", id]);
+    },
+  },
+  dao_admin_approve: {
+    description: "Approve an admin proposal (contract calls, role grants, upgrades — numeric ID only). SELF-SERVICE — executes immediately. All 3 agents are multisig signers.",
+    usage: "dao_admin_approve <proposal_id>",
+    write: true,
+    selfService: true,
+    execute: (args) => {
+      const id = sanitizeNumeric(args);
+      if (!id) return "Error: Invalid proposal ID";
+      return runCLIExec(["lobstr", "dao", "admin-approve", id]);
+    },
+  },
+  dao_admin_execute: {
+    description: "Execute an approved admin proposal after timelock (contract calls, upgrades — numeric ID only) — requires crew consensus. All 3 agents are multisig signers.",
+    usage: "dao_admin_execute <proposal_id>",
+    write: true,
+    execute: (args) => {
+      const id = sanitizeNumeric(args);
+      if (!id) return "Error: Invalid proposal ID";
+      return runCLIExec(["lobstr", "dao", "admin-execute", id], 60000);
     },
   },
   dao_claim_stream: {
@@ -1463,27 +1639,8 @@ const AVAILABLE_TOOLS = {
       return runCLIExec(["lobstr", "dao", "admin-propose", "--target", addr, "--calldata", match[2].trim(), "--description", match[3].trim()]);
     },
   },
-  dao_admin_approve: {
-    description: "[STEWARD] Approve an admin DAO proposal. SELF-SERVICE — executes immediately.",
-    usage: "dao_admin_approve <id>",
-    write: true,
-    selfService: true,
-    agent: "steward",
-    execute: (args) => {
-      const id = sanitizeNumeric(args);
-      return id ? runCLIExec(["lobstr", "dao", "admin-approve", id]) : "Error: Invalid proposal ID";
-    },
-  },
-  dao_admin_execute: {
-    description: "[STEWARD] Execute an approved admin DAO proposal — requires crew consensus",
-    usage: "dao_admin_execute <id>",
-    write: true,
-    agent: "steward",
-    execute: (args) => {
-      const id = sanitizeNumeric(args);
-      return id ? runCLIExec(["lobstr", "dao", "admin-execute", id]) : "Error: Invalid proposal ID";
-    },
-  },
+  // NOTE: dao_admin_approve and dao_admin_execute are defined earlier (after dao_cancel)
+  // with NO agent restriction — all 3 agents are multisig signers and must be able to sign.
 
   // ── DAO EXTRA READ TOOLS ───────────────────────────────────────
   dao_proposal: {
@@ -1979,7 +2136,8 @@ async function buildSystemPrompt(persona, channelId, isFromFounder, channel = nu
 
   ctx += "### Token Economics\n";
   ctx += "- $LOB: ERC-20 governance + utility token, 1 billion fixed supply (no minting)\n";
-  ctx += "- Staking tiers: Junior (5,000 LOB), Senior (25,000 LOB), Master (100,000 LOB)\n";
+  ctx += "- Staking tiers: Junior (5,000 LOB), Senior (25,000 LOB), Principal (100,000 LOB)\n";
+  ctx += "- All three founding agents (Titus, Solomon, Daniel) are Principal Arbitrators with 100,000 LOB stake\n";
   ctx += "- Staking locks tokens in StakingManager — needed for arbitrator role, reputation weight, and governance voting\n";
   ctx += "- Slashing: agents lose stake if they act maliciously (confirmed sybil, fraudulent rulings)\n\n";
 
