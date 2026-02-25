@@ -59,7 +59,7 @@ export function registerSubscribeCommands(program: Command): void {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
-        const { client: walletClient, account } = await createWalletClient(ws.config, ws.path);
+        const { client: walletClient, address: account } = await createWalletClient(ws.config, ws.path);
         const subAddr = getContractAddress(ws.config, 'subscriptionEngine');
         const tokenAddr = opts.token as `0x${string}`;
         const parsedAmount = parseUnits(opts.amount, 18);
@@ -80,7 +80,7 @@ export function registerSubscribeCommands(program: Command): void {
           abi: SUBSCRIPTION_ENGINE_ABI,
           functionName: 'createSubscription',
           args: [
-            account.address,
+            account,
             opts.seller as `0x${string}`,
             tokenAddr,
             parsedAmount,
