@@ -1238,14 +1238,15 @@ export interface AirdropV3ApprovalEntry {
 
 export async function atomicAirdropV3Approval(
   ip: string,
-  entry: AirdropV3ApprovalEntry
+  entry: AirdropV3ApprovalEntry,
+  forceOverwrite?: boolean
 ): Promise<{ success: boolean; existingApproval?: AirdropV3ApprovalEntry }> {
   const db = getDb();
   const ref = col("airdropV3Approvals").doc(ip);
 
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    if (snap.exists) {
+    if (snap.exists && !forceOverwrite) {
       return { success: false, existingApproval: snap.data() as AirdropV3ApprovalEntry };
     }
     tx.set(ref, entry);
