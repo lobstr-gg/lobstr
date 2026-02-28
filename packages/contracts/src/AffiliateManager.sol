@@ -25,7 +25,7 @@ contract AffiliateManager is IAffiliateManager, Initializable, UUPSUpgradeable, 
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(address _sybilGuard) public virtual initializer {

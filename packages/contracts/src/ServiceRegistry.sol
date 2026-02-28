@@ -24,7 +24,7 @@ contract ServiceRegistry is IServiceRegistry, Initializable, UUPSUpgradeable, Ow
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(address _stakingManager, address _reputationSystem, address _sybilGuard) external initializer {

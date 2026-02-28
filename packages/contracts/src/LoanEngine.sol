@@ -60,7 +60,7 @@ contract LoanEngine is ILoanEngine, Initializable, UUPSUpgradeable, OwnableUpgra
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(

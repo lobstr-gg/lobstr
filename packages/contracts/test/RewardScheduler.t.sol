@@ -6,6 +6,7 @@ import "../src/RewardScheduler.sol";
 import "../src/StakingRewards.sol";
 import "../src/LiquidityMining.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ contract MockLPTokenForScheduler {
 
 // ── Test Contract ──────────────────────────────────────────────────────
 
-contract RewardSchedulerTest is Test {
+contract RewardSchedulerTest is Test, ProxyTestHelper {
     event StreamCreated(uint256 indexed streamId, IRewardScheduler.TargetType targetType, address rewardToken, uint256 emissionPerSecond, uint256 endTime);
     event StreamUpdated(uint256 indexed streamId, uint256 oldEmission, uint256 newEmission);
     event StreamDripped(uint256 indexed streamId, uint256 amount, uint256 elapsed);
@@ -111,27 +112,23 @@ contract RewardSchedulerTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         lpToken = new MockLPTokenForScheduler();
         sybilGuard = new MockSybilGuardForScheduler();
         stakingManager = new MockStakingManagerForScheduler();
 
-        stakingRewards = new StakingRewards();
-        stakingRewards.initialize(address(stakingManager), address(sybilGuard));
+        stakingRewards = StakingRewards(_deployProxy(address(new StakingRewards()), abi.encodeCall(StakingRewards.initialize, (address(stakingManager), address(sybilGuard)))));
         stakingRewards.addRewardToken(address(lobToken));
 
-        liquidityMining = new LiquidityMining();
-        liquidityMining.initialize(
+        liquidityMining = LiquidityMining(_deployProxy(address(new LiquidityMining()), abi.encodeCall(LiquidityMining.initialize, (
             address(lpToken),
             address(lobToken),
             address(stakingManager),
             address(sybilGuard),
             admin
-        );
+        ))));
 
-        scheduler = new RewardScheduler();
-        scheduler.initialize(address(stakingRewards), address(liquidityMining));
+        scheduler = RewardScheduler(_deployProxy(address(new RewardScheduler()), abi.encodeCall(RewardScheduler.initialize, (address(stakingRewards), address(liquidityMining)))));
 
         // Grant REWARD_NOTIFIER_ROLE to scheduler
         stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), address(scheduler));
@@ -937,14 +934,14 @@ contract RewardSchedulerTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_constructor_RevertZeroStakingRewards() public {
-        RewardScheduler rs = new RewardScheduler();
+        address impl = address(new RewardScheduler());
         vm.expectRevert("RewardScheduler: zero stakingRewards");
-        rs.initialize(address(0), address(liquidityMining));
+        _deployProxy(impl, abi.encodeCall(RewardScheduler.initialize, (address(0), address(liquidityMining))));
     }
 
     function test_constructor_RevertZeroLiquidityMining() public {
-        RewardScheduler rs = new RewardScheduler();
+        address impl = address(new RewardScheduler());
         vm.expectRevert("RewardScheduler: zero liquidityMining");
-        rs.initialize(address(stakingRewards), address(0));
+        _deployProxy(impl, abi.encodeCall(RewardScheduler.initialize, (address(stakingRewards), address(0))));
     }
 }

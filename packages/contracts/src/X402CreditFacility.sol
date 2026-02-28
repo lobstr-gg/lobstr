@@ -81,7 +81,7 @@ contract X402CreditFacility is IX402CreditFacility, Initializable, UUPSUpgradeab
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(

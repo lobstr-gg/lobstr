@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/LOBToken.sol";
 import "../src/TreasuryGovernor.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 /// @dev Simple mock USDC with 6 decimals for testing
 contract MockUSDC is ERC20 {
@@ -17,7 +18,7 @@ contract MockUSDC is ERC20 {
     }
 }
 
-contract TreasuryGovernorTest is Test {
+contract TreasuryGovernorTest is Test, ProxyTestHelper {
     LOBToken public lob;
     MockUSDC public usdc;
     TreasuryGovernor public treasury;
@@ -39,8 +40,7 @@ contract TreasuryGovernorTest is Test {
     function setUp() public {
         // Deploy tokens
         vm.startPrank(distributor);
-        lob = new LOBToken();
-        lob.initialize(distributor);
+        lob = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         vm.stopPrank();
 
         vm.prank(deployer);
@@ -53,8 +53,7 @@ contract TreasuryGovernorTest is Test {
         signers[2] = signer3;
 
         vm.prank(deployer);
-        treasury = new TreasuryGovernor();
-        treasury.initialize(signers, 2, address(lob));
+        treasury = TreasuryGovernor(_deployProxy(address(new TreasuryGovernor()), abi.encodeCall(TreasuryGovernor.initialize, (signers, 2, address(lob)))));
 
         // Fund treasury with LOB
         vm.prank(distributor);
@@ -81,9 +80,9 @@ contract TreasuryGovernorTest is Test {
         signers[0] = makeAddr("a");
         signers[1] = makeAddr("b");
 
-        TreasuryGovernor t = new TreasuryGovernor();
+        address impl = address(new TreasuryGovernor());
         vm.expectRevert("TreasuryGovernor: min 3 signers");
-        t.initialize(signers, 2, address(lob));
+        _deployProxy(impl, abi.encodeCall(TreasuryGovernor.initialize, (signers, 2, address(lob))));
     }
 
     function test_constructor_validates_max_signers() public {
@@ -92,9 +91,9 @@ contract TreasuryGovernorTest is Test {
             signers[i] = address(uint160(100 + i));
         }
 
-        TreasuryGovernor t = new TreasuryGovernor();
+        address impl = address(new TreasuryGovernor());
         vm.expectRevert("TreasuryGovernor: max 9 signers");
-        t.initialize(signers, 2, address(lob));
+        _deployProxy(impl, abi.encodeCall(TreasuryGovernor.initialize, (signers, 2, address(lob))));
     }
 
     function test_constructor_rejects_duplicate_signers() public {
@@ -103,9 +102,9 @@ contract TreasuryGovernorTest is Test {
         signers[1] = makeAddr("b");
         signers[2] = makeAddr("a"); // duplicate
 
-        TreasuryGovernor t = new TreasuryGovernor();
+        address impl = address(new TreasuryGovernor());
         vm.expectRevert("TreasuryGovernor: duplicate signer");
-        t.initialize(signers, 2, address(lob));
+        _deployProxy(impl, abi.encodeCall(TreasuryGovernor.initialize, (signers, 2, address(lob))));
     }
 
     function test_constructor_sets_roles_correctly() public {
@@ -132,9 +131,9 @@ contract TreasuryGovernorTest is Test {
         signers[1] = address(0);
         signers[2] = makeAddr("c");
 
-        TreasuryGovernor t = new TreasuryGovernor();
+        address impl = address(new TreasuryGovernor());
         vm.expectRevert("TreasuryGovernor: zero signer");
-        t.initialize(signers, 2, address(lob));
+        _deployProxy(impl, abi.encodeCall(TreasuryGovernor.initialize, (signers, 2, address(lob))));
     }
 
     function test_constructor_rejects_invalid_approval_threshold() public {
@@ -143,15 +142,15 @@ contract TreasuryGovernorTest is Test {
         signers[1] = makeAddr("b");
         signers[2] = makeAddr("c");
 
+        address impl = address(new TreasuryGovernor());
+
         // requiredApprovals = 1 (below minimum of 2)
-        TreasuryGovernor t = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: invalid approval threshold");
-        t.initialize(signers, 1, address(lob));
+        _deployProxy(impl, abi.encodeCall(TreasuryGovernor.initialize, (signers, 1, address(lob))));
 
         // requiredApprovals = 4 (exceeds signer count)
-        TreasuryGovernor t2 = new TreasuryGovernor();
         vm.expectRevert("TreasuryGovernor: invalid approval threshold");
-        t2.initialize(signers, 4, address(lob));
+        _deployProxy(impl, abi.encodeCall(TreasuryGovernor.initialize, (signers, 4, address(lob))));
     }
 
     /* ═══════════════════════════════════════════════════════════════

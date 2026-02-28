@@ -42,6 +42,11 @@ contract LightningGovernor is Initializable, UUPSUpgradeable, AccessControlUpgra
     // proposer => last proposal timestamp
     mapping(address => uint256) private _lastProposalTime;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address _stakingManager,
         address _admin,
@@ -59,6 +64,10 @@ contract LightningGovernor is Initializable, UUPSUpgradeable, AccessControlUpgra
         __Pausable_init();
 
         _nextProposalId = 1;
+        quorum = 3;
+        executionDelay = 15 minutes;
+        votingWindow = 24 hours;
+        executionWindow = 6 hours;
 
         stakingManager = IStakingManager(_stakingManager);
 

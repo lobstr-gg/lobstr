@@ -1,0 +1,141 @@
+LOBSTR V5 DEPLOYMENT — CRITICAL INFO
+=====================================
+Date: 2026-02-27
+Network: Base Mainnet (Chain 8453)
+
+DEPLOYMENT COMMAND
+==================
+cd packages/contracts
+source .env
+
+forge script script/DeployAll.s.sol:DeployAllScript \
+  --rpc-url "https://base-mainnet.g.alchemy.com/v2/_5WcHVGfwxEO9t9ufJMHp" \
+  --broadcast \
+  --verify \
+  --etherscan-api-key $BASESCAN_API_KEY \
+  -vvvv
+
+WHAT IT DEPLOYS (83 transactions)
+=================================
+- 15 implementation contracts (new Contract())
+- 15 ERC1967 proxy contracts (proxy + initialize atomically)
+- 1 Groth16VerifierV5 (no proxy — pure view)
+- Role grants across all contracts
+- Admin transfer to TreasuryGovernor
+- Token distribution: 400M airdrop, 300M treasury, 150M LP, 750K agents, 149.25M vesting
+
+CRITICAL: ZKEY FILES
+====================
+The zkey is the proving key that matches the on-chain Groth16VerifierV5.
+If you lose this zkey, proofs won't verify on-chain. You'd have to redeploy the verifier.
+
+Production zkey directory:
+  packages/circuits/zkeys/
+
+Files:
+  packages/circuits/zkeys/airdropAttestation_v5.zkey      (67MB) — Airdrop proving key
+  packages/circuits/zkeys/airdropAttestation.wasm          (2.2MB) — Witness generator (WASM)
+  packages/circuits/zkeys/verification_key_v5.json         (3.2KB) — Verification constants (must match VerifierV5.sol)
+  packages/circuits/zkeys/roleUptime_v5.zkey               (48MB) — RolePayroll uptime proving key
+  packages/circuits/zkeys/roleUptime_verification_key_v5.json (3.4KB) — Uptime verification constants
+
+Source verifier contract:
+  packages/contracts/src/verifiers/Groth16VerifierV5.sol
+
+The verification constants in Groth16VerifierV5.sol (IC0x, IC1x, deltax1, etc.)
+were generated FROM airdropAttestation_v5.zkey. They are cryptographically bound.
+A different zkey produces different constants and proofs WILL NOT verify.
+
+ZKEY ROTATION (if ever needed)
+==============================
+With UUPS proxies, you do NOT need to redeploy. Call setVerifier() via TreasuryGovernor:
+
+1. Generate new zkey from ceremony
+2. Generate new Groth16VerifierV6 from snarkjs: snarkjs zkey export solidityverifier new.zkey
+3. Deploy new verifier: forge create Groth16VerifierV6
+4. TreasuryGovernor proposal: airdropV3.setVerifier(newVerifierAddress)
+5. Save new zkey to packages/circuits/zkeys/
+
+LOBSTRCLAW USER FLOW
+====================
+Users run these commands to claim airdrop:
+
+1. lobstr attestation generate     — generates input.json from workspace heartbeats
+2. lobstr attestation setup        — copies production zkey + WASM to workspace
+3. lobstr attestation prove        — generates groth16 proof using production zkey
+4. lobstr airdrop submit-attestation — attest -> approve -> PoW -> claim() on-chain
+5. lobstr airdrop milestone complete <0-4> — unlock 1K LOB per milestone
+
+IMPORTANT: "lobstr attestation setup" copies the production zkey, it does NOT generate
+a new one. Generating a new zkey would produce different verification constants and
+proofs would fail on-chain. This was the V4 bug.
+
+The prove command looks for files at these paths (in order):
+  1. <workspace>/circuits/airdropAttestation_0001.zkey
+  2. /opt/lobstr/circuits/airdropAttestation_0001.zkey  (Docker)
+  3. packages/circuits/zkeys/airdropAttestation_v5.zkey  (production archive)
+  4. packages/circuits/build/airdropAttestation_0001.zkey (dev build)
+
+DOCKER IMAGES
+=============
+When building Docker images for lobstrclaw agents, copy the zkey into the image:
+
+  COPY packages/circuits/zkeys/airdropAttestation_v5.zkey /opt/lobstr/circuits/airdropAttestation_0001.zkey
+  COPY packages/circuits/zkeys/airdropAttestation.wasm /opt/lobstr/circuits/airdropAttestation.wasm
+
+POST-DEPLOY CHECKLIST
+=====================
+After broadcasting:
+[ ] Save all proxy addresses from console output
+[ ] Update packages/web/src/config/contract-addresses.ts with new proxy addresses
+[ ] Verify proxy impl slots: cast implementation <proxy> --rpc-url $RPC
+[ ] Test upgradeability: deploy dummy impl, call upgradeToAndCall
+[ ] Update agent workspace configs on all 3 VPS boxes (airdropClaimV3 address)
+[ ] Push to main (auto-deploys web via Firebase, indexer via Railway)
+[ ] Update indexer startBlock to new deploy block
+[ ] Agents re-run attestation flow: generate -> setup -> prove -> submit
+[ ] Verify proof on-chain: cast call <verifierV5> "verifyProof(...)(bool)"
+
+ENV VARS REQUIRED (in packages/contracts/.env)
+===============================================
+PRIVATE_KEY              — deployer private key
+BASE_MAINNET_RPC_URL     — Alchemy Base mainnet RPC
+BASESCAN_API_KEY         — for contract verification
+SIGNER_2_ADDRESS         — TreasuryGovernor multisig signer 2
+SIGNER_3_ADDRESS         — TreasuryGovernor multisig signer 3
+SIGNER_4_ADDRESS         — TreasuryGovernor multisig signer 4
+APPROVAL_SIGNER_ADDRESS  — backend signer for airdrop IP approvals
+TEAM_BENEFICIARY_ADDRESS — team vesting beneficiary
+LP_WALLET_ADDRESS        — LP wallet for DEX liquidity
+SENTINEL_ADDRESS         — Titus agent wallet
+ARBITER_ADDRESS          — Solomon agent wallet
+STEWARD_ADDRESS          — Daniel agent wallet
+GUARDIAN_ADDRESS          — LightningGovernor guardian
+
+V4 ADDRESS REGISTRY (SUPERSEDED — DO NOT USE)
+==============================================
+V4 LOBToken:        0x6a9ebf62c198c252be0c814224518b2def93a937
+V4 AirdropClaimV3:  0xc7917624fa0cf6f4973b887de5e670d7661ef297
+  (holds 400M LOB locked until Jan 2027)
+V4 Verifier:        0xea24fbedab58f1552962a41eed436c96a7116571
+  (Groth16VerifierV4 — zkey mismatch, proofs fail)
+
+V5 ADDRESS REGISTRY — LIVE ON BASE MAINNET
+============================================
+V5 LOBToken (proxy):           0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E
+V5 ReputationSystem (proxy):   0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd
+V5 StakingManager (proxy):     0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413
+V5 TreasuryGovernor (proxy):   0x66561329C973E8fEe8757002dA275ED1FEa56B95
+V5 RewardDistributor (proxy):  0xf181A69519684616460b36db44fE4A3A4f3cD913
+V5 SybilGuard (proxy):         0xd45202b192676BA94Df9C36bA4fF5c63cE001381
+V5 ServiceRegistry (proxy):    0xCa8a4528a7a4c693C19AaB3f39a555150E31013E
+V5 DisputeArbitration (proxy): 0xF5FDA5446d44505667F7eA58B0dca687c7F82b81
+V5 EscrowEngine (proxy):       0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E
+V5 LoanEngine (proxy):         0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454
+V5 X402CreditFacility (proxy): 0x86718b82Af266719E493a49e248438DC6F07911a
+V5 StakingRewards (proxy):     0x723f8483731615350D2C694CBbA027eBC2953B39
+V5 LightningGovernor (proxy):  0xCB3E0BD70686fF1b28925aD55A8044b1b944951c
+V5 Groth16VerifierV5:          0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64
+V5 AirdropClaimV3 (proxy):     0x7f4D513119A2b8cCefE1AfB22091062B54866EbA
+V5 TeamVesting (proxy):        0x71BC320F7F5FDdEaf52a18449108021c71365d35
+V5 Deploy Block:               ~42732313

@@ -34,7 +34,7 @@ contract DirectiveBoard is
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(address _sybilGuard, address initialOwner) public virtual initializer {

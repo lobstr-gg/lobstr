@@ -3,8 +3,9 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/ReputationSystem.sol";
+import "./helpers/ProxyTestHelper.sol";
 
-contract ReputationSystemTest is Test {
+contract ReputationSystemTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
     event CompletionRecorded(address indexed provider, address indexed client);
     event ScoreUpdated(address indexed user, uint256 newScore, IReputationSystem.ReputationTier newTier);
@@ -17,8 +18,7 @@ contract ReputationSystemTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        reputation = new ReputationSystem();
-        reputation.initialize();
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
         reputation.grantRole(reputation.RECORDER_ROLE(), recorder);
         vm.stopPrank();
     }

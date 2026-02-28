@@ -11,7 +11,7 @@ contract LOBToken is Initializable, UUPSUpgradeable, OwnableUpgradeable, ERC20Up
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(address distributionAddress) public initializer {

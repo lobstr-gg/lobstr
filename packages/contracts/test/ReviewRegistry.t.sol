@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/ReviewRegistry.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockEscrowForReviews {
     mapping(uint256 => IEscrowEngine.Job) private _jobs;
@@ -32,7 +33,7 @@ contract MockSybilGuardForReviews {
     }
 }
 
-contract ReviewRegistryTest is Test {
+contract ReviewRegistryTest is Test, ProxyTestHelper {
     event ReviewSubmitted(
         uint256 indexed reviewId,
         uint256 indexed jobId,
@@ -55,9 +56,7 @@ contract ReviewRegistryTest is Test {
         vm.startPrank(admin);
         escrow = new MockEscrowForReviews();
         sybilGuard = new MockSybilGuardForReviews();
-        registry = new ReviewRegistry();
-        // Initialize as admin so admin gets DEFAULT_ADMIN_ROLE
-        registry.initialize(address(escrow), address(sybilGuard));
+        registry = ReviewRegistry(_deployProxy(address(new ReviewRegistry()), abi.encodeCall(ReviewRegistry.initialize, (address(escrow), address(sybilGuard)))));
         // Set up a confirmed job (id=1)
         _createJob(1, buyer, seller, IEscrowEngine.JobStatus.Confirmed);
         // Set up a released job (id=2)
@@ -275,14 +274,14 @@ contract ReviewRegistryTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroEscrowEngine() public {
-        ReviewRegistry r = new ReviewRegistry();
-        vm.expectRevert("ReviewRegistry: zero escrowEngine");
-        r.initialize(address(0), address(sybilGuard));
+        address impl = address(new ReviewRegistry());
+        vm.expectRevert();
+        _deployProxy(impl, abi.encodeCall(ReviewRegistry.initialize, (address(0), address(sybilGuard))));
     }
 
     function test_revertZeroSybilGuard() public {
-        ReviewRegistry r = new ReviewRegistry();
-        vm.expectRevert("ReviewRegistry: zero sybilGuard");
-        r.initialize(address(escrow), address(0));
+        address impl = address(new ReviewRegistry());
+        vm.expectRevert();
+        _deployProxy(impl, abi.encodeCall(ReviewRegistry.initialize, (address(escrow), address(0))));
     }
 }

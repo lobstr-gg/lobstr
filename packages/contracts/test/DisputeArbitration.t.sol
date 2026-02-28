@@ -7,6 +7,7 @@ import "../src/StakingManager.sol";
 import "../src/ReputationSystem.sol";
 import "../src/DisputeArbitration.sol";
 import "../src/RewardDistributor.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuardDA {
     mapping(address => bool) public banned;
@@ -38,7 +39,7 @@ contract MockEscrow {
     }
 }
 
-contract DisputeArbitrationTest is Test {
+contract DisputeArbitrationTest is Test, ProxyTestHelper {
     LOBToken public token;
     StakingManager public staking;
     ReputationSystem public reputation;
@@ -59,25 +60,20 @@ contract DisputeArbitrationTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
-        staking = new StakingManager();
-        staking.initialize(address(token));
-        reputation = new ReputationSystem();
-        reputation.initialize();
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
         mockSybilGuard = new MockSybilGuardDA();
         mockEscrow = new MockEscrow();
-        rewardDist = new RewardDistributor();
-        rewardDist.initialize();
+        rewardDist = RewardDistributor(_deployProxy(address(new RewardDistributor()), abi.encodeCall(RewardDistributor.initialize, ())));
 
-        dispute = new DisputeArbitration();
-        dispute.initialize(
+        dispute = DisputeArbitration(_deployProxy(address(new DisputeArbitration()), abi.encodeCall(DisputeArbitration.initialize, (
             address(token),
             address(staking),
             address(reputation),
             address(mockSybilGuard),
             address(rewardDist)
-        );
+        ))));
 
         // Wire escrow + grant roles
         dispute.setEscrowEngine(address(mockEscrow));
@@ -710,17 +706,15 @@ contract DisputeArbitrationTest is Test {
         // First remove the existing LOB, then deposit a small amount
         // We'll create a new reward distributor with small balance
         vm.startPrank(admin);
-        RewardDistributor smallRewardDist = new RewardDistributor();
-        smallRewardDist.initialize();
+        RewardDistributor smallRewardDist = RewardDistributor(_deployProxy(address(new RewardDistributor()), abi.encodeCall(RewardDistributor.initialize, ())));
 
-        DisputeArbitration dispute2 = new DisputeArbitration();
-        dispute2.initialize(
+        DisputeArbitration dispute2 = DisputeArbitration(_deployProxy(address(new DisputeArbitration()), abi.encodeCall(DisputeArbitration.initialize, (
             address(token),
             address(staking),
             address(reputation),
             address(mockSybilGuard),
             address(smallRewardDist)
-        );
+        ))));
         dispute2.setEscrowEngine(address(mockEscrow));
         dispute2.grantRole(dispute2.ESCROW_ROLE(), address(mockEscrow));
         dispute2.grantRole(dispute2.CERTIFIER_ROLE(), admin);
@@ -1710,19 +1704,29 @@ contract DisputeArbitrationTest is Test {
         assertEq(appeal.counterEvidenceDeadline, 0); // evidence phase skipped
     }
 
-    function test_V002_lateSealUsesCommitSeed() public {
+    function test_V002_lateSealReverts_repanelWorks() public {
         vm.prank(address(mockEscrow));
         uint256 disputeId = dispute.submitDispute(1, buyer, seller, 100 ether, address(token), "ipfs://evidence");
 
         // Roll past 256 blocks so blockhash returns 0
         vm.roll(block.number + 300);
 
-        // Should still seal using the pre-committed seed (no prevrandao)
+        // Late seal should revert (prevents seed manipulation)
+        vm.expectRevert("DA: seal window expired, call repanel");
+        dispute.sealPanel(disputeId);
+
+        // Repanel to get a fresh window
+        dispute.repanel(disputeId);
+
+        // Roll past the new seal delay but within 256 blocks
+        vm.roll(block.number + 11);
+
+        // Now seal should work
         dispute.sealPanel(disputeId);
 
         IDisputeArbitration.Dispute memory d = dispute.getDispute(disputeId);
         assertEq(uint256(d.status), uint256(IDisputeArbitration.DisputeStatus.EvidencePhase));
-        assertTrue(d.arbitrators[0] != address(0), "panel assigned via commit seed");
+        assertTrue(d.arbitrators[0] != address(0), "panel assigned after repanel");
     }
 
     // ═══════════════════════════════════════════════════════════════

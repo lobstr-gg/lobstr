@@ -117,7 +117,7 @@ contract RolePayroll is IRolePayroll, Initializable, UUPSUpgradeable, OwnableUpg
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(
@@ -297,13 +297,13 @@ contract RolePayroll is IRolePayroll, Initializable, UUPSUpgradeable, OwnableUpg
     // Heartbeat Reporting (permissionless)
     // ═══════════════════════════════════════════════════════════════
 
-    function reportHeartbeat(address holder) external whenNotPaused {
-        require(_roleSlots[holder].status == SlotStatus.Active, "RP:not active");
-        require(!founderAgents[holder], "RP:founder exempt");
+    function reportHeartbeat() external whenNotPaused {
+        require(_roleSlots[msg.sender].status == SlotStatus.Active, "RP:not active");
+        require(!founderAgents[msg.sender], "RP:founder exempt");
 
-        lastHeartbeatTimestamp[holder] = block.timestamp;
+        lastHeartbeatTimestamp[msg.sender] = block.timestamp;
 
-        emit HeartbeatReported(holder, block.timestamp);
+        emit HeartbeatReported(msg.sender, block.timestamp);
     }
 
     // ═══════════════════════════════════════════════════════════════

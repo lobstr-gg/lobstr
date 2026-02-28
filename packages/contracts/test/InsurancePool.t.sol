@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {InsurancePool} from "../src/InsurancePool.sol";
 import {LOBToken} from "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 import {IEscrowEngine} from "../src/interfaces/IEscrowEngine.sol";
 import {IDisputeArbitration} from "../src/interfaces/IDisputeArbitration.sol";
 import {IInsurancePool} from "../src/interfaces/IInsurancePool.sol";
@@ -149,7 +150,7 @@ contract MockServiceRegistryForInsurance {
     }
 }
 
-contract InsurancePoolTest is Test {
+contract InsurancePoolTest is Test, ProxyTestHelper {
     event PoolDeposited(address indexed staker, uint256 amount);
     event PoolWithdrawn(address indexed staker, uint256 amount);
     event PremiumCollected(uint256 indexed jobId, address indexed buyer, uint256 premiumAmount);
@@ -180,8 +181,7 @@ contract InsurancePoolTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         escrow = new MockEscrowForInsurance();
         dispute = new MockDisputeForInsurance();
         reputation = new MockReputationForInsurance();
@@ -189,8 +189,7 @@ contract InsurancePoolTest is Test {
         sybilGuard = new MockSybilGuardForInsurance();
         serviceRegistry = new MockServiceRegistryForInsurance();
 
-        pool = new InsurancePool();
-        pool.initialize(
+        pool = InsurancePool(_deployProxy(address(new InsurancePool()), abi.encodeCall(InsurancePool.initialize, (
             address(lobToken),
             address(escrow),
             address(dispute),
@@ -200,7 +199,7 @@ contract InsurancePoolTest is Test {
             address(serviceRegistry),
             treasury,
             admin
-        );
+        ))));
         pool.grantRole(pool.GOVERNOR_ROLE(), governor);
         vm.stopPrank();
 
@@ -569,15 +568,15 @@ contract InsurancePoolTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroLobToken() public {
-        InsurancePool p = new InsurancePool();
+        address impl = address(new InsurancePool());
         vm.expectRevert("InsurancePool: zero lobToken");
-        p.initialize(address(0), address(escrow), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury, address(this));
+        _deployProxy(impl, abi.encodeCall(InsurancePool.initialize, (address(0), address(escrow), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury, address(this))));
     }
 
     function test_revertZeroEscrowEngine() public {
-        InsurancePool p = new InsurancePool();
+        address impl = address(new InsurancePool());
         vm.expectRevert("InsurancePool: zero escrowEngine");
-        p.initialize(address(lobToken), address(0), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury, address(this));
+        _deployProxy(impl, abi.encodeCall(InsurancePool.initialize, (address(lobToken), address(0), address(dispute), address(reputation), address(stakingManager), address(sybilGuard), address(serviceRegistry), treasury, address(this))));
     }
 
     // ═══════════════════════════════════════════════════════════════

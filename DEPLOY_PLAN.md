@@ -1,506 +1,314 @@
-# LOBSTR Full Deployment Plan
+# LOBSTR V5 Deployment Plan
 
 > **SENSITIVE** — Contains deployment order, key management steps, and operational procedures.
-> All contracts audited and passing (1094/1094 tests).
-
----
-
-## Phase 0: Pre-Deploy Prep — DONE
-
-### 0.1 Environment Variables
-
-- [x] `.env` created in `packages/contracts/`
-
-```bash
-# Deployer
-PRIVATE_KEY=<deployer-private-key>
-
-# RPCs
-BASE_MAINNET_RPC_URL=<alchemy-or-infura-base-mainnet>
-BASESCAN_API_KEY=<basescan-api-key>
-
-# Multisig signers (4-of-4 TreasuryGovernor)
-SIGNER_2_ADDRESS=<signer2>
-SIGNER_3_ADDRESS=<signer3>
-SIGNER_4_ADDRESS=<signer4>
-
-# Airdrop
-APPROVAL_SIGNER_ADDRESS=<backend-signer-for-airdrop-approvals>
-
-# Team/Agents
-TEAM_BENEFICIARY_ADDRESS=<team-vesting-beneficiary>
-LP_WALLET_ADDRESS=<lp-wallet>
-SENTINEL_ADDRESS=<titus-agent-wallet>
-ARBITER_ADDRESS=<solomon-agent-wallet>
-STEWARD_ADDRESS=<daniel-agent-wallet>
-GUARDIAN_ADDRESS=<lightning-governor-guardian>
-
-# DEX — LP_TOKEN_ADDRESS not needed at deploy time
-# Deploy LiquidityMining + RewardScheduler AFTER creating DEX pool
-```
-
-### 0.2 Verify Tooling
-
-- [x] Foundry installed and funded
-
-```bash
-forge --version     # Foundry installed
-cast --version      # Cast available
-source .env         # Load env vars
-cast balance $DEPLOYER --rpc-url $BASE_MAINNET_RPC_URL  # ETH for gas (~0.05 ETH)
-```
-
-### 0.3 Git Tag
-
-- [x] Tagged
-
-```bash
-git tag v4.0-mainnet-deploy
-git push origin v4.0-mainnet-deploy
-```
+> All contracts deployed behind UUPS proxies. 1103/1103 tests passing.
 
 ---
 
 ## Phase 1: Deploy Core Contracts (DeployAll.s.sol) — DONE
 
-Deployed at block **42598375** on Base Mainnet.
+Deployed at block **~42732313** on Base Mainnet. All 31 contracts verified on Sourcify.
 
-```bash
-cd packages/contracts
-source .env
+All upgradeable contracts deployed behind `ERC1967Proxy`. All implementation constructors
+call `_disableInitializers()`. Deployer renounced all admin roles to TreasuryGovernor.
 
-forge script script/DeployAll.s.sol:DeployAllScript \
-  --rpc-url $BASE_MAINNET_RPC_URL \
-  --broadcast \
-  --verify \
-  --etherscan-api-key $BASESCAN_API_KEY \
-  -vvvv
-```
+### V5 Proxy Addresses (use these everywhere)
 
-**Contracts deployed (in order):**
+| # | Contract | Proxy Address |
+|---|----------|---------------|
+| 1 | LOBToken | `0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E` |
+| 2 | ReputationSystem | `0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd` |
+| 3 | StakingManager | `0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413` |
+| 4 | TreasuryGovernor | `0x66561329C973E8fEe8757002dA275ED1FEa56B95` |
+| 5 | RewardDistributor | `0xf181A69519684616460b36db44fE4A3A4f3cD913` |
+| 6 | SybilGuard | `0xd45202b192676BA94Df9C36bA4fF5c63cE001381` |
+| 7 | ServiceRegistry | `0xCa8a4528a7a4c693C19AaB3f39a555150E31013E` |
+| 8 | DisputeArbitration | `0xF5FDA5446d44505667F7eA58B0dca687c7F82b81` |
+| 9 | EscrowEngine | `0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E` |
+| 10 | LoanEngine | `0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454` |
+| 11 | X402CreditFacility | `0x86718b82Af266719E493a49e248438DC6F07911a` |
+| 12 | StakingRewards | `0x723f8483731615350D2C694CBbA027eBC2953B39` |
+| 13 | LightningGovernor | `0xCB3E0BD70686fF1b28925aD55A8044b1b944951c` |
+| 14 | Groth16VerifierV5 | `0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64` (no proxy) |
+| 15 | AirdropClaimV3 | `0x7f4D513119A2b8cCefE1AfB22091062B54866EbA` |
+| 16 | TeamVesting | `0x71BC320F7F5FDdEaf52a18449108021c71365d35` |
 
-| # | Contract | Address | Token Distribution |
-|---|----------|---------|--------------------|
-| 1 | LOBToken | `0x6a9e...93a937` | 1B minted to deployer |
-| 2 | ReputationSystem | `0x21e9...3c156b7c2` | — |
-| 3 | StakingManager | `0x7fd4...ed6e408` | — |
-| 4 | TreasuryGovernor | `0x905f...ce27` | 300M LOB (30%) |
-| 5 | RewardDistributor | `0xeb8b...83ffe` | — |
-| 6 | SybilGuard | `0xb216...1b21` | — |
-| 7 | ServiceRegistry | `0xcfbd...e74` | — |
-| 8 | DisputeArbitration | `0x5a5c...a672` | — |
-| 9 | EscrowEngine | `0xada6...21a1` | — |
-| 10 | LoanEngine | `0x472e...dbe9` | — |
-| 11 | X402CreditFacility | `0x124d...6ca` | — |
-| 12 | StakingRewards | `0xfe5c...3323` | — |
-| 13 | LightningGovernor | `0xcae6...647d` | — |
-| — | ~~LiquidityMining~~ | — | Deferred: deploy after DEX LP pool creation |
-| — | ~~RewardScheduler~~ | — | Deferred: deploy after LiquidityMining |
-| 16 | Groth16VerifierV4 | `0xea24...571` | — |
-| 17 | AirdropClaim | `0xc791...297` | 400M LOB (40%) |
-| 18 | TeamVesting | `0x0539...14d` | 149.42M LOB (15% - agent allocs) |
+### Token Distribution (handled by DeployAll)
 
-**Also handled by DeployAll:**
-- [x] All cross-contract role grants
-- [x] Admin transfer to TreasuryGovernor
-- [x] Deployer renounces all admin roles
-- [x] Token distribution: 400M Airdrop, 300M Treasury, 150M LP, 580K Agents, 149.42M Vesting
+- [x] 400M LOB (40%) -> AirdropClaimV3
+- [x] 300M LOB (30%) -> TreasuryGovernor
+- [x] 150M LOB (15%) -> LP Wallet
+- [x] 250K LOB each -> Sentinel, Arbiter, Steward (750K total)
+- [x] 149.25M LOB -> TeamVesting
 
-**Post-deploy checks:**
-- [x] All addresses saved from console output
-- [x] Contracts verified on BaseScan (automatic with `--verify`)
-- [x] Deployer balance = 0 LOB (all distributed)
+### Role Grants (handled by DeployAll)
 
----
+- [x] ReputationSystem RECORDER_ROLE -> Escrow, Dispute, LoanEngine, CreditFacility
+- [x] StakingManager SLASHER_ROLE -> Dispute, SybilGuard, LoanEngine, CreditFacility
+- [x] DisputeArbitration ESCROW_ROLE -> Escrow, wiring set
+- [x] SybilGuard wiring -> Dispute, TreasuryGovernor
+- [x] RewardDistributor DISPUTE_ROLE + SYBIL_GUARD_ROLE
+- [x] LightningGovernor admin on Staking, Dispute, Escrow, Registry, StakingRewards
+- [x] TreasuryGovernor admin on ALL contracts
+- [x] Deployer renounced all admin roles
 
-## Phase 2: Deploy Remaining Contracts (Standalone Scripts) — MOSTLY DONE
+### ZKey Preservation
 
-8 of 10 standalone contracts deployed. SkillRegistry and PipelineRouter deferred.
+Production proving keys saved to `packages/circuits/zkeys/`:
 
-### 2.1 ReviewRegistry — DONE
-- [x] Deployed at `0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d`
-
-### 2.2 MultiPartyEscrow — DONE
-- [x] Deployed at `0x9812384d366337390dbaeb192582d6dab989319d`
-
-### 2.3 InsurancePool — DONE
-- [x] Deployed at `0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65`
-
-### 2.4 SubscriptionEngine — DONE
-- [x] Deployed at `0x90d2a7737633eb0191d2c95bc764f596a0be9912`
-
-### 2.5 BondingEngine — DONE
-- [x] Deployed at `0xb6d23b546921cce8e4494ae6ec62722930d6547e`
-
-### 2.6 DirectiveBoard — DONE
-- [x] Deployed at `0xa30a2da1016a6beb573f4d4529a0f68257ed0aed`
-
-### 2.7 RolePayroll — DONE
-- [x] Deployed at `0xc1cd28c36567869534690b992d94e58daee736ab`
-
-### 2.8 X402EscrowBridge — DONE
-- [x] Deployed at `0x62baf62c541fa1c1d11c4a9dad733db47485ca12`
-
-**Still pending (deploy manually or create scripts):**
-- [ ] SkillRegistry
-- [ ] PipelineRouter
+| File | Size | Purpose |
+|------|------|---------|
+| `airdropAttestation_v5.zkey` | 67MB | Airdrop proving key (matches VerifierV5) |
+| `airdropAttestation.wasm` | 2.2MB | Witness generator |
+| `verification_key_v5.json` | 3.2KB | Verification constants |
+| `roleUptime_v5.zkey` | 48MB | RolePayroll uptime proving key |
+| `roleUptime_verification_key_v5.json` | 3.4KB | Uptime verification constants |
 
 ---
 
-## Phase 3: Post-Deploy Role Grants (via Multisig) — PENDING
+## Phase 2: Deploy Phase 2 Contracts — TODO
 
-These grants require TreasuryGovernor multisig approval since deployer already renounced admin:
+V4 Phase 2 contracts (ReviewRegistry, MultiPartyEscrow, etc.) are on the old LOBToken
+and don't have proxies. They need fresh deploys pointing to V5 addresses.
 
-### 3.1 Phase 2 Contract Roles
+Each needs a standalone deploy script with proxy wrapping, then role grants via TreasuryGovernor.
 
-| Target Contract | Role | Grantee | Why | Status |
-|----------------|------|---------|-----|--------|
-| StakingManager | SLASHER_ROLE | InsurancePool | Slash for insurance claims | [ ] |
-| StakingManager | SLASHER_ROLE | RolePayroll | Slash abandoned roles | [ ] |
-| StakingManager | LOCKER_ROLE | RolePayroll | Lock stake for enrolled roles | [ ] |
-| ReputationSystem | RECORDER_ROLE | InsurancePool | Record insured job completions | [ ] |
-| ReputationSystem | RECORDER_ROLE | SubscriptionEngine | Record subscription completions | [ ] |
-| DisputeArbitration | ESCROW_ROLE | MultiPartyEscrow | Submit disputes for multi-party jobs | [ ] |
-| RolePayroll | ROOT_POSTER_ROLE | (heartbeat aggregator) | Post weekly uptime merkle roots | [ ] |
-| RolePayroll | DISPUTE_ROLE | DisputeArbitration | Record dispute participation | [ ] |
-| X402EscrowBridge | FACILITATOR_ROLE | `0x9787...407B` (dedicated facilitator wallet) | Create escrow jobs | [ ] |
-| X402CreditFacility | FACILITATOR_ROLE | `0x9787...407B` (dedicated facilitator wallet) | Create credit draws | [ ] |
-| X402CreditFacility | POOL_MANAGER_ROLE | (pool manager) | Manage lending pool | [ ] |
+### 2.1 Contracts to Deploy
 
-### 3.2 Founder Agent Setup
+| Contract | Dependencies (V5 addresses) | Status |
+|----------|-----------------------------|--------|
+| ReviewRegistry | EscrowEngine, SybilGuard | [ ] |
+| MultiPartyEscrow | LOBToken, StakingManager, ReputationSystem, SybilGuard, RewardDistributor | [ ] |
+| InsurancePool | LOBToken, EscrowEngine, DisputeArbitration, ReputationSystem, StakingManager, SybilGuard, ServiceRegistry | [ ] |
+| SubscriptionEngine | LOBToken, StakingManager, ReputationSystem, SybilGuard | [ ] |
+| BondingEngine | LOBToken, StakingManager, SybilGuard | [ ] |
+| DirectiveBoard | SybilGuard | [ ] |
+| RolePayroll | LOBToken, StakingManager, SybilGuard, DisputeArbitration | [ ] |
+| X402EscrowBridge | EscrowEngine, DisputeArbitration | [ ] |
+| SkillRegistry | LOBToken, StakingManager, ReputationSystem, SybilGuard, EscrowEngine | [ ] |
+| PipelineRouter | SkillRegistry, StakingManager, ReputationSystem, SybilGuard | [ ] |
 
-- [ ] Via TreasuryGovernor proposal:
+### 2.2 Deploy Pattern
 
-```
-1. DisputeArbitration.certifyArbitrator(SENTINEL_ADDRESS)
-2. DisputeArbitration.certifyArbitrator(ARBITER_ADDRESS)
-3. DisputeArbitration.certifyArbitrator(STEWARD_ADDRESS)
-4. DisputeArbitration.setProtectedArbiter(SENTINEL_ADDRESS, true)
-5. DisputeArbitration.setProtectedArbiter(ARBITER_ADDRESS, true)
-6. DisputeArbitration.setProtectedArbiter(STEWARD_ADDRESS, true)
-7. SybilGuard.grantRole(WATCHER_ROLE, SENTINEL_ADDRESS)
-8. SybilGuard.grantRole(WATCHER_ROLE, ARBITER_ADDRESS)
-9. SybilGuard.grantRole(WATCHER_ROLE, STEWARD_ADDRESS)
-10. SybilGuard.grantRole(JUDGE_ROLE, SENTINEL_ADDRESS)
-11. SybilGuard.grantRole(JUDGE_ROLE, ARBITER_ADDRESS)
-12. SybilGuard.grantRole(JUDGE_ROLE, STEWARD_ADDRESS)
-13. RolePayroll.setFounderAgent(SENTINEL_ADDRESS, true)
-14. RolePayroll.setFounderAgent(ARBITER_ADDRESS, true)
-15. RolePayroll.setFounderAgent(STEWARD_ADDRESS, true)
-```
-
-### 3.3 Treasury Allowances
-
-- [ ] Via TreasuryGovernor:
-```
-1. LOBToken.approve(RolePayroll, <weekly_budget>) — for weekly payroll claims
-2. LOBToken.approve(RewardDistributor, <reward_budget>) — for arbitrator rewards
-```
-
-### 3.4 Seed Pools
-
-- [ ] Seed all protocol pools:
-```
-1. RewardDistributor — deposit LOB for arbitrator reward budget
-2. RewardScheduler — topUp() with LOB, then createStream() for staking/LP rewards
-3. X402CreditFacility — depositToPool() with LOB for credit lending
-4. DEX LP — pair 150M LOB with ETH/USDC on Uniswap/Aerodrome
+Each contract follows the same proxy pattern as DeployAll:
+```solidity
+ContractType impl = new ContractType();
+ERC1967Proxy proxy = new ERC1967Proxy(
+    address(impl),
+    abi.encodeCall(ContractType.initialize, (v5_dep1, v5_dep2, ...))
+);
 ```
 
 ---
 
-## Phase 4: Update Contract Addresses — MOSTLY DONE
+## Phase 3: Post-Deploy Role Grants (via TreasuryGovernor Multisig) — TODO
 
-### 4.1 Web Frontend (`packages/web/src/config/contract-addresses.ts`) — DONE
+Deployer has renounced all admin. These require TreasuryGovernor (3-of-4 multisig) proposals.
 
-- [x] All deployed addresses populated in `CONTRACTS_BY_CHAIN[8453]`
-- [x] SkillRegistry + PipelineRouter correctly set to `ZERO_ADDRESS` (pending deploy)
+TreasuryGovernor: `0x66561329C973E8fEe8757002dA275ED1FEa56B95`
 
-### 4.2 ABIs (`packages/web/src/config/abis.ts`) — DONE
+### 3.1 Founder Agent Setup (Priority 1)
 
-- [x] ABIs regenerated from Foundry build output
+```
+DisputeArbitration (0xF5FDA5446d44505667F7eA58B0dca687c7F82b81):
+  1. certifyArbitrator(0x8a1C742A8A2F4f7C1295443809acE281723650fb)  -- Sentinel/Titus
+  2. certifyArbitrator(0xb761530d346d39b2c10b546545c24a0b0a3285d0)  -- Arbiter/Solomon
+  3. certifyArbitrator(0x443c4ff3caa0e344b10ca19779b2e8ab1accd672)  -- Steward/Daniel
+  4. setProtectedArbiter(Sentinel, true)
+  5. setProtectedArbiter(Arbiter, true)
+  6. setProtectedArbiter(Steward, true)
+
+SybilGuard (0xd45202b192676BA94Df9C36bA4fF5c63cE001381):
+  7.  grantRole(WATCHER_ROLE, Sentinel)
+  8.  grantRole(WATCHER_ROLE, Arbiter)
+  9.  grantRole(WATCHER_ROLE, Steward)
+  10. grantRole(JUDGE_ROLE, Sentinel)
+  11. grantRole(JUDGE_ROLE, Arbiter)
+  12. grantRole(JUDGE_ROLE, Steward)
+```
+
+### 3.2 Phase 2 Contract Roles (after Phase 2 deploys)
+
+| Target | Role | Grantee | Why |
+|--------|------|---------|-----|
+| StakingManager | SLASHER_ROLE | InsurancePool | Slash for insurance claims |
+| StakingManager | SLASHER_ROLE | RolePayroll | Slash abandoned roles |
+| StakingManager | LOCKER_ROLE | RolePayroll | Lock stake for enrolled roles |
+| ReputationSystem | RECORDER_ROLE | InsurancePool | Record insured job completions |
+| ReputationSystem | RECORDER_ROLE | SubscriptionEngine | Record subscription completions |
+| DisputeArbitration | ESCROW_ROLE | MultiPartyEscrow | Multi-party dispute submission |
+| RolePayroll | ROOT_POSTER_ROLE | (heartbeat aggregator) | Post weekly uptime merkle roots |
+| RolePayroll | DISPUTE_ROLE | DisputeArbitration | Record dispute participation |
+| X402EscrowBridge | FACILITATOR_ROLE | Facilitator wallet | Create escrow jobs |
+| X402CreditFacility | FACILITATOR_ROLE | Facilitator wallet | Create credit draws |
+| X402CreditFacility | POOL_MANAGER_ROLE | (pool manager) | Manage lending pool |
+
+### 3.3 Treasury Seeding
+
+Via TreasuryGovernor proposals:
+```
+1. LOBToken.approve(RewardDistributor, <reward_budget>)  -- arbitrator rewards
+2. LOBToken.approve(RolePayroll, <weekly_budget>)        -- weekly payroll (after Phase 2)
+3. RewardDistributor.deposit(LOBToken, <amount>)         -- seed reward budget
+4. X402CreditFacility.depositToPool(<amount>)            -- seed credit pool
+```
+
+---
+
+## Phase 4: Update Contract Addresses — TODO
+
+### 4.1 Web Frontend (`packages/web/src/config/contract-addresses.ts`)
+
+- [ ] Replace all V4 addresses with V5 proxy addresses from Phase 1 table
+- [ ] Set Phase 2 contracts to `ZERO_ADDRESS` until deployed
+
+### 4.2 ABIs (`packages/web/src/config/abis.ts`)
+
+- [ ] Regenerate from Foundry build: `forge build` then copy from `out/`
+- [ ] NOTE: `reportHeartbeat()` signature changed (no more `address` param)
 
 ### 4.3 OpenClaw CLI (`packages/openclaw/src/lib/config.ts`)
 
-- [x] Update mainnet contract addresses to match Phase 1+2 addresses.
+- [ ] Update all mainnet contract addresses to V5
 
-### 4.4 OpenClaw Skill (`packages/openclaw-skill/src/lib/format.ts` and related)
+### 4.4 X402 Facilitator (`packages/x402-facilitator/src/config.ts`)
 
-- [x] No hardcoded addresses — uses `getContractAddress()` dynamically from workspace config.
+- [ ] Update contract addresses to V5
 
-### 4.5 X402 Facilitator (`packages/x402-facilitator/src/config.ts`) — DONE
+### 4.5 Agent Workspace Configs (3 VPS boxes)
 
-- [x] Mainnet contract addresses match `contract-addresses.ts`
-
----
-
-## Phase 5: Update Indexer — DONE
-
-### 5.1 Ponder Config (`packages/indexer/ponder.config.ts`) — DONE
-
-- [x] Imports addresses from `packages/web/src/config/contract-addresses.ts`
-- [x] `startBlock` set to `42598375` (deploy block)
-- [x] All deployed contracts listed with correct addresses
-- [x] ABIs match the deployed bytecode
-
-### 5.2 New ABIs for Phase 2 Contracts — DONE
-
-- [x] ABI files in `packages/indexer/abis/` updated
-
-### 5.3 Redeploy Indexer — DONE
-
-- [x] Indexer auto-deploys to Railway via GitHub Actions on push to main
+- [ ] Update `airdropClaimV3` address on Sentinel VPS
+- [ ] Update `airdropClaimV3` address on Arbiter VPS
+- [ ] Update `airdropClaimV3` address on Steward VPS
+- [ ] Update all other contract addresses in workspace configs
 
 ---
 
-## Phase 6: Agent Bootstrap — PENDING
+## Phase 5: Update Indexer — TODO
+
+### 5.1 Ponder Config (`packages/indexer/ponder.config.ts`)
+
+- [ ] Addresses auto-imported from `contract-addresses.ts` (update Phase 4.1 first)
+- [ ] Update `startBlock` to `42732313` (V5 deploy block)
+
+### 5.2 ABIs
+
+- [ ] Copy updated ABIs from `packages/contracts/out/` to `packages/indexer/abis/`
+
+### 5.3 Redeploy
+
+- [ ] Push to main -> auto-deploys to Railway via GitHub Actions
+
+---
+
+## Phase 6: Agent Bootstrap — TODO
 
 ### 6.1 Fund Agent Wallets
 
-- [ ] Agents receive LOB directly from DeployAll (750K total):
-  - Sentinel (Titus): 250K LOB
-  - Arbiter (Solomon): 250K LOB
-  - Steward (Daniel): 250K LOB
+Agents already received 250K LOB each from DeployAll:
+- [x] Sentinel (Titus): 250K LOB at `0x8a1C742A8A2F4f7C1295443809acE281723650fb`
+- [x] Arbiter (Solomon): 250K LOB at `0xb761530d346d39b2c10b546545c24a0b0a3285d0`
+- [x] Steward (Daniel): 250K LOB at `0x443c4ff3caa0e344b10ca19779b2e8ab1accd672`
 
-### 6.2 Agent Staking (StakingManager — Platinum tier)
+### 6.2 Agent Staking (Platinum tier — 100K LOB each)
 
-- [ ] Each agent stakes 100K LOB for Platinum staking tier:
+Each agent calls (from their own wallet):
+```bash
+# Approve + stake
+cast send 0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E \
+  "approve(address,uint256)" 0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413 100000000000000000000000 \
+  --rpc-url $RPC --private-key $AGENT_KEY
+
+cast send 0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413 \
+  "stake(uint256)" 100000000000000000000000 \
+  --rpc-url $RPC --private-key $AGENT_KEY
 ```
-1. LOBToken.approve(StakingManager, 100_000 ether)
-2. StakingManager.stake(100_000 ether)
+
+- [ ] Sentinel staked 100K LOB
+- [ ] Arbiter staked 100K LOB
+- [ ] Steward staked 100K LOB
+
+### 6.3 Arbitrator Registration (Principal rank — 100K LOB each)
+
+Each agent calls (requires Phase 3.1 certification first):
+```bash
+cast send 0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E \
+  "approve(address,uint256)" 0xF5FDA5446d44505667F7eA58B0dca687c7F82b81 100000000000000000000000 \
+  --rpc-url $RPC --private-key $AGENT_KEY
+
+cast send 0xF5FDA5446d44505667F7eA58B0dca687c7F82b81 \
+  "stakeAsArbitrator(uint256)" 100000000000000000000000 \
+  --rpc-url $RPC --private-key $AGENT_KEY
 ```
 
-### 6.3 Arbitrator Registration (DisputeArbitration — per-agent rank)
+- [ ] Sentinel staked as arbitrator
+- [ ] Arbiter staked as arbitrator
+- [ ] Steward staked as arbitrator
 
-- [ ] Each agent stakes 100K LOB into DisputeArbitration for Principal rank:
+### 6.4 Airdrop Attestation (each agent)
+
+```bash
+lobstr attestation generate
+lobstr attestation setup       # copies production zkey, does NOT generate new one
+lobstr attestation prove
+lobstr airdrop submit-attestation
 ```
-LOBToken.approve(DisputeArbitration, 100_000 ether)
-DisputeArbitration.stakeAsArbitrator(100_000 ether)
-```
-(Certification + protection already done in Phase 3.2)
 
-### 6.4 Service Listings
-
-- [ ] Agents register their services in ServiceRegistry.
+- [ ] Sentinel claimed airdrop
+- [ ] Arbiter claimed airdrop
+- [ ] Steward claimed airdrop
 
 ---
 
-## Phase 7: Frontend Deployment — DONE
+## Phase 7: Frontend + Indexer Redeploy — TODO
 
-### 7.1 Build & Test — DONE
-
-- [x] `pnpm build` passes
-- [x] `pnpm lint` clean
-
-### 7.2 Environment Variables — DONE
-
-- [x] Production env vars set in Firebase/GitHub Secrets:
-```bash
-NEXT_PUBLIC_CHAIN_ID=8453
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<wc-project-id>
-FIREBASE_PROJECT_ID=...
-FIREBASE_CLIENT_EMAIL=...
-FIREBASE_PRIVATE_KEY=...
-```
-
-### 7.3 Deploy — DONE
-
-- [x] Deployed to Firebase Hosting via GitHub Actions CI/CD (auto-deploy on push to main)
+- [ ] Complete Phase 4 (address updates)
+- [ ] Complete Phase 5 (indexer config)
+- [ ] `pnpm build` passes
+- [ ] `pnpm lint` clean
+- [ ] Push to main -> Firebase (web) + Railway (indexer) auto-deploy
 
 ---
 
-## Phase 8: OpenClaw + Skills Deployment — PENDING
+## Phase 8: Smoke Tests — TODO
 
-### 8.1 OpenClaw Core (`packages/openclaw/`)
-
-- [ ] Build and publish CLI
-```bash
-cd packages/openclaw
-pnpm build
-# Update config.ts with mainnet addresses (done in Phase 4.3)
-# Publish or deploy the CLI
-```
-
-### 8.2 OpenClaw Skill (`packages/openclaw-skill/`)
-
-- [ ] Build and deploy skill
-```bash
-cd packages/openclaw-skill
-pnpm build
-# Update any hardcoded addresses
-# Deploy/publish the skill
-```
-
-### 8.3 LobstrClaw (`packages/lobstrclaw/`)
-
-- [ ] Update submodule reference if needed:
-```bash
-cd packages/lobstrclaw
-git pull origin main
-```
-
----
-
-## Phase 9: X402 Facilitator — IN PROGRESS
-
-### 9.1 Dedicated Facilitator Wallet — DONE
-
-A dedicated hot wallet isolates the facilitator's signing key from agent wallets
-that hold staked LOB and act as multisig signers.
-
-| | Address |
-|---|---------|
-| **Facilitator wallet** | `0x97876BD417f919Bd7fcF194Db274Ae68E703407B` |
-| **Purpose** | Sign X402 settlement transactions (Bridge + CreditFacility) |
-| **Funding** | ~0.01 ETH on Base for gas |
-
-- [x] Wallet generated
-- [x] Setup script created (`scripts/setup-facilitator-wallet.sh`)
-
-### 9.2 Role Grants — PENDING
-
-Run the interactive setup script:
+### 8.1 Contract Verification
 
 ```bash
-export TITUS_KEY=0x...   # Titus's private key (admin of X402EscrowBridge)
-bash scripts/setup-facilitator-wallet.sh
+RPC=https://base-mainnet.g.alchemy.com/v2/_5WcHVGfwxEO9t9ufJMHp
+
+# Verify proxies have implementations
+cast implementation 0x7f4D513119A2b8cCefE1AfB22091062B54866EbA --rpc-url $RPC
+cast implementation 0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E --rpc-url $RPC
+
+# Verify airdrop owner
+cast call 0x7f4D513119A2b8cCefE1AfB22091062B54866EbA "owner()(address)" --rpc-url $RPC
+
+# Verify verifier is V5
+cast call 0x7f4D513119A2b8cCefE1AfB22091062B54866EbA "verifier()(address)" --rpc-url $RPC
+
+# Verify deployer has 0 LOB
+cast call 0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E "balanceOf(address)(uint256)" 0x8a1C742A8A2F4f7C1295443809acE281723650fb --rpc-url $RPC
 ```
 
-The script handles:
-
-| Step | Contract | Action | Auth | Status |
-|------|----------|--------|------|--------|
-| 2 | X402CreditFacility | Grant FACILITATOR_ROLE | TreasuryGovernor multisig proposal | [ ] |
-| 3 | X402EscrowBridge | Grant FACILITATOR_ROLE | Titus (direct, admin) | [ ] |
-| 4 | X402EscrowBridge | Revoke Titus FACILITATOR_ROLE | Titus (direct, admin) | [ ] |
-| 5 | X402EscrowBridge | Transfer admin to TreasuryGovernor | Titus grants + renounces | [ ] |
-
-### 9.3 Fund Wallet — PENDING
-
-- [ ] Send ~0.01 ETH to the facilitator on Base
-
-```bash
-cast send 0x97876BD417f919Bd7fcF194Db274Ae68E703407B \
-  --value 0.01ether \
-  --rpc-url https://mainnet.base.org \
-  --private-key <FUNDING_KEY>
-```
-
-### 9.4 Deploy Service — PENDING
-
-- [ ] Set production env vars and deploy
-
-```bash
-cd packages/x402-facilitator
-# Config addresses already set in Phase 4.5
-# Set production env vars:
-#   FACILITATOR_PRIVATE_KEY=0x<dedicated-wallet-key>
-#   NETWORK=mainnet
-#   PORT=3402
-pnpm build
-pnpm start
-```
-
-### 9.5 Verification — PENDING
-
-- [ ] Run verification checks after role grants complete
-
-```bash
-ROLE=$(cast keccak "FACILITATOR_ROLE")
-WALLET=0x97876BD417f919Bd7fcF194Db274Ae68E703407B
-RPC=https://mainnet.base.org
-
-# Facilitator has role on both contracts
-cast call 0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca "hasRole(bytes32,address)(bool)" $ROLE $WALLET --rpc-url $RPC
-cast call 0x62baf62c541fa1c1d11c4a9dad733db47485ca12 "hasRole(bytes32,address)(bool)" $ROLE $WALLET --rpc-url $RPC
-
-# Titus no longer has FACILITATOR_ROLE on Bridge
-cast call 0x62baf62c541fa1c1d11c4a9dad733db47485ca12 "hasRole(bytes32,address)(bool)" $ROLE 0x8a1C742A8A2F4f7C1295443809acE281723650fb --rpc-url $RPC
-
-# TreasuryGovernor has admin on Bridge
-cast call 0x62baf62c541fa1c1d11c4a9dad733db47485ca12 "hasRole(bytes32,address)(bool)" 0x0000000000000000000000000000000000000000000000000000000000000000 0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27 --rpc-url $RPC
-```
-
----
-
-## Phase 10: Smoke Tests — PENDING
-
-### 10.1 Contract Verification
-
-- [ ] Every contract verified on BaseScan
-- [ ] All admin roles transferred to TreasuryGovernor
+- [ ] All 31 contracts verified on Sourcify/BaseScan
+- [ ] All proxies have non-zero implementation slot
 - [ ] Deployer has 0 LOB and no admin roles
-- [ ] `pnpm check:address-wiring` passes (if available)
+- [ ] AirdropClaimV3 verifier == Groth16VerifierV5
 
-### 10.2 End-to-End Flows
+### 8.2 End-to-End Flows
 
-- [ ] Airdrop: attest → prove → claim → milestone unlock
-- [ ] Escrow: list service → create job → deliver → confirm → funds released
-- [ ] Dispute: initiate → panel sealed → vote → ruling → finalize
-- [ ] Staking: stake LOB → earn rewards → unstake
-- [ ] Credit: open credit line → draw → create job → repay
-- [ ] Insurance: create insured job → file claim
-- [ ] Subscription: create → process payment → cancel
-- [ ] Governance: create proposal → signers approve → execute
+- [ ] Airdrop: attest -> prove -> claim -> milestone unlock
+- [ ] Escrow: list service -> create job -> deliver -> confirm
+- [ ] Dispute: initiate -> panel sealed (within 256 blocks) -> vote -> ruling
+- [ ] Staking: stake LOB -> check tier -> unstake
+- [ ] Governance: create proposal -> signers approve -> execute
 
-### 10.3 Monitoring
+### 8.3 Upgrade Test
 
-- [ ] Indexer synced to current block
-- [ ] Frontend shows correct balances
-- [ ] X402 facilitator processing payments
-- [ ] Agent heartbeats flowing
-
----
-
-## Address Registry
-
-```
-═══════════════════════════════════════════════════
-  LOBSTR V4 — Base Mainnet (Chain 8453)
-  Deploy Block: 42598375
-  Deploy Date:  2026-02-25
-═══════════════════════════════════════════════════
-
-Phase 1 (DeployAll):
-  LOBToken:            0x6a9ebf62c198c252be0c814224518b2def93a937
-  ReputationSystem:    0x21e96019dd46e07b694ee28999b758e3c156b7c2
-  StakingManager:      0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408
-  TreasuryGovernor:    0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27
-  RewardDistributor:   0xeb8b276fccbb982c55d1a18936433ed875783ffe
-  SybilGuard:          0xb216314338f291a0458e1d469c1c904ec65f1b21
-  ServiceRegistry:     0xcfbdfad104b8339187af3d84290b59647cf4da74
-  DisputeArbitration:  0x5a5c510db582546ef17177a62a604cbafceba672
-  EscrowEngine:        0xada65391bb0e1c7db6e0114b3961989f3f3221a1
-  LoanEngine:          0x472ec915cd56ef94e0a163a74176ef9a336cdbe9
-  X402CreditFacility:  0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca
-  StakingRewards:      0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323
-  LiquidityMining:     (deferred — deploy after DEX LP pool)
-  RewardScheduler:     (deferred — deploy after LiquidityMining)
-  LightningGovernor:   0xcae6aec8d63479bde5c0969241c959b402f5647d
-  Groth16VerifierV4:   0xea24fbedab58f1552962a41eed436c96a7116571
-  AirdropClaim:        0xc7917624fa0cf6f4973b887de5e670d7661ef297
-  TeamVesting:         0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d
-
-Phase 2 (Standalone):
-  ReviewRegistry:      0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d
-  MultiPartyEscrow:    0x9812384d366337390dbaeb192582d6dab989319d
-  InsurancePool:       0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65
-  SubscriptionEngine:  0x90d2a7737633eb0191d2c95bc764f596a0be9912
-  BondingEngine:       0xb6d23b546921cce8e4494ae6ec62722930d6547e
-  DirectiveBoard:      0xa30a2da1016a6beb573f4d4529a0f68257ed0aed
-  RolePayroll:         0xc1cd28c36567869534690b992d94e58daee736ab
-  X402EscrowBridge:    0x62baf62c541fa1c1d11c4a9dad733db47485ca12
-  SkillRegistry:       (not yet deployed)
-  PipelineRouter:      (not yet deployed)
-
-X402 Facilitator:
-  Facilitator Wallet:  0x97876BD417f919Bd7fcF194Db274Ae68E703407B
-
-External:
-  USDC (Base):         0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-  LP Token:            (not yet created)
-═══════════════════════════════════════════════════
-```
+- [ ] Deploy dummy implementation
+- [ ] Call `upgradeToAndCall` via TreasuryGovernor
+- [ ] Verify state preserved, new code active
 
 ---
 
@@ -508,26 +316,46 @@ External:
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 0. Prep | DONE | Env vars, wallet funding, git tag |
-| 1. DeployAll | DONE | 18 contracts at block 42598375 |
-| 2. Standalone deploys | MOSTLY DONE | 8/10 deployed; SkillRegistry + PipelineRouter pending |
-| 3. Multisig role grants | PENDING | Needs all signers online |
-| 4. Update addresses | DONE | Web + ABIs + x402 + OpenClaw CLI/Skill all updated |
-| 5. Indexer | DONE | Auto-deploys via Railway CI/CD |
-| 6. Agent bootstrap | PENDING | Staking + registration (on-chain) |
-| 7. Frontend | DONE | Firebase Hosting via GitHub Actions |
-| 8. OpenClaw + Skills | PENDING | Build + deploy |
-| 9. X402 Facilitator | IN PROGRESS | Wallet generated; role grants + deploy pending |
-| 10. Smoke tests | PENDING | Full E2E verification |
+| 1. DeployAll (V5 proxies) | DONE | 31 contracts deployed + verified, block ~42732313 |
+| 2. Phase 2 contracts | TODO | Need fresh deploys with V5 deps + proxies |
+| 3. Multisig role grants | TODO | Founder setup, Phase 2 roles, treasury seeding |
+| 4. Update addresses | TODO | Web, OpenClaw, X402, agent configs |
+| 5. Indexer | TODO | New startBlock + addresses |
+| 6. Agent bootstrap | TODO | Staking, arbitrator reg, airdrop claims |
+| 7. Frontend + indexer redeploy | TODO | After address updates |
+| 8. Smoke tests | TODO | E2E verification |
 
 ---
 
-## Rollback Plan
+## Execution Order
 
-If something goes wrong mid-deploy:
+The phases have dependencies. Execute in this order:
 
-1. **Phase 1 fails mid-transaction**: Nothing deployed (atomic). Fix and retry.
-2. **Phase 2 contract has bug**: Don't grant it roles yet. Fix, redeploy, use new address.
-3. **Wrong token distribution**: LOB is in TreasuryGovernor (multisig-controlled). Can redistribute via proposals.
-4. **Frontend shows wrong data**: Revert `contract-addresses.ts`, redeploy frontend.
-5. **Indexer out of sync**: `pnpm dev` reindexes from startBlock.
+```
+Phase 4 (update addresses)
+  -> Phase 5 (indexer config)
+  -> Phase 7 (push to main, auto-deploys web + indexer)
+
+Phase 3.1 (founder agent certification via multisig)
+  -> Phase 6.2 (agent staking)
+  -> Phase 6.3 (arbitrator registration)
+  -> Phase 6.4 (airdrop claims)
+
+Phase 2 (deploy Phase 2 contracts)
+  -> Phase 3.2 (Phase 2 role grants via multisig)
+
+Phase 8 (smoke tests — after everything above)
+```
+
+**Immediate next step:** Phase 4 — update `contract-addresses.ts` with V5 proxy addresses.
+
+---
+
+## V4 History (Superseded)
+
+V4 deployed at block 42598375 on 2026-02-25. All V4 addresses are now obsolete.
+400M LOB locked in V4 AirdropClaimV3 (`0xc791...ef297`) until Jan 2027.
+V4 Groth16VerifierV4 had zkey mismatch — proofs failed on-chain.
+
+V4 Phase 2 contracts (ReviewRegistry, MultiPartyEscrow, InsurancePool, etc.) reference
+V4 LOBToken and are not proxied. They need fresh deploys against V5.

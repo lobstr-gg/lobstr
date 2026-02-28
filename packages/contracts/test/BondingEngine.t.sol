@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/BondingEngine.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 // ═══════════════════════════════════════════════════════════════
 //  MOCKS
@@ -98,7 +99,7 @@ contract FeeOnTransferToken is ERC20 {
 //  TESTS
 // ═══════════════════════════════════════════════════════════════
 
-contract BondingEngineTest is Test {
+contract BondingEngineTest is Test, ProxyTestHelper {
     // Re-declare events for expectEmit
     event MarketCreated(
         uint256 indexed marketId,
@@ -144,19 +145,17 @@ contract BondingEngineTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         usdc = new MockUSDC();
         stakingManager = new MockStakingManagerForBonds();
         sybilGuard = new MockSybilGuardForBonds();
 
-        bonding = new BondingEngine();
-        bonding.initialize(
+        bonding = BondingEngine(_deployProxy(address(new BondingEngine()), abi.encodeCall(BondingEngine.initialize, (
             address(lobToken),
             address(stakingManager),
             address(sybilGuard),
             treasuryAddr
-        );
+        ))));
 
         bonding.grantRole(bonding.MARKET_ADMIN_ROLE(), admin);
         vm.stopPrank();
@@ -201,27 +200,27 @@ contract BondingEngineTest is Test {
     }
 
     function test_revertZeroLobToken() public {
-        BondingEngine b = new BondingEngine();
+        address impl = address(new BondingEngine());
         vm.expectRevert("BondingEngine: zero lobToken");
-        b.initialize(address(0), address(stakingManager), address(sybilGuard), treasuryAddr);
+        _deployProxy(impl, abi.encodeCall(BondingEngine.initialize, (address(0), address(stakingManager), address(sybilGuard), treasuryAddr)));
     }
 
     function test_revertZeroStakingManager() public {
-        BondingEngine b = new BondingEngine();
+        address impl = address(new BondingEngine());
         vm.expectRevert("BondingEngine: zero stakingManager");
-        b.initialize(address(lobToken), address(0), address(sybilGuard), treasuryAddr);
+        _deployProxy(impl, abi.encodeCall(BondingEngine.initialize, (address(lobToken), address(0), address(sybilGuard), treasuryAddr)));
     }
 
     function test_revertZeroSybilGuard() public {
-        BondingEngine b = new BondingEngine();
+        address impl = address(new BondingEngine());
         vm.expectRevert("BondingEngine: zero sybilGuard");
-        b.initialize(address(lobToken), address(stakingManager), address(0), treasuryAddr);
+        _deployProxy(impl, abi.encodeCall(BondingEngine.initialize, (address(lobToken), address(stakingManager), address(0), treasuryAddr)));
     }
 
     function test_revertZeroTreasury() public {
-        BondingEngine b = new BondingEngine();
+        address impl = address(new BondingEngine());
         vm.expectRevert("BondingEngine: zero treasury");
-        b.initialize(address(lobToken), address(stakingManager), address(sybilGuard), address(0));
+        _deployProxy(impl, abi.encodeCall(BondingEngine.initialize, (address(lobToken), address(stakingManager), address(sybilGuard), address(0))));
     }
 
     // ═══════════════════════════════════════════════════════════════

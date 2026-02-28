@@ -9,6 +9,7 @@ import "../src/AirdropClaimV3.sol";
 import "../src/ReputationSystem.sol";
 import "../src/StakingManager.sol";
 import "../src/ServiceRegistry.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 // Mock verifier that always returns true (for testing without real ZK proofs)
 contract MockGroth16VerifierV4 {
@@ -59,7 +60,7 @@ contract MockDisputeArbitrationAirdrop {
     function removeArbitrator(address) external {}
 }
 
-contract AirdropClaimV3Test is Test {
+contract AirdropClaimV3Test is Test, ProxyTestHelper {
     using ECDSA for bytes32;
 
     LOBToken public token;
@@ -89,24 +90,19 @@ contract AirdropClaimV3Test is Test {
     function setUp() public {
         approvalSignerAddr = vm.addr(approvalSignerKey);
 
-        token = new LOBToken();
-        token.initialize(deployer);
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (deployer))));
         verifier = new MockGroth16VerifierV4();
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         mockSybilGuard = new MockSybilGuardAirdrop();
         mockDispute = new MockDisputeArbitrationAirdrop();
-        registry = new ServiceRegistry();
-        registry.initialize(
+        registry = ServiceRegistry(_deployProxy(address(new ServiceRegistry()), abi.encodeCall(ServiceRegistry.initialize, (
             address(staking),
             address(reputation),
             address(mockSybilGuard)
-        );
+        ))));
 
-        airdrop = new AirdropClaimV3();
-        airdrop.initialize(
+        airdrop = AirdropClaimV3(_deployProxy(address(new AirdropClaimV3()), abi.encodeCall(AirdropClaimV3.initialize, (
             address(token),
             address(verifier),
             approvalSignerAddr,
@@ -117,7 +113,7 @@ contract AirdropClaimV3Test is Test {
             address(registry),
             address(staking),
             address(mockDispute)
-        );
+        ))));
 
         // Fund the airdrop contract
         token.transfer(address(airdrop), 400_000_000 ether);
@@ -271,8 +267,7 @@ contract AirdropClaimV3Test is Test {
 
     function test_ClaimRejectsInvalidPoW() public {
         // Deploy a separate airdrop with very strict PoW (difficulty=1 means hash < 1 = impossible)
-        AirdropClaimV3 strictAirdrop = new AirdropClaimV3();
-        strictAirdrop.initialize(
+        AirdropClaimV3 strictAirdrop = AirdropClaimV3(_deployProxy(address(new AirdropClaimV3()), abi.encodeCall(AirdropClaimV3.initialize, (
             address(token),
             address(verifier),
             approvalSignerAddr,
@@ -283,7 +278,7 @@ contract AirdropClaimV3Test is Test {
             address(registry),
             address(staking),
             address(mockDispute)
-        );
+        ))));
         // No need to fund — revert happens before transfer
 
         // Sign approval against strictAirdrop's address (domain-separated)

@@ -6,6 +6,7 @@ import "../src/LOBToken.sol";
 import "../src/StakingManager.sol";
 import "../src/RolePayroll.sol";
 import "../src/interfaces/IRolePayroll.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 // ── Mock Verifier (always returns true for unit tests) ──────────────
 
@@ -78,7 +79,7 @@ contract MockDisputeArbitrationRP {
 
 // ── Tests ───────────────────────────────────────────────────────────
 
-contract RolePayrollTest is Test {
+contract RolePayrollTest is Test, ProxyTestHelper {
     LOBToken public lobToken;
     StakingManager public staking;
     MockUSDC public usdc;
@@ -101,16 +102,13 @@ contract RolePayrollTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
-        staking = new StakingManager();
-        staking.initialize(address(lobToken));
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(lobToken)))));
         usdc = new MockUSDC();
         verifier = new MockUptimeVerifier();
         mockDispute = new MockDisputeArbitrationRP();
 
-        payroll = new RolePayroll();
-        payroll.initialize(
+        payroll = RolePayroll(_deployProxy(address(new RolePayroll()), abi.encodeCall(RolePayroll.initialize, (
             address(lobToken),
             address(usdc),
             address(staking),
@@ -119,7 +117,7 @@ contract RolePayrollTest is Test {
             treasury,
             insurancePool,
             genesisEpoch
-        );
+        ))));
 
         // Grant roles
         staking.grantRole(staking.LOCKER_ROLE(), address(payroll));
@@ -720,14 +718,16 @@ contract RolePayrollTest is Test {
 
         vm.warp(block.timestamp + 6 hours);
 
-        payroll.reportHeartbeat(user1);
+        vm.prank(user1);
+        payroll.reportHeartbeat();
 
         assertEq(payroll.lastHeartbeatTimestamp(user1), block.timestamp);
     }
 
     function test_heartbeat_revert_not_active() public {
+        vm.prank(user2);
         vm.expectRevert("RP:not active");
-        payroll.reportHeartbeat(user2); // user2 not enrolled
+        payroll.reportHeartbeat(); // user2 not enrolled
     }
 
     // ═══════════════════════════════════════════════════════════════

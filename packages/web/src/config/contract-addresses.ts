@@ -36,37 +36,37 @@ export type ContractAddressBook = {
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
-// ── Base Mainnet (V4 — deployed 2026-02-25, block 42598375) ──
+// ── Base Mainnet (V5 — deployed 2026-02-27, block ~42732313, UUPS proxies) ──
 const BASE_MAINNET_ADDRESSES: ContractAddressBook = {
-  lobToken: "0x6a9ebf62c198c252be0c814224518b2def93a937" as Address,
-  reputationSystem: "0x21e96019dd46e07b694ee28999b758e3c156b7c2" as Address,
-  stakingManager: "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408" as Address,
-  treasuryGovernor: "0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27" as Address,
-  rewardDistributor: "0xeb8b276fccbb982c55d1a18936433ed875783ffe" as Address,
-  sybilGuard: "0xb216314338f291a0458e1d469c1c904ec65f1b21" as Address,
-  serviceRegistry: "0xcfbdfad104b8339187af3d84290b59647cf4da74" as Address,
-  disputeArbitration: "0x5a5c510db582546ef17177a62a604cbafceba672" as Address,
-  escrowEngine: "0xada65391bb0e1c7db6e0114b3961989f3f3221a1" as Address,
-  loanEngine: "0x472ec915cd56ef94e0a163a74176ef9a336cdbe9" as Address,
-  x402CreditFacility: "0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca" as Address,
-  stakingRewards: "0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323" as Address,
+  lobToken: "0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E" as Address,
+  reputationSystem: "0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd" as Address,
+  stakingManager: "0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413" as Address,
+  treasuryGovernor: "0x66561329C973E8fEe8757002dA275ED1FEa56B95" as Address,
+  rewardDistributor: "0xf181A69519684616460b36db44fE4A3A4f3cD913" as Address,
+  sybilGuard: "0xd45202b192676BA94Df9C36bA4fF5c63cE001381" as Address,
+  serviceRegistry: "0xCa8a4528a7a4c693C19AaB3f39a555150E31013E" as Address,
+  disputeArbitration: "0xF5FDA5446d44505667F7eA58B0dca687c7F82b81" as Address,
+  escrowEngine: "0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E" as Address,
+  loanEngine: "0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454" as Address,
+  x402CreditFacility: "0x86718b82Af266719E493a49e248438DC6F07911a" as Address,
+  stakingRewards: "0x723f8483731615350D2C694CBbA027eBC2953B39" as Address,
   liquidityMining: ZERO_ADDRESS, // deferred until DEX LP pool created
   rewardScheduler: ZERO_ADDRESS, // deferred until LiquidityMining deployed
-  lightningGovernor: "0xcae6aec8d63479bde5c0969241c959b402f5647d" as Address,
-  groth16VerifierV4: "0xea24fbedab58f1552962a41eed436c96a7116571" as Address,
-  airdropClaim: "0xc7917624fa0cf6f4973b887de5e670d7661ef297" as Address,
-  teamVesting: "0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d" as Address,
-  // Phase 2 — deployed standalone (block 42598375+)
-  x402EscrowBridge: "0x62baf62c541fa1c1d11c4a9dad733db47485ca12" as Address,
-  directiveBoard: "0xa30a2da1016a6beb573f4d4529a0f68257ed0aed" as Address,
-  reviewRegistry: "0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d" as Address,
-  multiPartyEscrow: "0x9812384d366337390dbaeb192582d6dab989319d" as Address,
-  insurancePool: "0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65" as Address,
-  skillRegistry: ZERO_ADDRESS, // deploy later
-  pipelineRouter: ZERO_ADDRESS, // deploy later
-  subscriptionEngine: "0x90d2a7737633eb0191d2c95bc764f596a0be9912" as Address,
-  bondingEngine: "0xb6d23b546921cce8e4494ae6ec62722930d6547e" as Address,
-  rolePayroll: "0xc1cd28c36567869534690b992d94e58daee736ab" as Address,
+  lightningGovernor: "0xCB3E0BD70686fF1b28925aD55A8044b1b944951c" as Address,
+  groth16VerifierV4: "0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64" as Address, // V5 verifier, key name kept for compat
+  airdropClaim: "0x7f4D513119A2b8cCefE1AfB22091062B54866EbA" as Address,
+  teamVesting: "0x71BC320F7F5FDdEaf52a18449108021c71365d35" as Address,
+  // Phase 2 — need fresh deploys with V5 deps + proxies
+  x402EscrowBridge: ZERO_ADDRESS,
+  directiveBoard: ZERO_ADDRESS,
+  reviewRegistry: ZERO_ADDRESS,
+  multiPartyEscrow: ZERO_ADDRESS,
+  insurancePool: ZERO_ADDRESS,
+  skillRegistry: ZERO_ADDRESS,
+  pipelineRouter: ZERO_ADDRESS,
+  subscriptionEngine: ZERO_ADDRESS,
+  bondingEngine: ZERO_ADDRESS,
+  rolePayroll: ZERO_ADDRESS,
 };
 
 // ── Base Sepolia (testnet) ──

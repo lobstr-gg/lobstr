@@ -7,13 +7,14 @@ import "../src/StakingManager.sol";
 import "../src/ReputationSystem.sol";
 import "../src/ServiceRegistry.sol";
 import "../src/SybilGuard.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuardSR {
     function checkBanned(address) external pure returns (bool) { return false; }
     function checkAnyBanned(address[] calldata) external pure returns (bool) { return false; }
 }
 
-contract ServiceRegistryTest is Test {
+contract ServiceRegistryTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
     event ListingCreated(uint256 indexed listingId, address indexed provider, IServiceRegistry.ServiceCategory category, uint256 pricePerUnit, address settlementToken);
     event ListingUpdated(uint256 indexed listingId, uint256 pricePerUnit, address settlementToken);
@@ -31,15 +32,11 @@ contract ServiceRegistryTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
-        staking = new StakingManager();
-        staking.initialize(address(token));
-        reputation = new ReputationSystem();
-        reputation.initialize();
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
         mockSybilGuard = new MockSybilGuardSR();
-        registry = new ServiceRegistry();
-        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        registry = ServiceRegistry(_deployProxy(address(new ServiceRegistry()), abi.encodeCall(ServiceRegistry.initialize, (address(staking), address(reputation), address(mockSybilGuard)))));
         vm.stopPrank();
 
         // Fund alice

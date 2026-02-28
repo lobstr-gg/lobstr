@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/SubscriptionEngine.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockUSDC {
     string public name = "USD Coin";
@@ -63,7 +64,7 @@ contract MockSybilGuardForSub {
     }
 }
 
-contract SubscriptionEngineTest is Test {
+contract SubscriptionEngineTest is Test, ProxyTestHelper {
     event SubscriptionCreated(uint256 indexed id, address indexed buyer, address indexed seller, address token, uint256 amount, uint256 interval, uint256 maxCycles);
     event PaymentProcessed(uint256 indexed id, uint256 cycleNumber, uint256 amount, uint256 fee);
     event SubscriptionCancelled(uint256 indexed id, address cancelledBy);
@@ -86,18 +87,16 @@ contract SubscriptionEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         usdc = new MockUSDC();
         reputation = new MockReputationForSub();
         sybilGuard = new MockSybilGuardForSub();
-        subEngine = new SubscriptionEngine();
-        subEngine.initialize(
+        subEngine = SubscriptionEngine(_deployProxy(address(new SubscriptionEngine()), abi.encodeCall(SubscriptionEngine.initialize, (
             address(lobToken),
             address(reputation),
             address(sybilGuard),
             treasury
-        );
+        ))));
         vm.stopPrank();
 
         // Fund buyer with LOB and USDC
@@ -457,27 +456,27 @@ contract SubscriptionEngineTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroLobToken() public {
-        SubscriptionEngine se = new SubscriptionEngine();
+        address impl = address(new SubscriptionEngine());
         vm.expectRevert("SubscriptionEngine: zero lobToken");
-        se.initialize(address(0), address(reputation), address(sybilGuard), treasury);
+        _deployProxy(impl, abi.encodeCall(SubscriptionEngine.initialize, (address(0), address(reputation), address(sybilGuard), treasury)));
     }
 
     function test_revertZeroReputation() public {
-        SubscriptionEngine se = new SubscriptionEngine();
+        address impl = address(new SubscriptionEngine());
         vm.expectRevert("SubscriptionEngine: zero reputationSystem");
-        se.initialize(address(lobToken), address(0), address(sybilGuard), treasury);
+        _deployProxy(impl, abi.encodeCall(SubscriptionEngine.initialize, (address(lobToken), address(0), address(sybilGuard), treasury)));
     }
 
     function test_revertZeroSybilGuard() public {
-        SubscriptionEngine se = new SubscriptionEngine();
+        address impl = address(new SubscriptionEngine());
         vm.expectRevert("SubscriptionEngine: zero sybilGuard");
-        se.initialize(address(lobToken), address(reputation), address(0), treasury);
+        _deployProxy(impl, abi.encodeCall(SubscriptionEngine.initialize, (address(lobToken), address(reputation), address(0), treasury)));
     }
 
     function test_revertZeroTreasury() public {
-        SubscriptionEngine se = new SubscriptionEngine();
+        address impl = address(new SubscriptionEngine());
         vm.expectRevert("SubscriptionEngine: zero treasury");
-        se.initialize(address(lobToken), address(reputation), address(sybilGuard), address(0));
+        _deployProxy(impl, abi.encodeCall(SubscriptionEngine.initialize, (address(lobToken), address(reputation), address(sybilGuard), address(0))));
     }
 
     // ═══════════════════════════════════════════════════════════════

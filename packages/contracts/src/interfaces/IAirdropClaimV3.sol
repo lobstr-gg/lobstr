@@ -19,6 +19,7 @@ interface IAirdropClaimV3 {
 
     event AirdropClaimed(address indexed claimant, uint256 immediateRelease);
     event MilestoneCompleted(address indexed claimant, Milestone milestone, uint256 amountReleased);
+    event VerifierUpdated(address indexed newVerifier);
 
     function claim(
         uint256[2] calldata pA,

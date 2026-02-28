@@ -6,6 +6,7 @@ import "../src/LOBToken.sol";
 import "../src/ReputationSystem.sol";
 import "../src/StakingManager.sol";
 import "../src/LoanEngine.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuardForLoans {
     mapping(address => bool) public banned;
@@ -23,7 +24,7 @@ contract MockSybilGuardForLoans {
     }
 }
 
-contract LoanEngineTest is Test {
+contract LoanEngineTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit
     event LoanRequested(uint256 indexed loanId, address indexed borrower, uint256 principal, ILoanEngine.LoanTerm term);
     event LoanCancelled(uint256 indexed loanId);
@@ -49,24 +50,20 @@ contract LoanEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         sybilGuard = new MockSybilGuardForLoans();
         vm.stopPrank();
 
-        loanEngine = new LoanEngine();
-        loanEngine.initialize(
+        loanEngine = LoanEngine(_deployProxy(address(new LoanEngine()), abi.encodeCall(LoanEngine.initialize, (
             address(token),
             address(reputation),
             address(staking),
             address(sybilGuard),
             treasury,
             address(this)
-        );
+        ))));
 
         // OZ 5.x: DEFAULT_ADMIN_ROLE granted to _owner (address(this)), grant to admin for tests
         loanEngine.grantRole(loanEngine.DEFAULT_ADMIN_ROLE(), admin);

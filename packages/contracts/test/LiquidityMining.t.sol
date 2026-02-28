@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/LiquidityMining.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockLPToken {
     string public name = "Mock LP";
@@ -78,7 +79,7 @@ contract MockSybilGuardForLP {
     }
 }
 
-contract LiquidityMiningTest is Test {
+contract LiquidityMiningTest is Test, ProxyTestHelper {
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 amount);
@@ -99,19 +100,17 @@ contract LiquidityMiningTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         lpToken = new MockLPToken();
         sybilGuard = new MockSybilGuardForLP();
         stakingManager = new MockStakingManagerForLP();
-        mining = new LiquidityMining();
-        mining.initialize(
+        mining = LiquidityMining(_deployProxy(address(new LiquidityMining()), abi.encodeCall(LiquidityMining.initialize, (
             address(lpToken),
             address(lobToken),
             address(stakingManager),
             address(sybilGuard),
             admin
-        );
+        ))));
         mining.grantRole(mining.REWARD_NOTIFIER_ROLE(), notifier);
         vm.stopPrank();
 
@@ -370,27 +369,27 @@ contract LiquidityMiningTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroLpToken() public {
-        LiquidityMining lm = new LiquidityMining();
+        address impl = address(new LiquidityMining());
         vm.expectRevert("LiquidityMining: zero lpToken");
-        lm.initialize(address(0), address(lobToken), address(stakingManager), address(sybilGuard), admin);
+        _deployProxy(impl, abi.encodeCall(LiquidityMining.initialize, (address(0), address(lobToken), address(stakingManager), address(sybilGuard), admin)));
     }
 
     function test_revertZeroRewardToken() public {
-        LiquidityMining lm = new LiquidityMining();
+        address impl = address(new LiquidityMining());
         vm.expectRevert("LiquidityMining: zero rewardToken");
-        lm.initialize(address(lpToken), address(0), address(stakingManager), address(sybilGuard), admin);
+        _deployProxy(impl, abi.encodeCall(LiquidityMining.initialize, (address(lpToken), address(0), address(stakingManager), address(sybilGuard), admin)));
     }
 
     function test_revertZeroStakingManager() public {
-        LiquidityMining lm = new LiquidityMining();
+        address impl = address(new LiquidityMining());
         vm.expectRevert("LiquidityMining: zero stakingManager");
-        lm.initialize(address(lpToken), address(lobToken), address(0), address(sybilGuard), admin);
+        _deployProxy(impl, abi.encodeCall(LiquidityMining.initialize, (address(lpToken), address(lobToken), address(0), address(sybilGuard), admin)));
     }
 
     function test_revertZeroSybilGuard() public {
-        LiquidityMining lm = new LiquidityMining();
+        address impl = address(new LiquidityMining());
         vm.expectRevert("LiquidityMining: zero sybilGuard");
-        lm.initialize(address(lpToken), address(lobToken), address(stakingManager), address(0), admin);
+        _deployProxy(impl, abi.encodeCall(LiquidityMining.initialize, (address(lpToken), address(lobToken), address(stakingManager), address(0), admin)));
     }
 
     // ═══════════════════════════════════════════════════════════════

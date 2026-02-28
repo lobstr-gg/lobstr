@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../src/LOBToken.sol";
 import "../src/StakingManager.sol";
 import "../src/ReputationSystem.sol";
@@ -17,13 +18,19 @@ import "../src/TreasuryGovernor.sol";
 import "../src/RewardDistributor.sol";
 import "../src/StakingRewards.sol";
 import "../src/LightningGovernor.sol";
-import "../src/verifiers/Groth16VerifierV4.sol";
+import "../src/verifiers/Groth16VerifierV5.sol";
 
 /**
  * @title DeployAllScript
- * @notice Full protocol redeploy for LOBSTR V3 on Base.
+ * @notice Full protocol deploy for LOBSTR V5 on Base.
+ *         All upgradeable contracts deployed behind ERC1967Proxy (UUPS pattern).
  *         Fresh LOBToken (1B supply) with proper token distribution.
  *         ZK airdrop with workspaceHash anti-Sybil + milestone unlocks.
+ *
+ *   Each upgradeable contract is deployed as:
+ *     1. Deploy implementation contract (new Contract())
+ *     2. Deploy ERC1967Proxy pointing to impl, with initialize() calldata
+ *     3. Cast proxy address to contract type for subsequent calls
  *
  *   Deployment order:
  *     1.  LOBToken (1B minted to deployer)
@@ -38,14 +45,12 @@ import "../src/verifiers/Groth16VerifierV4.sol";
  *    10.  LoanEngine
  *    11.  X402CreditFacility
  *    12.  StakingRewards
- *    13.  LiquidityMining
- *    14.  RewardScheduler
- *    15.  LightningGovernor
- *    16.  Groth16VerifierV4
- *    17.  AirdropClaimV3 (ZK workspaceHash + milestones)
- *    18.  TeamVesting (3yr vest, 6mo cliff)
- *    19.  Role grants + admin transfer
- *    20.  Token distribution (750K direct to agents, rest to TeamVesting)
+ *    13.  LightningGovernor
+ *    14.  Groth16VerifierV5 (not proxied — pure view contract)
+ *    15.  AirdropClaimV3 (ZK workspaceHash + milestones)
+ *    16.  TeamVesting (3yr vest, 6mo cliff)
+ *    17.  Role grants + admin transfer
+ *    18.  Token distribution (750K direct to agents, rest to TeamVesting)
  *
  *   Required .env variables:
  *     PRIVATE_KEY,
@@ -63,7 +68,7 @@ import "../src/verifiers/Groth16VerifierV4.sol";
  *       --broadcast --verify -vvvv
  */
 contract DeployAllScript is Script {
-    // ── Deployed addresses ───────────────────────────────────────
+    // ── Deployed proxy addresses (what external callers interact with) ──
     LOBToken public token;
     ReputationSystem public reputation;
     StakingManager public staking;
@@ -77,7 +82,7 @@ contract DeployAllScript is Script {
     X402CreditFacility public creditFacility;
     StakingRewards public stakingRewards;
     LightningGovernor public lightningGov;
-    Groth16VerifierV4 public verifierV4;
+    Groth16VerifierV5 public verifier;
     AirdropClaimV3 public airdropV3;
     TeamVesting public teamVesting;
     address public deployer;
@@ -134,17 +139,17 @@ contract DeployAllScript is Script {
         // 13: LightningGovernor
         _deployLightningGovernor();
 
-        // 16-17: Verifier + Airdrop
+        // 14-15: Verifier + Airdrop
         _deployAirdrop();
 
-        // 18: TeamVesting
+        // 16: TeamVesting
         _deployTeamVesting();
 
-        // 19: Roles + admin transfer
+        // 17: Roles + admin transfer
         _grantRoles();
         _transferAdmin();
 
-        // 20: Token distribution
+        // 18: Token distribution
         _distributeTokens();
 
         vm.stopBroadcast();
@@ -154,17 +159,35 @@ contract DeployAllScript is Script {
 
     // ── 1-3: Core ────────────────────────────────────────────────
     function _deployCore() internal {
-        token = new LOBToken();
-        token.initialize(deployer);
-        console.log("LOBToken:", address(token));
+        // LOBToken
+        LOBToken tokenImpl = new LOBToken();
+        ERC1967Proxy tokenProxy = new ERC1967Proxy(
+            address(tokenImpl),
+            abi.encodeCall(LOBToken.initialize, (deployer))
+        );
+        token = LOBToken(address(tokenProxy));
+        console.log("LOBToken (proxy):", address(token));
+        console.log("LOBToken (impl):", address(tokenImpl));
 
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        console.log("ReputationSystem:", address(reputation));
+        // ReputationSystem
+        ReputationSystem repImpl = new ReputationSystem();
+        ERC1967Proxy repProxy = new ERC1967Proxy(
+            address(repImpl),
+            abi.encodeCall(ReputationSystem.initialize, ())
+        );
+        reputation = ReputationSystem(address(repProxy));
+        console.log("ReputationSystem (proxy):", address(reputation));
+        console.log("ReputationSystem (impl):", address(repImpl));
 
-        staking = new StakingManager();
-        staking.initialize(address(token));
-        console.log("StakingManager:", address(staking));
+        // StakingManager
+        StakingManager stakingImpl = new StakingManager();
+        ERC1967Proxy stakingProxy = new ERC1967Proxy(
+            address(stakingImpl),
+            abi.encodeCall(StakingManager.initialize, (address(token)))
+        );
+        staking = StakingManager(address(stakingProxy));
+        console.log("StakingManager (proxy):", address(staking));
+        console.log("StakingManager (impl):", address(stakingImpl));
     }
 
     // ── 4: TreasuryGovernor ──────────────────────────────────────
@@ -175,105 +198,153 @@ contract DeployAllScript is Script {
         signers[2] = vm.envAddress("SIGNER_3_ADDRESS");
         signers[3] = vm.envAddress("SIGNER_4_ADDRESS");
 
-        treasuryGov = new TreasuryGovernor();
-        treasuryGov.initialize(signers, 3, address(token));
-        console.log("TreasuryGovernor:", address(treasuryGov));
+        TreasuryGovernor tgImpl = new TreasuryGovernor();
+        ERC1967Proxy tgProxy = new ERC1967Proxy(
+            address(tgImpl),
+            abi.encodeCall(TreasuryGovernor.initialize, (signers, 3, address(token)))
+        );
+        treasuryGov = TreasuryGovernor(address(tgProxy));
+        console.log("TreasuryGovernor (proxy):", address(treasuryGov));
+        console.log("TreasuryGovernor (impl):", address(tgImpl));
     }
 
     // ── 5: RewardDistributor ─────────────────────────────────────
     function _deployRewardDistributor() internal {
-        rewardDist = new RewardDistributor();
-        rewardDist.initialize();
-        console.log("RewardDistributor:", address(rewardDist));
+        RewardDistributor rdImpl = new RewardDistributor();
+        ERC1967Proxy rdProxy = new ERC1967Proxy(
+            address(rdImpl),
+            abi.encodeCall(RewardDistributor.initialize, ())
+        );
+        rewardDist = RewardDistributor(address(rdProxy));
+        console.log("RewardDistributor (proxy):", address(rewardDist));
+        console.log("RewardDistributor (impl):", address(rdImpl));
     }
 
     // ── 6: SybilGuard ────────────────────────────────────────────
     function _deploySybilGuard() internal {
-        sybilGuard = new SybilGuard();
-        sybilGuard.initialize(
-            address(token),
-            address(staking),
-            address(treasuryGov),
-            address(rewardDist)
+        SybilGuard sgImpl = new SybilGuard();
+        ERC1967Proxy sgProxy = new ERC1967Proxy(
+            address(sgImpl),
+            abi.encodeCall(SybilGuard.initialize, (
+                address(token),
+                address(staking),
+                address(treasuryGov),
+                address(rewardDist)
+            ))
         );
-        console.log("SybilGuard:", address(sybilGuard));
+        sybilGuard = SybilGuard(address(sgProxy));
+        console.log("SybilGuard (proxy):", address(sybilGuard));
+        console.log("SybilGuard (impl):", address(sgImpl));
     }
 
     // ── 7-9: Marketplace ─────────────────────────────────────────
     function _deployMarketplace() internal {
-        registry = new ServiceRegistry();
-        registry.initialize(
-            address(staking),
-            address(reputation),
-            address(sybilGuard)
+        // ServiceRegistry
+        ServiceRegistry srImpl = new ServiceRegistry();
+        ERC1967Proxy srProxy = new ERC1967Proxy(
+            address(srImpl),
+            abi.encodeCall(ServiceRegistry.initialize, (
+                address(staking),
+                address(reputation),
+                address(sybilGuard)
+            ))
         );
-        console.log("ServiceRegistry:", address(registry));
+        registry = ServiceRegistry(address(srProxy));
+        console.log("ServiceRegistry (proxy):", address(registry));
+        console.log("ServiceRegistry (impl):", address(srImpl));
 
-        dispute = new DisputeArbitration();
-        dispute.initialize(
-            address(token),
-            address(staking),
-            address(reputation),
-            address(sybilGuard),
-            address(rewardDist)
+        // DisputeArbitration
+        DisputeArbitration daImpl = new DisputeArbitration();
+        ERC1967Proxy daProxy = new ERC1967Proxy(
+            address(daImpl),
+            abi.encodeCall(DisputeArbitration.initialize, (
+                address(token),
+                address(staking),
+                address(reputation),
+                address(sybilGuard),
+                address(rewardDist)
+            ))
         );
-        console.log("DisputeArbitration:", address(dispute));
+        dispute = DisputeArbitration(address(daProxy));
+        console.log("DisputeArbitration (proxy):", address(dispute));
+        console.log("DisputeArbitration (impl):", address(daImpl));
 
-        escrow = new EscrowEngine();
-        escrow.initialize(
-            address(token),
-            address(registry),
-            address(staking),
-            address(dispute),
-            address(reputation),
-            address(treasuryGov),
-            address(sybilGuard)
+        // EscrowEngine
+        EscrowEngine eeImpl = new EscrowEngine();
+        ERC1967Proxy eeProxy = new ERC1967Proxy(
+            address(eeImpl),
+            abi.encodeCall(EscrowEngine.initialize, (
+                address(token),
+                address(registry),
+                address(staking),
+                address(dispute),
+                address(reputation),
+                address(treasuryGov),
+                address(sybilGuard)
+            ))
         );
-        console.log("EscrowEngine:", address(escrow));
+        escrow = EscrowEngine(address(eeProxy));
+        console.log("EscrowEngine (proxy):", address(escrow));
+        console.log("EscrowEngine (impl):", address(eeImpl));
     }
 
     // ── 10: LoanEngine ────────────────────────────────────────────
     function _deployLoanEngine() internal {
-        loanEngine = new LoanEngine();
-        loanEngine.initialize(
-            address(token),
-            address(reputation),
-            address(staking),
-            address(sybilGuard),
-            address(treasuryGov),
-            deployer
+        LoanEngine leImpl = new LoanEngine();
+        ERC1967Proxy leProxy = new ERC1967Proxy(
+            address(leImpl),
+            abi.encodeCall(LoanEngine.initialize, (
+                address(token),
+                address(reputation),
+                address(staking),
+                address(sybilGuard),
+                address(treasuryGov),
+                deployer
+            ))
         );
-        console.log("LoanEngine:", address(loanEngine));
+        loanEngine = LoanEngine(address(leProxy));
+        console.log("LoanEngine (proxy):", address(loanEngine));
+        console.log("LoanEngine (impl):", address(leImpl));
     }
 
     // ── 11: X402CreditFacility ───────────────────────────────────
     function _deployCreditFacility() internal {
-        creditFacility = new X402CreditFacility();
-        creditFacility.initialize(
-            address(token),
-            address(escrow),
-            address(dispute),
-            address(reputation),
-            address(staking),
-            address(sybilGuard),
-            address(treasuryGov),
-            deployer
+        X402CreditFacility cfImpl = new X402CreditFacility();
+        ERC1967Proxy cfProxy = new ERC1967Proxy(
+            address(cfImpl),
+            abi.encodeCall(X402CreditFacility.initialize, (
+                address(token),
+                address(escrow),
+                address(dispute),
+                address(reputation),
+                address(staking),
+                address(sybilGuard),
+                address(treasuryGov),
+                deployer
+            ))
         );
-        console.log("X402CreditFacility:", address(creditFacility));
+        creditFacility = X402CreditFacility(address(cfProxy));
+        console.log("X402CreditFacility (proxy):", address(creditFacility));
+        console.log("X402CreditFacility (impl):", address(cfImpl));
     }
 
     // ── 12: StakingRewards only ──────────────────────────────────
     // LiquidityMining + RewardScheduler deployed separately after LP pool creation.
     // Order: Deploy LOB → Create DEX pool → Get LP token → Deploy LiquidityMining → Deploy RewardScheduler
     function _deployStakingRewards() internal {
-        stakingRewards = new StakingRewards();
-        stakingRewards.initialize(address(staking), address(sybilGuard));
-        console.log("StakingRewards:", address(stakingRewards));
+        StakingRewards srImpl = new StakingRewards();
+        ERC1967Proxy srProxy = new ERC1967Proxy(
+            address(srImpl),
+            abi.encodeCall(StakingRewards.initialize, (address(staking), address(sybilGuard)))
+        );
+        stakingRewards = StakingRewards(address(srProxy));
+        console.log("StakingRewards (proxy):", address(stakingRewards));
+        console.log("StakingRewards (impl):", address(srImpl));
 
         stakingRewards.addRewardToken(address(token));
     }
 
-    // ── 15: LightningGovernor ─────────────────────────────────────
+    // ── 13: LightningGovernor ─────────────────────────────────────
     function _deployLightningGovernor() internal {
         address sentinel = vm.envAddress("SENTINEL_ADDRESS");
         address arbiter = vm.envAddress("ARBITER_ADDRESS");
@@ -285,56 +356,72 @@ contract DeployAllScript is Script {
         executors[1] = arbiter;
         executors[2] = steward;
 
-        lightningGov = new LightningGovernor();
-        lightningGov.initialize(
-            address(staking),
-            address(treasuryGov),
-            executors,
-            lgGuardian
+        LightningGovernor lgImpl = new LightningGovernor();
+        ERC1967Proxy lgProxy = new ERC1967Proxy(
+            address(lgImpl),
+            abi.encodeCall(LightningGovernor.initialize, (
+                address(staking),
+                address(treasuryGov),
+                executors,
+                lgGuardian
+            ))
         );
-        console.log("LightningGovernor:", address(lightningGov));
+        lightningGov = LightningGovernor(address(lgProxy));
+        console.log("LightningGovernor (proxy):", address(lightningGov));
+        console.log("LightningGovernor (impl):", address(lgImpl));
     }
 
-    // ── 16-17: Verifier + Airdrop ────────────────────────────────
+    // ── 14-15: Verifier + Airdrop ────────────────────────────────
     function _deployAirdrop() internal {
-        verifierV4 = new Groth16VerifierV4();
-        console.log("Groth16VerifierV4:", address(verifierV4));
+        // Verifier is a pure view contract — no proxy needed
+        verifier = new Groth16VerifierV5();
+        console.log("Groth16VerifierV5:", address(verifier));
 
         address approvalSigner = vm.envAddress("APPROVAL_SIGNER_ADDRESS");
         uint256 difficultyTarget = type(uint256).max >> 26;
 
-        airdropV3 = new AirdropClaimV3();
-        airdropV3.initialize(
-            address(token),
-            address(verifierV4),
-            approvalSigner,
-            CLAIM_WINDOW_END,
-            difficultyTarget,
-            AIRDROP_POOL,
-            address(reputation),
-            address(registry),
-            address(staking),
-            address(dispute)
+        AirdropClaimV3 adImpl = new AirdropClaimV3();
+        ERC1967Proxy adProxy = new ERC1967Proxy(
+            address(adImpl),
+            abi.encodeCall(AirdropClaimV3.initialize, (
+                address(token),
+                address(verifier),
+                approvalSigner,
+                CLAIM_WINDOW_END,
+                difficultyTarget,
+                AIRDROP_POOL,
+                address(reputation),
+                address(registry),
+                address(staking),
+                address(dispute)
+            ))
         );
-        console.log("AirdropClaimV3:", address(airdropV3));
+        airdropV3 = AirdropClaimV3(address(adProxy));
+        console.log("AirdropClaimV3 (proxy):", address(airdropV3));
+        console.log("AirdropClaimV3 (impl):", address(adImpl));
     }
 
-    // ── 18: TeamVesting ──────────────────────────────────────────
+    // ── 16: TeamVesting ──────────────────────────────────────────
     function _deployTeamVesting() internal {
         address teamBeneficiary = vm.envAddress("TEAM_BENEFICIARY_ADDRESS");
 
-        teamVesting = new TeamVesting();
-        teamVesting.initialize(
-            address(token),
-            teamBeneficiary,
-            block.timestamp,
-            VESTING_CLIFF,
-            VESTING_DURATION
+        TeamVesting tvImpl = new TeamVesting();
+        ERC1967Proxy tvProxy = new ERC1967Proxy(
+            address(tvImpl),
+            abi.encodeCall(TeamVesting.initialize, (
+                address(token),
+                teamBeneficiary,
+                block.timestamp,
+                VESTING_CLIFF,
+                VESTING_DURATION
+            ))
         );
-        console.log("TeamVesting:", address(teamVesting));
+        teamVesting = TeamVesting(address(tvProxy));
+        console.log("TeamVesting (proxy):", address(teamVesting));
+        console.log("TeamVesting (impl):", address(tvImpl));
     }
 
-    // ── 19a: Role grants ─────────────────────────────────────────
+    // ── 17a: Role grants ─────────────────────────────────────────
     function _grantRoles() internal {
         // ReputationSystem RECORDER_ROLE
         reputation.grantRole(reputation.RECORDER_ROLE(), address(escrow));
@@ -364,7 +451,7 @@ contract DeployAllScript is Script {
         console.log("Roles granted, escrow wired, reward distributor wired");
     }
 
-    // ── 19b: Transfer admin to TreasuryGovernor ──────────────────
+    // ── 17b: Transfer admin to TreasuryGovernor ──────────────────
     function _transferAdmin() internal {
         bytes32 adminRole = reputation.DEFAULT_ADMIN_ROLE();
 
@@ -406,7 +493,7 @@ contract DeployAllScript is Script {
         console.log("Admin transferred to TreasuryGovernor, deployer renounced");
     }
 
-    // ── 20: Token distribution ───────────────────────────────────
+    // ── 18: Token distribution ───────────────────────────────────
     function _distributeTokens() internal {
         address lpWallet = vm.envAddress("LP_WALLET_ADDRESS");
         address sentinel = vm.envAddress("SENTINEL_ADDRESS");
@@ -421,7 +508,7 @@ contract DeployAllScript is Script {
         token.transfer(address(treasuryGov), TREASURY_ALLOC);
         console.log("Transferred 300M LOB to TreasuryGovernor");
 
-        // 150M team: 580K direct to agents, rest to TeamVesting
+        // 150M team: 750K direct to agents, rest to TeamVesting
         token.transfer(sentinel, SENTINEL_ALLOC);
         console.log("Transferred 250K LOB to Sentinel (Titus):", sentinel);
         token.transfer(arbiter, ARBITER_ALLOC);
@@ -445,7 +532,7 @@ contract DeployAllScript is Script {
     // ── Summary ──────────────────────────────────────────────────
     function _logSummary() internal view {
         console.log("");
-        console.log("========== DEPLOYMENT COMPLETE ==========");
+        console.log("========== V5 PROXY DEPLOYMENT COMPLETE ==========");
         console.log("Deployer:           ", deployer);
         console.log("");
         console.log("LOBToken:           ", address(token));
@@ -463,10 +550,13 @@ contract DeployAllScript is Script {
         console.log("LiquidityMining:     (deferred - deploy after LP pool)");
         console.log("RewardScheduler:     (deferred - deploy after LP pool)");
         console.log("LightningGovernor:  ", address(lightningGov));
-        console.log("Groth16VerifierV4:  ", address(verifierV4));
+        console.log("Groth16VerifierV5:  ", address(verifier));
         console.log("AirdropClaimV3:     ", address(airdropV3));
         console.log("TeamVesting:        ", address(teamVesting));
-        console.log("=========================================");
+        console.log("====================================================");
+        console.log("");
+        console.log("ALL CONTRACTS DEPLOYED BEHIND ERC1967 UUPS PROXIES");
+        console.log("(except Groth16VerifierV5 -- pure view, no proxy needed)");
         console.log("");
         console.log("TOKEN DISTRIBUTION:");
         console.log("  AirdropClaimV3:   400M LOB (40%)");
@@ -475,25 +565,17 @@ contract DeployAllScript is Script {
         console.log("  Agent direct:     750K LOB (Sentinel 250K, Arbiter 250K, Steward 250K)");
         console.log("  LP Wallet:        150M LOB (15%)");
         console.log("");
-        console.log("AIRDROP:");
-        console.log("  Type: ZK workspaceHash + milestone unlocks");
-        console.log("  Allocation: 6,000 LOB flat (1K immediate + 5x1K milestones)");
-        console.log("  Claim window ends: 2026-12-31 23:59 MST (1798786740)");
-        console.log("");
-        console.log("REWARDS:");
-        console.log("  Arbitrators: 20 LOB/1K LOB disputed, majority bonus, quality scoring");
-        console.log("  Watchers: 10% of seized funds, 500 LOB bond per report");
-        console.log("  Judges: 100 LOB flat per adjudication");
-        console.log("");
         console.log("POST-DEPLOY CHECKLIST:");
-        console.log("  1. Verify all contracts on BaseScan");
-        console.log("  2. Grant WATCHER_ROLE + JUDGE_ROLE on SybilGuard");
-        console.log("  3. Grant FACILITATOR_ROLE + POOL_MANAGER_ROLE on X402CreditFacility");
-        console.log("  4. Seed X402CreditFacility pool with LOB via depositToPool()");
-        console.log("  5. Seed DEX LP with the 150M LOB in LP wallet");
-        console.log("  6. Deposit initial reward budget to RewardDistributor");
-        console.log("  7. Fund RewardScheduler with LOB via topUp() + create streams");
-        console.log("  8. Smoke-test full claim flow: attest, prove, claim, milestones");
+        console.log("  1. Verify all contracts on BaseScan (impl + proxy)");
+        console.log("  2. Verify proxy impl slots: cast implementation <proxy>");
+        console.log("  3. Test upgradeability: deploy dummy impl, call upgradeToAndCall");
+        console.log("  4. Grant WATCHER_ROLE + JUDGE_ROLE on SybilGuard");
+        console.log("  5. Grant FACILITATOR_ROLE + POOL_MANAGER_ROLE on X402CreditFacility");
+        console.log("  6. Seed X402CreditFacility pool with LOB via depositToPool()");
+        console.log("  7. Seed DEX LP with the 150M LOB in LP wallet");
+        console.log("  8. Deposit initial reward budget to RewardDistributor");
+        console.log("  9. Fund RewardScheduler with LOB via topUp() + create streams");
+        console.log("  10. Smoke-test full claim flow: attest, prove, claim, milestones");
         console.log("  NOTE: DEFAULT_ADMIN_ROLE transferred to TreasuryGovernor");
     }
 }

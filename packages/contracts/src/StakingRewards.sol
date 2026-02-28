@@ -48,6 +48,11 @@ contract StakingRewards is IStakingRewards, AccessControlUpgradeable, Reentrancy
     // V-004: Track last sync timestamp per user
     mapping(address => uint256) private _lastSyncTimestamp;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address _stakingManager, address _sybilGuard) public initializer {
         require(_stakingManager != address(0), "StakingRewards: zero stakingManager");
         require(_sybilGuard != address(0), "StakingRewards: zero sybilGuard");

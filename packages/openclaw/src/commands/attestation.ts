@@ -30,13 +30,24 @@ function writableCircuitsDir(): string {
   }
 }
 
-// Resolve circuit files — checks workspace, Docker, and dev paths
+// Map production zkey filenames — the saved zkeys use versioned names
+const ZKEY_PRODUCTION_MAP: Record<string, string> = {
+  'airdropAttestation_0001.zkey': 'airdropAttestation_v5.zkey',
+  'airdropAttestation.wasm': 'airdropAttestation.wasm',
+  'verification_key_v5.json': 'verification_key_v5.json',
+};
+
+// Resolve circuit files — checks workspace, Docker, zkeys archive, and dev paths
 function resolveCircuitPath(filename: string): string {
   let wsPath: string | undefined;
   try { wsPath = path.join(ensureWorkspace().path, 'circuits', filename); } catch {}
+  const productionName = ZKEY_PRODUCTION_MAP[filename];
   const candidates = [
     ...(wsPath ? [wsPath] : []),
     path.join('/opt/lobstr/circuits', filename),
+    // Production zkeys directory (version-controlled, matches on-chain verifier)
+    ...(productionName ? [path.join(__dirname, '..', '..', '..', 'circuits', 'zkeys', productionName)] : []),
+    path.join(__dirname, '..', '..', '..', 'circuits', 'zkeys', filename),
     path.join(__dirname, '..', '..', '..', 'circuits', 'build', filename),
     path.join(__dirname, '..', '..', '..', 'circuits', 'build', 'airdropAttestation_js', filename),
   ];
@@ -160,108 +171,72 @@ export function registerAttestationCommand(program: Command): void {
     });
 
   // ── setup ───────────────────────────────────────────
-  // Downloads ptau and generates zkey from r1cs (trusted setup).
-  // Each agent runs their own ceremony.
+  // Copies the production zkey + WASM to the agent's workspace.
+  // IMPORTANT: Agents must use the SAME zkey that matches the on-chain Groth16VerifierV5.
+  // Generating a new zkey would produce different verification constants and proofs
+  // would fail on-chain verification.
 
   att.command('setup')
-    .description('Run trusted setup — download ptau and generate your own zkey')
-    .option('--force', 'Re-generate even if zkey already exists')
+    .description('Install production proving key (zkey + WASM) for airdrop proofs')
+    .option('--force', 'Re-install even if files already exist')
     .action(async (opts) => {
-      const spin = ui.spinner('Starting trusted setup...');
+      const spin = ui.spinner('Setting up proving environment...');
       try {
-        // Use writable directory (workspace/circuits in Docker, circuits/build in dev)
         const circuitsDir = writableCircuitsDir();
+        const zkeyDest = path.join(circuitsDir, 'airdropAttestation_0001.zkey');
+        const wasmDest = path.join(circuitsDir, 'airdropAttestation.wasm');
+        const vkeyDest = path.join(circuitsDir, 'verification_key.json');
 
-        const r1csPath = resolveCircuitPath('airdropAttestation.r1cs');
-        const zkeyPath = path.join(circuitsDir, 'airdropAttestation_0001.zkey');
-        const ptauPath = path.join(circuitsDir, 'powersOfTau28_hez_final_17.ptau');
-
-        // Check if zkey already exists
-        if (fs.existsSync(zkeyPath) && !opts.force) {
-          spin.succeed('zkey already exists');
-          ui.info(`Path: ${zkeyPath}`);
-          ui.info('Use --force to re-generate');
+        // Check if already set up
+        if (fs.existsSync(zkeyDest) && fs.existsSync(wasmDest) && !opts.force) {
+          spin.succeed('Proving environment already set up');
+          ui.info(`zkey: ${zkeyDest}`);
+          ui.info(`WASM: ${wasmDest}`);
+          ui.info('Use --force to re-install');
           return;
         }
 
-        // Download ptau if not already cached
-        if (!fs.existsSync(ptauPath)) {
-          spin.text = 'Downloading powers of tau (144MB)...';
-          await new Promise<void>((resolve, reject) => {
-            const follow = (url: string) => {
-              https.get(url, (res) => {
-                if (res.statusCode === 301 || res.statusCode === 302) {
-                  follow(res.headers.location!);
-                  return;
-                }
-                if (res.statusCode !== 200) {
-                  reject(new Error(`Download failed: HTTP ${res.statusCode}`));
-                  return;
-                }
-                const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
-                let downloaded = 0;
-                const tmpPath = ptauPath + '.tmp';
-                const file = fs.createWriteStream(tmpPath);
-                res.on('data', (chunk: Buffer) => {
-                  downloaded += chunk.length;
-                  if (totalBytes > 0) {
-                    const pct = Math.floor((downloaded / totalBytes) * 100);
-                    spin.text = `Downloading powers of tau... ${pct}% (${Math.floor(downloaded / 1048576)}MB)`;
-                  }
-                });
-                res.pipe(file);
-                file.on('finish', () => {
-                  file.close();
-                  fs.renameSync(tmpPath, ptauPath);
-                  resolve();
-                });
-                file.on('error', (err) => {
-                  fs.unlinkSync(tmpPath);
-                  reject(err);
-                });
-              }).on('error', reject);
-            };
-            follow(PTAU_URL);
-          });
-          spin.text = 'Powers of tau downloaded';
-        } else {
-          ui.info('ptau already cached, skipping download');
+        // Locate production zkey from bundled zkeys directory
+        const productionZkeyPath = resolveCircuitPath('airdropAttestation_0001.zkey');
+        const productionVkeyPath = (() => {
+          try { return resolveCircuitPath('verification_key_v5.json'); } catch {
+            // Try alternative names
+            const alt = path.join(path.dirname(productionZkeyPath), 'verification_key_v5.json');
+            if (fs.existsSync(alt)) return alt;
+            const alt2 = path.join(path.dirname(productionZkeyPath), 'verification_key.json');
+            if (fs.existsSync(alt2)) return alt2;
+            return null;
+          }
+        })();
+
+        // Copy zkey to workspace
+        spin.text = 'Copying production zkey (67MB)...';
+        if (path.resolve(productionZkeyPath) !== path.resolve(zkeyDest)) {
+          fs.copyFileSync(productionZkeyPath, zkeyDest);
         }
 
-        // Run groth16 setup
-        spin.text = 'Running groth16 setup (this may take a few minutes)...';
-        const snarkjs = require('snarkjs');
-        const startTime = Date.now();
+        // Copy WASM
+        spin.text = 'Copying circuit WASM...';
+        try {
+          const productionWasmPath = resolveCircuitPath('airdropAttestation.wasm');
+          if (path.resolve(productionWasmPath) !== path.resolve(wasmDest)) {
+            fs.copyFileSync(productionWasmPath, wasmDest);
+          }
+        } catch {
+          spin.fail('WASM file not found in production bundle');
+          process.exit(1);
+        }
 
-        await snarkjs.zKey.newZKey(r1csPath, ptauPath, zkeyPath);
+        // Copy verification key
+        if (productionVkeyPath && path.resolve(productionVkeyPath) !== path.resolve(vkeyDest)) {
+          fs.copyFileSync(productionVkeyPath, vkeyDest);
+        }
 
-        // Contribute to the ceremony (agent's own entropy)
-        spin.text = 'Contributing to ceremony...';
-        const contributedPath = zkeyPath.replace('.zkey', '_final.zkey');
-        const entropy = crypto.randomBytes(32).toString('hex');
-        await snarkjs.zKey.contribute(zkeyPath, contributedPath, 'agent-contribution', entropy);
-
-        // Replace initial zkey with contributed one
-        fs.unlinkSync(zkeyPath);
-        fs.renameSync(contributedPath, zkeyPath);
-
-        // Export verification key
-        spin.text = 'Exporting verification key...';
-        const vkeyPath = path.join(circuitsDir, 'verification_key.json');
-        const vkey = await snarkjs.zKey.exportVerificationKey(zkeyPath);
-        fs.writeFileSync(vkeyPath, JSON.stringify(vkey, null, 2));
-
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-        // Clean up ptau to save disk space
-        spin.text = 'Cleaning up ptau...';
-        fs.unlinkSync(ptauPath);
-
-        spin.succeed(`Trusted setup complete in ${elapsed}s`);
+        spin.succeed('Proving environment ready');
         console.log();
-        ui.info(`zkey: ${zkeyPath}`);
-        ui.info(`vkey: ${vkeyPath}`);
-        ui.info(`r1cs: ${r1csPath}`);
+        ui.info(`zkey: ${zkeyDest}`);
+        ui.info(`WASM: ${wasmDest}`);
+        if (productionVkeyPath) ui.info(`vkey: ${vkeyDest}`);
         console.log();
         ui.success('Ready to generate proofs');
         ui.info('Next: lobstr attestation generate && lobstr attestation prove');

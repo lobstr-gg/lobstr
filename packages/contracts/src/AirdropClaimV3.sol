@@ -76,10 +76,11 @@ contract AirdropClaimV3 is IAirdropClaimV3, Initializable, UUPSUpgradeable, Owna
     mapping(address => ClaimInfo) private _claims;
     mapping(bytes32 => bool) private _usedApprovals;
     uint256 public totalClaimed;
+    uint256 public totalReleased;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(
@@ -181,6 +182,7 @@ contract AirdropClaimV3 is IAirdropClaimV3, Initializable, UUPSUpgradeable, Owna
         totalClaimed += TOTAL_ALLOCATION;
 
         // Transfer immediate release
+        totalReleased += IMMEDIATE_RELEASE;
         lobToken.safeTransfer(msg.sender, IMMEDIATE_RELEASE);
 
         emit AirdropClaimed(msg.sender, IMMEDIATE_RELEASE);
@@ -206,12 +208,20 @@ contract AirdropClaimV3 is IAirdropClaimV3, Initializable, UUPSUpgradeable, Owna
         info.released += MILESTONE_REWARD;
 
         // Transfer milestone reward
+        totalReleased += MILESTONE_REWARD;
         lobToken.safeTransfer(claimant, MILESTONE_REWARD);
 
         emit MilestoneCompleted(claimant, milestone, MILESTONE_REWARD);
     }
 
     // --- Admin ---
+
+    /// @notice Update the ZK proof verifier contract (owner only, for zkey rotation)
+    function setVerifier(address _verifier) external onlyOwner {
+        require(_verifier != address(0), "V3: zero verifier");
+        verifier = Groth16VerifierV4(_verifier);
+        emit VerifierUpdated(_verifier);
+    }
 
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
@@ -221,12 +231,15 @@ contract AirdropClaimV3 is IAirdropClaimV3, Initializable, UUPSUpgradeable, Owna
         _unpause();
     }
 
-    /// @notice Recover unclaimed tokens after claim window ends
+    /// @notice Recover unclaimed tokens after claim window ends.
+    ///         Preserves outstanding milestone liabilities so claimants can still complete milestones.
     function recoverTokens(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(to != address(0), "V3: zero address");
         require(block.timestamp > claimWindowEnd, "V3: window active");
         uint256 balance = lobToken.balanceOf(address(this));
-        lobToken.safeTransfer(to, balance);
+        uint256 outstanding = totalClaimed - totalReleased;
+        require(balance > outstanding, "V3: no recoverable tokens");
+        lobToken.safeTransfer(to, balance - outstanding);
     }
 
     // --- View ---

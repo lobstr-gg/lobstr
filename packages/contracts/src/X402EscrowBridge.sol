@@ -140,7 +140,7 @@ contract X402EscrowBridge is Initializable, UUPSUpgradeable, OwnableUpgradeable,
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(address _escrow, address _disputeArbitration) public virtual initializer {

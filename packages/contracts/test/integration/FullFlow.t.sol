@@ -14,6 +14,7 @@ import "../../src/SybilGuard.sol";
 import "../../src/StakingRewards.sol";
 import "../../src/LiquidityMining.sol";
 import "../../src/RewardScheduler.sol";
+import "../helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuard {
     function checkBanned(address) external pure returns (bool) { return false; }
@@ -26,7 +27,7 @@ contract MockRewardDistributor {
     function availableBudget(address) external pure returns (uint256) { return type(uint256).max; }
 }
 
-contract FullFlowTest is Test {
+contract FullFlowTest is Test, ProxyTestHelper {
     LOBToken public token;
     StakingManager public staking;
     ReputationSystem public reputation;
@@ -56,32 +57,26 @@ contract FullFlowTest is Test {
         vm.startPrank(admin);
 
         // 1. LOBToken
-        token = new LOBToken();
-        token.initialize(distributor);
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
 
         // 2. ReputationSystem
-        reputation = new ReputationSystem();
-        reputation.initialize();
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
 
         // 3. StakingManager
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
 
         // 3.5. MockSybilGuard + MockRewardDistributor
         mockSybilGuard = new MockSybilGuard();
         mockRewardDist = new MockRewardDistributor();
 
         // 4. ServiceRegistry
-        registry = new ServiceRegistry();
-        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
+        registry = ServiceRegistry(_deployProxy(address(new ServiceRegistry()), abi.encodeCall(ServiceRegistry.initialize, (address(staking), address(reputation), address(mockSybilGuard)))));
 
         // 5. DisputeArbitration
-        dispute = new DisputeArbitration();
-        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
+        dispute = DisputeArbitration(_deployProxy(address(new DisputeArbitration()), abi.encodeCall(DisputeArbitration.initialize, (address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist)))));
 
         // 6. EscrowEngine
-        escrow = new EscrowEngine();
-        escrow.initialize(
+        escrow = EscrowEngine(_deployProxy(address(new EscrowEngine()), abi.encodeCall(EscrowEngine.initialize, (
             address(token),
             address(registry),
             address(staking),
@@ -89,28 +84,26 @@ contract FullFlowTest is Test {
             address(reputation),
             treasury,
             address(mockSybilGuard)
-        );
+        ))));
 
         // 7. SkillRegistry
-        skillRegistry = new SkillRegistry();
-        skillRegistry.initialize(
+        skillRegistry = SkillRegistry(_deployProxy(address(new SkillRegistry()), abi.encodeCall(SkillRegistry.initialize, (
             address(token),
             address(staking),
             address(reputation),
             address(mockSybilGuard),
             address(escrow),
             treasury
-        );
+        ))));
 
         // 8. PipelineRouter
-        pipelineRouter = new PipelineRouter();
-        pipelineRouter.initialize(
+        pipelineRouter = PipelineRouter(_deployProxy(address(new PipelineRouter()), abi.encodeCall(PipelineRouter.initialize, (
             address(skillRegistry),
             address(staking),
             address(reputation),
             address(mockSybilGuard),
             admin
-        );
+        ))));
 
         // 9. Post-deploy role grants
         reputation.grantRole(reputation.RECORDER_ROLE(), address(escrow));
@@ -737,23 +730,20 @@ contract FullFlowTest is Test {
     function test_RewardScheduler_FullFlow() public {
         // Deploy StakingRewards + LiquidityMining + RewardScheduler
         vm.startPrank(admin);
-        StakingRewards stakingRewards = new StakingRewards();
-        stakingRewards.initialize(address(staking), address(mockSybilGuard));
+        StakingRewards stakingRewards = StakingRewards(_deployProxy(address(new StakingRewards()), abi.encodeCall(StakingRewards.initialize, (address(staking), address(mockSybilGuard)))));
         stakingRewards.addRewardToken(address(token));
 
         // Use a simple mock LP token for liquidity mining
         MockLPTokenForFullFlow lpToken = new MockLPTokenForFullFlow();
-        LiquidityMining liquidityMining = new LiquidityMining();
-        liquidityMining.initialize(
+        LiquidityMining liquidityMining = LiquidityMining(_deployProxy(address(new LiquidityMining()), abi.encodeCall(LiquidityMining.initialize, (
             address(lpToken),
             address(token),
             address(staking),
             address(mockSybilGuard),
             admin
-        );
+        ))));
 
-        RewardScheduler scheduler = new RewardScheduler();
-        scheduler.initialize(address(stakingRewards), address(liquidityMining));
+        RewardScheduler scheduler = RewardScheduler(_deployProxy(address(new RewardScheduler()), abi.encodeCall(RewardScheduler.initialize, (address(stakingRewards), address(liquidityMining)))));
 
         // Wire roles
         stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), address(scheduler));

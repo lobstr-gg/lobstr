@@ -3,16 +3,16 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
-contract LOBTokenTest is Test {
+contract LOBTokenTest is Test, ProxyTestHelper {
     LOBToken public token;
     address public distributor = makeAddr("distributor");
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
 
     function setUp() public {
-        token = new LOBToken();
-        token.initialize(distributor);
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
     }
 
     function test_Name() public view {
@@ -53,9 +53,9 @@ contract LOBTokenTest is Test {
     }
 
     function test_RevertZeroAddress() public {
-        LOBToken t = new LOBToken();
+        address impl = address(new LOBToken());
         vm.expectRevert("LOBToken: zero address");
-        t.initialize(address(0));
+        _deployProxy(impl, abi.encodeCall(LOBToken.initialize, (address(0))));
     }
 
     function test_TOTAL_SUPPLY_Constant() public view {

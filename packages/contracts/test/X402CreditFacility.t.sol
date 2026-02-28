@@ -8,6 +8,7 @@ import "../src/StakingManager.sol";
 import "../src/X402CreditFacility.sol";
 import "../src/interfaces/IEscrowEngine.sol";
 import "../src/interfaces/IDisputeArbitration.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  MOCK CONTRACTS
@@ -219,7 +220,7 @@ contract MockDisputeArbitration is IDisputeArbitration {
 //  TEST CONTRACT
 // ══════════════════════════════════════════════════════════════════════════════
 
-contract X402CreditFacilityTest is Test {
+contract X402CreditFacilityTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit
     event CreditLineOpened(address indexed agent, uint256 creditLimit, uint256 collateral, uint256 interestRateBps);
     event CreditLineClosed(address indexed agent, uint256 collateralReturned);
@@ -254,18 +255,14 @@ contract X402CreditFacilityTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        token = new LOBToken();
-        token.initialize(distributor);
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         sybilGuard = new MockSybilGuardForCredit();
         escrowEngine = new MockEscrowEngine(address(token));
         disputeArb = new MockDisputeArbitration();
 
-        facility = new X402CreditFacility();
-        facility.initialize(
+        facility = X402CreditFacility(_deployProxy(address(new X402CreditFacility()), abi.encodeCall(X402CreditFacility.initialize, (
             address(token),
             address(escrowEngine),
             address(disputeArb),
@@ -274,7 +271,7 @@ contract X402CreditFacilityTest is Test {
             address(sybilGuard),
             treasury,
             admin
-        );
+        ))));
 
         // Grant roles
         reputation.grantRole(reputation.RECORDER_ROLE(), address(facility));

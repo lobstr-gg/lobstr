@@ -60,7 +60,7 @@ interface IRolePayroll {
         uint256[2] calldata pC,
         uint256[4] calldata pubSignals
     ) external;
-    function reportHeartbeat(address holder) external;
+    function reportHeartbeat() external;
     function reportAbandonment(address holder) external;
     function resign() external;
     function completeResignation() external;

@@ -8,6 +8,7 @@ import {IEscrowEngine} from "../src/interfaces/IEscrowEngine.sol";
 import {IDisputeArbitration} from "../src/interfaces/IDisputeArbitration.sol";
 import {IMultiPartyEscrow} from "../src/interfaces/IMultiPartyEscrow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ProxyTestHelper} from "./helpers/ProxyTestHelper.sol";
 
 contract MockEscrowForMulti {
     uint256 private _nextJobId = 1;
@@ -115,7 +116,7 @@ contract MockSybilGuardForMulti {
     }
 }
 
-contract MultiPartyEscrowTest is Test {
+contract MultiPartyEscrowTest is Test, ProxyTestHelper {
     event MultiJobCreated(
         uint256 indexed groupId,
         address indexed buyer,
@@ -141,18 +142,16 @@ contract MultiPartyEscrowTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         escrow = new MockEscrowForMulti();
         dispute = new MockDisputeForMulti();
         sybilGuard = new MockSybilGuardForMulti();
-        multiEscrow = new MultiPartyEscrow();
-        multiEscrow.initialize(
+        multiEscrow = MultiPartyEscrow(_deployProxy(address(new MultiPartyEscrow()), abi.encodeCall(MultiPartyEscrow.initialize, (
             address(escrow),
             address(dispute),
             address(token),
             address(sybilGuard)
-        );
+        ))));
         vm.stopPrank();
 
         // Fund buyer
@@ -395,27 +394,27 @@ contract MultiPartyEscrowTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroEscrowEngine() public {
-        MultiPartyEscrow m = new MultiPartyEscrow();
+        address impl = address(new MultiPartyEscrow());
         vm.expectRevert("MultiPartyEscrow: zero escrowEngine");
-        m.initialize(address(0), address(dispute), address(token), address(sybilGuard));
+        _deployProxy(impl, abi.encodeCall(MultiPartyEscrow.initialize, (address(0), address(dispute), address(token), address(sybilGuard))));
     }
 
     function test_revertZeroDisputeArbitration() public {
-        MultiPartyEscrow m = new MultiPartyEscrow();
+        address impl = address(new MultiPartyEscrow());
         vm.expectRevert("MultiPartyEscrow: zero disputeArbitration");
-        m.initialize(address(escrow), address(0), address(token), address(sybilGuard));
+        _deployProxy(impl, abi.encodeCall(MultiPartyEscrow.initialize, (address(escrow), address(0), address(token), address(sybilGuard))));
     }
 
     function test_revertZeroLobToken() public {
-        MultiPartyEscrow m = new MultiPartyEscrow();
+        address impl = address(new MultiPartyEscrow());
         vm.expectRevert("MultiPartyEscrow: zero lobToken");
-        m.initialize(address(escrow), address(dispute), address(0), address(sybilGuard));
+        _deployProxy(impl, abi.encodeCall(MultiPartyEscrow.initialize, (address(escrow), address(dispute), address(0), address(sybilGuard))));
     }
 
     function test_revertZeroSybilGuard() public {
-        MultiPartyEscrow m = new MultiPartyEscrow();
+        address impl = address(new MultiPartyEscrow());
         vm.expectRevert("MultiPartyEscrow: zero sybilGuard");
-        m.initialize(address(escrow), address(dispute), address(token), address(0));
+        _deployProxy(impl, abi.encodeCall(MultiPartyEscrow.initialize, (address(escrow), address(dispute), address(token), address(0))));
     }
 
     // ═══════════════════════════════════════════════════════════════

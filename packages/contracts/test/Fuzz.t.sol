@@ -8,6 +8,7 @@ import "../src/ReputationSystem.sol";
 import "../src/ServiceRegistry.sol";
 import "../src/DisputeArbitration.sol";
 import "../src/EscrowEngine.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuardFuzz {
     function checkBanned(address) external pure returns (bool) { return false; }
@@ -20,7 +21,7 @@ contract MockRewardDistributorFuzz {
     function availableBudget(address) external pure returns (uint256) { return type(uint256).max; }
 }
 
-contract FuzzTest is Test {
+contract FuzzTest is Test, ProxyTestHelper {
     LOBToken public token;
     StakingManager public staking;
     ReputationSystem public reputation;
@@ -39,20 +40,14 @@ contract FuzzTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         mockSybilGuard = new MockSybilGuardFuzz();
         mockRewardDist = new MockRewardDistributorFuzz();
-        registry = new ServiceRegistry();
-        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration();
-        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine();
-        escrow.initialize(
+        registry = ServiceRegistry(_deployProxy(address(new ServiceRegistry()), abi.encodeCall(ServiceRegistry.initialize, (address(staking), address(reputation), address(mockSybilGuard)))));
+        dispute = DisputeArbitration(_deployProxy(address(new DisputeArbitration()), abi.encodeCall(DisputeArbitration.initialize, (address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist)))));
+        escrow = EscrowEngine(_deployProxy(address(new EscrowEngine()), abi.encodeCall(EscrowEngine.initialize, (
             address(token),
             address(registry),
             address(staking),
@@ -60,7 +55,7 @@ contract FuzzTest is Test {
             address(reputation),
             treasury,
             address(mockSybilGuard)
-        );
+        ))));
         reputation.grantRole(reputation.RECORDER_ROLE(), recorder);
         reputation.grantRole(reputation.RECORDER_ROLE(), address(escrow));
         reputation.grantRole(reputation.RECORDER_ROLE(), address(dispute));

@@ -148,7 +148,7 @@ contract TreasuryGovernor is Initializable, UUPSUpgradeable, AccessControlUpgrad
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -175,6 +175,7 @@ contract TreasuryGovernor is Initializable, UUPSUpgradeable, AccessControlUpgrad
         _nextProposalId = 1;
         _nextStreamId = 1;
         _nextAdminProposalId = 1;
+        nextBountyId = 1;
 
         for (uint256 i = 0; i < _signers.length; i++) {
             require(_signers[i] != address(0), "TreasuryGovernor: zero signer");

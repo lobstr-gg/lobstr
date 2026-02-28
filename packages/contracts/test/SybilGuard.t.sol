@@ -6,8 +6,9 @@ import "../src/LOBToken.sol";
 import "../src/StakingManager.sol";
 import "../src/SybilGuard.sol";
 import "../src/RewardDistributor.sol";
+import "./helpers/ProxyTestHelper.sol";
 
-contract SybilGuardTest is Test {
+contract SybilGuardTest is Test, ProxyTestHelper {
     LOBToken public lob;
     StakingManager public staking;
     SybilGuard public sybilGuard;
@@ -34,25 +35,21 @@ contract SybilGuardTest is Test {
 
     function setUp() public {
         vm.prank(distributor);
-        lob = new LOBToken();
-        lob.initialize(distributor);
+        lob = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
 
         vm.startPrank(admin);
-        staking = new StakingManager();
-        staking.initialize(address(lob));
-        rewardDist = new RewardDistributor();
-        rewardDist.initialize();
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(lob)))));
+        rewardDist = RewardDistributor(_deployProxy(address(new RewardDistributor()), abi.encodeCall(RewardDistributor.initialize, ())));
         vm.stopPrank();
 
         // Initialize with admin as owner (so admin gets DEFAULT_ADMIN_ROLE in OZ 5.x)
         vm.startPrank(admin);
-        sybilGuard = new SybilGuard();
-        sybilGuard.initialize(
+        sybilGuard = SybilGuard(_deployProxy(address(new SybilGuard()), abi.encodeCall(SybilGuard.initialize, (
             address(lob),
             address(staking),
             treasuryGovernor,
             address(rewardDist)
-        );
+        ))));
 
         sybilGuard.grantRole(sybilGuard.WATCHER_ROLE(), watcher);
         sybilGuard.grantRole(sybilGuard.JUDGE_ROLE(), judge1);
@@ -151,27 +148,27 @@ contract SybilGuardTest is Test {
     }
 
     function test_constructor_reverts_zero_lobToken() public {
-        SybilGuard sg = new SybilGuard();
+        address impl = address(new SybilGuard());
         vm.expectRevert("SybilGuard: zero lobToken");
-        sg.initialize(address(0), address(staking), treasuryGovernor, address(rewardDist));
+        _deployProxy(impl, abi.encodeCall(SybilGuard.initialize, (address(0), address(staking), treasuryGovernor, address(rewardDist))));
     }
 
     function test_constructor_reverts_zero_staking() public {
-        SybilGuard sg = new SybilGuard();
+        address impl = address(new SybilGuard());
         vm.expectRevert("SybilGuard: zero staking");
-        sg.initialize(address(lob), address(0), treasuryGovernor, address(rewardDist));
+        _deployProxy(impl, abi.encodeCall(SybilGuard.initialize, (address(lob), address(0), treasuryGovernor, address(rewardDist))));
     }
 
     function test_constructor_reverts_zero_treasury() public {
-        SybilGuard sg = new SybilGuard();
+        address impl = address(new SybilGuard());
         vm.expectRevert("SybilGuard: zero treasury");
-        sg.initialize(address(lob), address(staking), address(0), address(rewardDist));
+        _deployProxy(impl, abi.encodeCall(SybilGuard.initialize, (address(lob), address(staking), address(0), address(rewardDist))));
     }
 
     function test_constructor_reverts_zero_rewardDistributor() public {
-        SybilGuard sg = new SybilGuard();
+        address impl = address(new SybilGuard());
         vm.expectRevert("SybilGuard: zero rewardDistributor");
-        sg.initialize(address(lob), address(staking), treasuryGovernor, address(0));
+        _deployProxy(impl, abi.encodeCall(SybilGuard.initialize, (address(lob), address(staking), treasuryGovernor, address(0))));
     }
 
     /* ═══════════════════════════════════════════════════════════════

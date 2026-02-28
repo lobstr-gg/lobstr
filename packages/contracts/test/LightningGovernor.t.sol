@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/LightningGovernor.sol";
 import "../src/StakingManager.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 /// @dev Mock target that LightningGovernor proposals will call
 contract MockTarget {
@@ -28,7 +29,7 @@ contract MockTarget {
     }
 }
 
-contract LightningGovernorTest is Test {
+contract LightningGovernorTest is Test, ProxyTestHelper {
     // Re-declare events for expectEmit
     event ProposalCreated(uint256 indexed proposalId, address indexed proposer, address target, bytes4 selector, string description);
     event Voted(uint256 indexed proposalId, address indexed voter, uint256 newVoteCount);
@@ -67,10 +68,8 @@ contract LightningGovernorTest is Test {
 
     function setUp() public {
         // Deploy core
-        token = new LOBToken();
-        token.initialize(address(this));
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (address(this)))));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         target = new MockTarget();
 
         // Deploy LightningGovernor
@@ -78,8 +77,7 @@ contract LightningGovernorTest is Test {
         executors[0] = executor1;
         executors[1] = executor2;
         executors[2] = executor3;
-        gov = new LightningGovernor();
-        gov.initialize(address(staking), admin, executors, guardian);
+        gov = LightningGovernor(_deployProxy(address(new LightningGovernor()), abi.encodeCall(LightningGovernor.initialize, (address(staking), admin, executors, guardian))));
 
         // Fund & stake Platinum users
         _fundAndStake(platinum1, PLATINUM_AMOUNT);
@@ -150,25 +148,25 @@ contract LightningGovernorTest is Test {
     function test_constructor_revertZeroStakingManager() public {
         address[] memory executors = new address[](1);
         executors[0] = executor1;
-        LightningGovernor g = new LightningGovernor();
+        address impl = address(new LightningGovernor());
         vm.expectRevert("LightningGovernor: zero staking manager");
-        g.initialize(address(0), admin, executors, guardian);
+        _deployProxy(impl, abi.encodeCall(LightningGovernor.initialize, (address(0), admin, executors, guardian)));
     }
 
     function test_constructor_revertZeroAdmin() public {
         address[] memory executors = new address[](1);
         executors[0] = executor1;
-        LightningGovernor g = new LightningGovernor();
+        address impl = address(new LightningGovernor());
         vm.expectRevert("LightningGovernor: zero admin");
-        g.initialize(address(staking), address(0), executors, guardian);
+        _deployProxy(impl, abi.encodeCall(LightningGovernor.initialize, (address(staking), address(0), executors, guardian)));
     }
 
     function test_constructor_revertZeroGuardian() public {
         address[] memory executors = new address[](1);
         executors[0] = executor1;
-        LightningGovernor g = new LightningGovernor();
+        address impl = address(new LightningGovernor());
         vm.expectRevert("LightningGovernor: zero guardian");
-        g.initialize(address(staking), admin, executors, address(0));
+        _deployProxy(impl, abi.encodeCall(LightningGovernor.initialize, (address(staking), admin, executors, address(0))));
     }
 
     // ════════════════════════════════════════════════════════════════

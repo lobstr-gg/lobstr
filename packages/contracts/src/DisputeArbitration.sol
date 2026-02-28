@@ -160,7 +160,7 @@ contract DisputeArbitration is IDisputeArbitration, Initializable, UUPSUpgradeab
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(
@@ -277,22 +277,20 @@ contract DisputeArbitration is IDisputeArbitration, Initializable, UUPSUpgradeab
     }
 
     /// @notice Seal the arbitrator panel after the commit delay. Permissionless.
+    ///         Must be called within 256 blocks of panelSealBlock to prevent seed manipulation.
+    ///         If the window is missed, call repanel() to get a fresh seed.
     function sealPanel(uint256 disputeId) external whenNotPaused {
         Dispute storage d = _disputes[disputeId];
         if (d.id == 0) revert NotFound();
         if (d.status != DisputeStatus.PanelPending) revert WrongStatus();
         if (block.number <= d.panelSealBlock) revert SealDelay();
+        require(block.number <= d.panelSealBlock + 256, "DA: seal window expired, call repanel");
 
-        // Primary seed: blockhash of the commit block (unbiasable at dispute creation time)
+        // Seed: blockhash of the commit block (unbiasable at dispute creation time)
         bytes32 bh = blockhash(d.panelSealBlock);
-        uint256 seed;
-        if (uint256(bh) != 0) {
-            seed = uint256(keccak256(abi.encodePacked(bh, d.buyer, d.seller, d.amount, disputeId, block.chainid)));
-        } else {
-            // Fallback uses pre-committed seed from dispute creation time.
-            // Not grindable at seal time since it was fixed before panelSealBlock.
-            seed = uint256(keccak256(abi.encodePacked(_commitSeeds[disputeId], d.buyer, d.seller, d.amount, disputeId, block.chainid)));
-        }
+        // Should always be available since we enforce the 256-block window above
+        require(uint256(bh) != 0, "DA: blockhash unavailable");
+        uint256 seed = uint256(keccak256(abi.encodePacked(bh, d.buyer, d.seller, d.amount, disputeId, block.chainid)));
 
         uint256 normalizedAmount = _normalizedAmounts[disputeId];
         // Use stored exclusions for appeal disputes (original panel excluded)
@@ -315,6 +313,20 @@ contract DisputeArbitration is IDisputeArbitration, Initializable, UUPSUpgradeab
 
         emit PanelSealed(disputeId, selected);
         emit ArbitratorsAssigned(disputeId, selected);
+    }
+
+    /// @notice Reset the seal window if the 256-block window was missed. Permissionless.
+    ///         Assigns a fresh panelSealBlock so sealPanel() can be retried.
+    function repanel(uint256 disputeId) external whenNotPaused {
+        Dispute storage d = _disputes[disputeId];
+        if (d.id == 0) revert NotFound();
+        if (d.status != DisputeStatus.PanelPending) revert WrongStatus();
+        require(block.number > d.panelSealBlock + 256, "DA: seal window still open");
+
+        d.panelSealBlock = block.number + PANEL_SEAL_DELAY;
+        _commitSeeds[disputeId] = blockhash(block.number - 1);
+
+        emit DisputeRepaneled(disputeId, 1);
     }
 
     function submitCounterEvidence(uint256 disputeId, string calldata sellerEvidenceURI) external nonReentrant {

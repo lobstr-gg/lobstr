@@ -9,6 +9,7 @@ import "../src/ServiceRegistry.sol";
 import "../src/DisputeArbitration.sol";
 import "../src/EscrowEngine.sol";
 import "../src/X402EscrowBridge.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuard {
     function checkBanned(address) external pure returns (bool) { return false; }
@@ -52,7 +53,7 @@ contract MockERC3009 is LOBToken {
     }
 }
 
-contract X402EscrowBridgeTest is Test {
+contract X402EscrowBridgeTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit
     event EscrowedJobCreated(bytes32 indexed x402Nonce, uint256 indexed jobId, address indexed payer, address seller, uint256 amount, address token);
     event DeliveryConfirmedByPayer(uint256 indexed jobId, address indexed payer);
@@ -101,20 +102,14 @@ contract X402EscrowBridgeTest is Test {
         vm.startPrank(admin);
 
         // Deploy protocol stack
-        token = new LOBToken();
-        token.initialize(distributor);
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         mockSybilGuard = new MockSybilGuard();
         mockRewardDist = new MockRewardDistributor();
-        registry = new ServiceRegistry();
-        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration();
-        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine();
-        escrow.initialize(
+        registry = ServiceRegistry(_deployProxy(address(new ServiceRegistry()), abi.encodeCall(ServiceRegistry.initialize, (address(staking), address(reputation), address(mockSybilGuard)))));
+        dispute = DisputeArbitration(_deployProxy(address(new DisputeArbitration()), abi.encodeCall(DisputeArbitration.initialize, (address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist)))));
+        escrow = EscrowEngine(_deployProxy(address(new EscrowEngine()), abi.encodeCall(EscrowEngine.initialize, (
             address(token),
             address(registry),
             address(staking),
@@ -122,11 +117,10 @@ contract X402EscrowBridgeTest is Test {
             address(reputation),
             treasury,
             address(mockSybilGuard)
-        );
+        ))));
 
         // Deploy bridge
-        bridge = new X402EscrowBridge();
-        bridge.initialize(address(escrow), address(dispute));
+        bridge = X402EscrowBridge(_deployProxy(address(new X402EscrowBridge()), abi.encodeCall(X402EscrowBridge.initialize, (address(escrow), address(dispute)))));
         // OZ 5.x: grant admin role so we can call protected functions
         bridge.grantRole(bridge.DEFAULT_ADMIN_ROLE(), address(this));
         bridge.grantRole(bridge.FACILITATOR_ROLE(), facilitator);
@@ -539,8 +533,7 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization() public {
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009();
-        erc3009.init(admin);
+        MockERC3009 erc3009 = MockERC3009(_deployProxy(address(new MockERC3009()), abi.encodeCall(MockERC3009.init, (admin))));
         bridge.setTokenAllowed(address(erc3009), true);
         escrow.allowlistToken(address(erc3009)); // V-002: EscrowEngine also needs allowlist
         vm.stopPrank();
@@ -591,8 +584,7 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization_RevertTokenNotAllowed() public {
         vm.prank(admin);
-        MockERC3009 erc3009 = new MockERC3009();
-        erc3009.init(admin);
+        MockERC3009 erc3009 = MockERC3009(_deployProxy(address(new MockERC3009()), abi.encodeCall(MockERC3009.init, (admin))));
         // NOT allowlisted
 
         uint256 deadline = block.timestamp + 1 hours;
@@ -648,8 +640,7 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization_RevertPayerMismatch() public {
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009();
-        erc3009.init(admin);
+        MockERC3009 erc3009 = MockERC3009(_deployProxy(address(new MockERC3009()), abi.encodeCall(MockERC3009.init, (admin))));
         bridge.setTokenAllowed(address(erc3009), true);
         erc3009.transfer(payer, 100 ether);
         vm.stopPrank();
@@ -684,8 +675,7 @@ contract X402EscrowBridgeTest is Test {
 
     function test_DepositWithAuthorization_RevertRoutingTamper() public {
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009();
-        erc3009.init(admin);
+        MockERC3009 erc3009 = MockERC3009(_deployProxy(address(new MockERC3009()), abi.encodeCall(MockERC3009.init, (admin))));
         bridge.setTokenAllowed(address(erc3009), true);
         erc3009.transfer(payer, 100 ether);
         vm.stopPrank();
@@ -1469,8 +1459,7 @@ contract X402EscrowBridgeTest is Test {
     function test_DepositWithAuthorization_FrontRunProtection() public {
         // Verify that MockERC3009.receiveWithAuthorization enforces caller == to
         vm.startPrank(admin);
-        MockERC3009 erc3009 = new MockERC3009();
-        erc3009.init(admin);
+        MockERC3009 erc3009 = MockERC3009(_deployProxy(address(new MockERC3009()), abi.encodeCall(MockERC3009.init, (admin))));
         bridge.setTokenAllowed(address(erc3009), true);
         erc3009.transfer(payer, 100 ether);
         vm.stopPrank();

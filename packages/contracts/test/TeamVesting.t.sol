@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/LOBToken.sol";
 import "../src/TeamVesting.sol";
+import "./helpers/ProxyTestHelper.sol";
 
-contract TeamVestingTest is Test {
+contract TeamVestingTest is Test, ProxyTestHelper {
     LOBToken public token;
     TeamVesting public vesting;
 
@@ -19,17 +20,15 @@ contract TeamVestingTest is Test {
     uint256 public constant DURATION = 1095 days; // 3 years
 
     function setUp() public {
-        token = new LOBToken();
-        token.initialize(deployer);
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (deployer))));
 
-        vesting = new TeamVesting();
-        vesting.initialize(
+        vesting = TeamVesting(_deployProxy(address(new TeamVesting()), abi.encodeCall(TeamVesting.initialize, (
             address(token),
             beneficiary,
             block.timestamp,
             CLIFF,
             DURATION
-        );
+        ))));
 
         // Fund the vesting contract
         token.transfer(address(vesting), ALLOCATION);
@@ -198,28 +197,26 @@ contract TeamVestingTest is Test {
 
     function test_revert_setAllocationZero() public {
         // Deploy new vesting without setting allocation
-        TeamVesting v2 = new TeamVesting();
-        v2.initialize(
+        TeamVesting v2 = TeamVesting(_deployProxy(address(new TeamVesting()), abi.encodeCall(TeamVesting.initialize, (
             address(token),
             beneficiary,
             block.timestamp,
             CLIFF,
             DURATION
-        );
+        ))));
 
         vm.expectRevert("TeamVesting: zero amount");
         v2.setTotalAllocation(0);
     }
 
     function test_revert_releaseWithoutAllocation() public {
-        TeamVesting v2 = new TeamVesting();
-        v2.initialize(
+        TeamVesting v2 = TeamVesting(_deployProxy(address(new TeamVesting()), abi.encodeCall(TeamVesting.initialize, (
             address(token),
             beneficiary,
             block.timestamp,
             CLIFF,
             DURATION
-        );
+        ))));
 
         vm.warp(block.timestamp + CLIFF);
         vm.expectRevert("TeamVesting: allocation not set");
@@ -229,26 +226,26 @@ contract TeamVestingTest is Test {
     // --- Constructor Tests ---
 
     function test_revert_cliffGreaterThanDuration() public {
-        TeamVesting v2 = new TeamVesting();
+        address impl = address(new TeamVesting());
         vm.expectRevert("TeamVesting: cliff > duration");
-        v2.initialize(
+        _deployProxy(impl, abi.encodeCall(TeamVesting.initialize, (
             address(token),
             beneficiary,
             block.timestamp,
             DURATION + 1,
             DURATION
-        );
+        )));
     }
 
     function test_revert_zeroDuration() public {
-        TeamVesting v2 = new TeamVesting();
+        address impl = address(new TeamVesting());
         vm.expectRevert("TeamVesting: zero duration");
-        v2.initialize(
+        _deployProxy(impl, abi.encodeCall(TeamVesting.initialize, (
             address(token),
             beneficiary,
             block.timestamp,
             0,
             0
-        );
+        )));
     }
 }

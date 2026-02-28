@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/AffiliateManager.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuardForAffiliate {
     mapping(address => bool) public banned;
@@ -21,7 +22,7 @@ contract MockSybilGuardForAffiliate {
     }
 }
 
-contract AffiliateManagerTest is Test {
+contract AffiliateManagerTest is Test, ProxyTestHelper {
     event ReferralRegistered(address indexed referrer, address indexed referred, uint256 timestamp);
     event ReferralRewardCredited(address indexed referrer, address indexed token, uint256 amount);
     event RewardsClaimed(address indexed referrer, address indexed token, uint256 amount);
@@ -39,11 +40,9 @@ contract AffiliateManagerTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         sybilGuard = new MockSybilGuardForAffiliate();
-        affiliate = new AffiliateManager();
-        affiliate.initialize(address(sybilGuard));
+        affiliate = AffiliateManager(_deployProxy(address(new AffiliateManager()), abi.encodeCall(AffiliateManager.initialize, (address(sybilGuard)))));
         affiliate.grantRole(affiliate.CREDITOR_ROLE(), creditor);
         vm.stopPrank();
 
@@ -253,8 +252,8 @@ contract AffiliateManagerTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroSybilGuard() public {
-        AffiliateManager a = new AffiliateManager();
+        address impl = address(new AffiliateManager());
         vm.expectRevert("AffiliateManager: zero sybilGuard");
-        a.initialize(address(0));
+        _deployProxy(impl, abi.encodeCall(AffiliateManager.initialize, (address(0))));
     }
 }

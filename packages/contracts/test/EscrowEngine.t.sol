@@ -9,6 +9,7 @@ import "../src/ServiceRegistry.sol";
 import "../src/DisputeArbitration.sol";
 import "../src/EscrowEngine.sol";
 import "../src/SybilGuard.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockSybilGuard {
     function checkBanned(address) external pure returns (bool) { return false; }
@@ -23,7 +24,7 @@ contract MockRewardDistributor {
     function availableBudget(address) external pure returns (uint256) { return type(uint256).max; }
 }
 
-contract EscrowEngineTest is Test {
+contract EscrowEngineTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
     event JobCreated(uint256 indexed jobId, uint256 indexed listingId, address indexed buyer, address seller, uint256 amount, address token, uint256 fee);
     event DeliverySubmitted(uint256 indexed jobId, string metadataURI);
@@ -52,20 +53,14 @@ contract EscrowEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
-        reputation = new ReputationSystem();
-        reputation.initialize();
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        reputation = ReputationSystem(_deployProxy(address(new ReputationSystem()), abi.encodeCall(ReputationSystem.initialize, ())));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         mockSybilGuard = new MockSybilGuard();
         mockRewardDist = new MockRewardDistributor();
-        registry = new ServiceRegistry();
-        registry.initialize(address(staking), address(reputation), address(mockSybilGuard));
-        dispute = new DisputeArbitration();
-        dispute.initialize(address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist));
-        escrow = new EscrowEngine();
-        escrow.initialize(
+        registry = ServiceRegistry(_deployProxy(address(new ServiceRegistry()), abi.encodeCall(ServiceRegistry.initialize, (address(staking), address(reputation), address(mockSybilGuard)))));
+        dispute = DisputeArbitration(_deployProxy(address(new DisputeArbitration()), abi.encodeCall(DisputeArbitration.initialize, (address(token), address(staking), address(reputation), address(mockSybilGuard), address(mockRewardDist)))));
+        escrow = EscrowEngine(_deployProxy(address(new EscrowEngine()), abi.encodeCall(EscrowEngine.initialize, (
             address(token),
             address(registry),
             address(staking),
@@ -73,7 +68,7 @@ contract EscrowEngineTest is Test {
             address(reputation),
             treasury,
             address(mockSybilGuard)
-        );
+        ))));
 
         // Grant roles
         reputation.grantRole(reputation.RECORDER_ROLE(), address(escrow));

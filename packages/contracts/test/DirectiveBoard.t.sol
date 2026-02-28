@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/DirectiveBoard.sol";
 import "../src/interfaces/IDirectiveBoard.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 /// @dev Minimal mock for SybilGuard.checkBanned
 contract MockSybilGuard {
@@ -16,7 +17,7 @@ contract MockSybilGuard {
     }
 }
 
-contract DirectiveBoardTest is Test {
+contract DirectiveBoardTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit
     event DirectivePosted(uint256 indexed id, IDirectiveBoard.DirectiveType indexed directiveType, address indexed poster, address target, bytes32 contentHash, string contentURI, uint256 expiresAt);
     event DirectiveExecuted(uint256 indexed id, address indexed executor);
@@ -35,8 +36,7 @@ contract DirectiveBoardTest is Test {
 
     function setUp() public {
         sybil = new MockSybilGuard();
-        board = new DirectiveBoard();
-        board.initialize(address(sybil), address(this));
+        board = DirectiveBoard(_deployProxy(address(new DirectiveBoard()), abi.encodeCall(DirectiveBoard.initialize, (address(sybil), address(this)))));
 
         board.grantRole(board.POSTER_ROLE(), poster);
         board.grantRole(board.POSTER_ROLE(), poster2);

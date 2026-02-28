@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/LOBToken.sol";
 import "../src/StakingManager.sol";
+import "./helpers/ProxyTestHelper.sol";
 
-contract StakingManagerTest is Test {
+contract StakingManagerTest is Test, ProxyTestHelper {
     // Re-declare events for vm.expectEmit (Solidity 0.8.20 limitation)
     event Staked(address indexed user, uint256 amount, IStakingManager.Tier newTier);
     event Unstaked(address indexed user, uint256 amount, IStakingManager.Tier newTier);
@@ -21,10 +22,8 @@ contract StakingManagerTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(distributor);
-        staking = new StakingManager();
-        staking.initialize(address(token));
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
+        staking = StakingManager(_deployProxy(address(new StakingManager()), abi.encodeCall(StakingManager.initialize, (address(token)))));
         staking.grantRole(staking.SLASHER_ROLE(), slasher);
         vm.stopPrank();
 

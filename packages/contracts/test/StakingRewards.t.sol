@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/StakingRewards.sol";
 import "../src/LOBToken.sol";
+import "./helpers/ProxyTestHelper.sol";
 
 contract MockStakingManagerForRewards {
     mapping(address => uint256) private _stakes;
@@ -51,7 +52,7 @@ contract MockSybilGuardForStakingRewards {
     }
 }
 
-contract StakingRewardsTest is Test {
+contract StakingRewardsTest is Test, ProxyTestHelper {
     event StakeSynced(address indexed user, uint256 effectiveBalance, uint256 stakingTier);
     event RewardNotified(address indexed token, uint256 amount, uint256 duration);
     event RewardsClaimed(address indexed user, address indexed token, uint256 amount);
@@ -71,12 +72,10 @@ contract StakingRewardsTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        lobToken = new LOBToken();
-        lobToken.initialize(distributor);
+        lobToken = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (distributor))));
         sybilGuard = new MockSybilGuardForStakingRewards();
         stakingManager = new MockStakingManagerForRewards();
-        stakingRewards = new StakingRewards();
-        stakingRewards.initialize(address(stakingManager), address(sybilGuard));
+        stakingRewards = StakingRewards(_deployProxy(address(new StakingRewards()), abi.encodeCall(StakingRewards.initialize, (address(stakingManager), address(sybilGuard)))));
         stakingRewards.grantRole(stakingRewards.REWARD_NOTIFIER_ROLE(), notifier);
         stakingRewards.addRewardToken(address(lobToken));
         vm.stopPrank();
@@ -376,15 +375,15 @@ contract StakingRewardsTest is Test {
     // ═══════════════════════════════════════════════════════════════
 
     function test_revertZeroStakingManager() public {
-        StakingRewards sr = new StakingRewards();
+        address impl = address(new StakingRewards());
         vm.expectRevert("StakingRewards: zero stakingManager");
-        sr.initialize(address(0), address(sybilGuard));
+        _deployProxy(impl, abi.encodeCall(StakingRewards.initialize, (address(0), address(sybilGuard))));
     }
 
     function test_revertZeroSybilGuard() public {
-        StakingRewards sr = new StakingRewards();
+        address impl = address(new StakingRewards());
         vm.expectRevert("StakingRewards: zero sybilGuard");
-        sr.initialize(address(stakingManager), address(0));
+        _deployProxy(impl, abi.encodeCall(StakingRewards.initialize, (address(stakingManager), address(0))));
     }
 
     // ═══════════════════════════════════════════════════════════════

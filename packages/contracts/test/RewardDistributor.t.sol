@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/LOBToken.sol";
 import "../src/RewardDistributor.sol";
+import "./helpers/ProxyTestHelper.sol";
 
-contract RewardDistributorTest is Test {
+contract RewardDistributorTest is Test, ProxyTestHelper {
     LOBToken public token;
     RewardDistributor public distributor;
 
@@ -20,10 +21,8 @@ contract RewardDistributorTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        token = new LOBToken();
-        token.initialize(tokenDistributor);
-        distributor = new RewardDistributor();
-        distributor.initialize();
+        token = LOBToken(_deployProxy(address(new LOBToken()), abi.encodeCall(LOBToken.initialize, (tokenDistributor))));
+        distributor = RewardDistributor(_deployProxy(address(new RewardDistributor()), abi.encodeCall(RewardDistributor.initialize, ())));
 
         distributor.grantRole(distributor.DISPUTE_ROLE(), disputeContract);
         distributor.grantRole(distributor.SYBIL_GUARD_ROLE(), sybilGuardContract);

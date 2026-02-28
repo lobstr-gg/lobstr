@@ -213,7 +213,7 @@ contract SybilGuard is Initializable, UUPSUpgradeable, OwnableUpgradeable, Acces
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(

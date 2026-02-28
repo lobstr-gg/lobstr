@@ -73,7 +73,7 @@ contract InsurancePool is IInsurancePool, Initializable, UUPSUpgradeable, Ownabl
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Initializers disabled by atomic proxy deployment + multisig ownership transfer
+        _disableInitializers();
     }
 
     function initialize(
@@ -112,6 +112,13 @@ contract InsurancePool is IInsurancePool, Initializable, UUPSUpgradeable, Ownabl
         TREASURY = _treasury;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+
+        // Set defaults (storage-level initializers don't apply behind a proxy)
+        premiumRateBps = 50;
+        coverageCapBronze = 100e18;
+        coverageCapSilver = 500e18;
+        coverageCapGold = 2500e18;
+        coverageCapPlatinum = 10000e18;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}

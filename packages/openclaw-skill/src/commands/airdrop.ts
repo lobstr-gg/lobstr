@@ -67,6 +67,7 @@ export function registerAirdropCommands(program: Command): void {
     .command('submit-attestation')
     .description('Submit ZK proof to claim airdrop (V3)')
     .option('--proof <path>', 'Path to proof JSON (from snarkjs)')
+    .option('--pow-nonce <nonce>', 'Skip PoW mining and use this nonce directly')
     .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
@@ -147,13 +148,10 @@ export function registerAirdropCommands(program: Command): void {
           process.exit(1);
         }
 
-        // B. Compute PoW nonce — V3: keccak256(abi.encodePacked(sender, merkleRoot, nonce))
+        // B. Compute PoW nonce — V3: keccak256(abi.encodePacked(sender, workspaceHash, powNonce))
+        //    workspaceHash = pubSignals[0] from the ZK proof
         const powSpin = ui.spinner('Computing proof-of-work nonce...');
-        const merkleRoot = await publicClient.readContract({
-          address: airdropAddr,
-          abi: airdropAbi,
-          functionName: 'getMerkleRoot',
-        }) as bigint;
+        const workspaceHash = BigInt(pubSignals[0]);
         const DIFFICULTY_TARGET = await publicClient.readContract({
           address: airdropAddr,
           abi: airdropAbi,
@@ -178,7 +176,7 @@ export function registerAirdropCommands(program: Command): void {
           const hash = BigInt(keccak256(
             encodePacked(
               ['address', 'uint256', 'uint256'],
-              [address as `0x${string}`, merkleRoot, powNonce]
+              [address as `0x${string}`, workspaceHash, powNonce]
             )
           ));
           if (hash < DIFFICULTY_TARGET) break;
