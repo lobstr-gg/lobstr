@@ -130,7 +130,7 @@ export function registerAirdropCommands(program: Command): void {
           const resp = await fetch(`${apiUrl}/api/airdrop/v3/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address, nonce: attestNonce }),
+            body: JSON.stringify({ address, nonce: attestNonce, workspaceHash: pubSignals[0] }),
           });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));

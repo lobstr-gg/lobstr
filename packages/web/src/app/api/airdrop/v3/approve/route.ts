@@ -12,8 +12,8 @@ import { CONTRACTS_BY_CHAIN } from "@/config/contract-addresses";
 
 const AIRDROP_CLAIM_ABI = [
   {
-    inputs: [{ name: "account", type: "address" }],
-    name: "getClaim",
+    inputs: [{ name: "claimant", type: "address" }],
+    name: "getClaimInfo",
     outputs: [
       {
         components: [
@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing nonce" }, { status: 400 });
     }
 
+    const { workspaceHash } = body;
+    if (!workspaceHash) {
+      return NextResponse.json({ error: "Missing workspaceHash" }, { status: 400 });
+    }
+
     // Verify attestation exists for this address + nonce combo
     const attestation = await getAirdropV3Attestation(address.toLowerCase());
     if (!attestation || attestation.nonce !== nonce) {
@@ -82,11 +87,17 @@ export async function POST(request: NextRequest) {
 
     const account = privateKeyToAccount(signerKey as `0x${string}`);
 
-    const signApproval = async (addr: string, n: string) => {
+    // Sign the same message the contract's _verifyApproval checks:
+    // keccak256(abi.encodePacked(sender, workspaceHash, block.chainid, address(this), "LOBSTR_AIRDROP_V3_ZK"))
+    const addresses = CONTRACTS_BY_CHAIN[base.id];
+    const airdropAddr = addresses.airdropClaim;
+    const chainId = base.id; // 8453
+
+    const signApproval = async (addr: string, wsHash: string) => {
       const msgHash = keccak256(
         encodePacked(
-          ["address", "uint256", "string"],
-          [addr as `0x${string}`, BigInt(n), "LOBSTR_AIRDROP_V3_APPROVAL"]
+          ["address", "uint256", "uint256", "address", "string"],
+          [addr as `0x${string}`, BigInt(wsHash), BigInt(chainId), airdropAddr, "LOBSTR_AIRDROP_V3_ZK"]
         )
       );
       return account.signMessage({ message: { raw: toBytes(msgHash) } });
@@ -104,15 +115,12 @@ export async function POST(request: NextRequest) {
 
       // Same address retrying — idempotent, re-sign
       if (existing.address === address.toLowerCase()) {
-        const signature = await signApproval(address, existing.nonce);
+        const signature = await signApproval(address, workspaceHash);
         return NextResponse.json({ signature, signer: account.address });
       }
 
       // Different address from same IP — check if the previous address
       // actually claimed on-chain. If not, allow the new address through.
-      const addresses = CONTRACTS_BY_CHAIN[base.id];
-      const airdropAddr = addresses.airdropClaim;
-
       const client = createPublicClient({
         chain: base,
         transport: http(
@@ -123,7 +131,7 @@ export async function POST(request: NextRequest) {
       const claimInfo = await client.readContract({
         address: airdropAddr,
         abi: AIRDROP_CLAIM_ABI,
-        functionName: "getClaim",
+        functionName: "getClaimInfo",
         args: [existing.address as `0x${string}`],
       });
 
@@ -143,12 +151,12 @@ export async function POST(request: NextRequest) {
         approvedAt: Date.now(),
       }, true);
 
-      const signature = await signApproval(address, nonce);
+      const signature = await signApproval(address, workspaceHash);
       return NextResponse.json({ signature, signer: account.address });
     }
 
     // First approval from this IP — sign and return
-    const signature = await signApproval(address, nonce);
+    const signature = await signApproval(address, workspaceHash);
 
     return NextResponse.json({
       signature,
