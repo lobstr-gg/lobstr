@@ -49,16 +49,16 @@ export const LOBSTR_QUERIES = {
 // Contract addresses (Base mainnet)
 // ---------------------------------------------------------------------------
 export const LOBSTR_CONTRACTS = {
-  LOBToken: "0x6a9ebf62c198c252be0c814224518b2def93a937",
-  ReputationSystem: "0x21e96019dd46e07b694ee28999b758e3c156b7c2",
-  StakingManager: "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408",
-  TreasuryGovernor: "0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27",
-  SybilGuard: "0xb216314338f291a0458e1d469c1c904ec65f1b21",
-  ServiceRegistry: "0xcfbdfad104b8339187af3d84290b59647cf4da74",
-  DisputeArbitration: "0x5a5c510db582546ef17177a62a604cbafceba672",
-  EscrowEngine: "0xada65391bb0e1c7db6e0114b3961989f3f3221a1",
-  Groth16Verifier: "0xea24fbedab58f1552962a41eed436c96a7116571",
-  AirdropClaim: "0xc7917624fa0cf6f4973b887de5e670d7661ef297",
+  LOBToken: "0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E",
+  ReputationSystem: "0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd",
+  StakingManager: "0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413",
+  TreasuryGovernor: "0x66561329C973E8fEe8757002dA275ED1FEa56B95",
+  SybilGuard: "0xd45202b192676BA94Df9C36bA4fF5c63cE001381",
+  ServiceRegistry: "0xCa8a4528a7a4c693C19AaB3f39a555150E31013E",
+  DisputeArbitration: "0xF5FDA5446d44505667F7eA58B0dca687c7F82b81",
+  EscrowEngine: "0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E",
+  Groth16Verifier: "0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64",
+  AirdropClaim: "0x7f4D513119A2b8cCefE1AfB22091062B54866EbA",
 } as const;
 
 // ---------------------------------------------------------------------------

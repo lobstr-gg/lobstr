@@ -423,10 +423,10 @@ contract LoanEngine is ILoanEngine, Initializable, UUPSUpgradeable, OwnableUpgra
             if (ids[i] == loanId) {
                 ids[i] = ids[ids.length - 1];
                 ids.pop();
-                break;
+                _profiles[borrower].activeLoans--;
+                return;
             }
         }
-        _profiles[borrower].activeLoans--;
     }
 
     function _maxBorrowForTier(IReputationSystem.ReputationTier tier) internal pure returns (uint256) {

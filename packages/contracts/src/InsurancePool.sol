@@ -101,6 +101,7 @@ contract InsurancePool is IInsurancePool, Initializable, UUPSUpgradeable, Ownabl
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();
+        __UUPSUpgradeable_init();
 
         LOB_TOKEN = IERC20(_lobToken);
         ESCROW_ENGINE = IEscrowEngine(_escrowEngine);
@@ -422,7 +423,7 @@ contract InsurancePool is IInsurancePool, Initializable, UUPSUpgradeable, Ownabl
             } else if (dispute.ruling == IDisputeArbitration.Ruling.Draw) {
                 uint256 half = job.amount / 2;
                 uint256 halfFee = job.fee / 2;
-                refundAmount = half - halfFee;
+                refundAmount = half > halfFee ? half - halfFee : 0;
             }
             // SellerWins: refundAmount = 0 (no escrow refund to buyer)
 

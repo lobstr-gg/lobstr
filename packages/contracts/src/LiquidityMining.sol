@@ -64,6 +64,7 @@ contract LiquidityMining is ILiquidityMining, Initializable, UUPSUpgradeable, Ow
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();
+        __UUPSUpgradeable_init();
 
         lpToken = IERC20(_lpToken);
         rewardToken = IERC20(_rewardToken);
@@ -92,12 +93,14 @@ contract LiquidityMining is ILiquidityMining, Initializable, UUPSUpgradeable, Ow
         require(!sybilGuard.checkBanned(msg.sender), "LiquidityMining: banned");
         require(amount > 0, "LiquidityMining: zero amount");
 
-        uint256 boost = _getBoost(msg.sender);
-        uint256 boostedAmount = (amount * boost) / 10000;
-
         _balances[msg.sender] += amount;
-        _boostedBalances[msg.sender] += boostedAmount;
-        _totalBoostedSupply += boostedAmount;
+
+        // Recalculate full boosted balance to avoid rounding drift from additive boosts
+        uint256 boost = _getBoost(msg.sender);
+        uint256 oldBoosted = _boostedBalances[msg.sender];
+        uint256 newBoosted = (_balances[msg.sender] * boost) / 10000;
+        _totalBoostedSupply = _totalBoostedSupply - oldBoosted + newBoosted;
+        _boostedBalances[msg.sender] = newBoosted;
 
         lpToken.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -153,6 +156,7 @@ contract LiquidityMining is ILiquidityMining, Initializable, UUPSUpgradeable, Ow
             uint256 leftover = remaining * rewardRate;
             rewardRate = (amount + leftover) / duration;
         }
+        require(rewardRate > 0, "LiquidityMining: reward rate zero");
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + duration;

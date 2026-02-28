@@ -139,6 +139,7 @@ contract StakingRewards is IStakingRewards, AccessControlUpgradeable, Reentrancy
             uint256 leftover = remaining * state.rewardRate;
             state.rewardRate = (amount + leftover) / duration;
         }
+        require(state.rewardRate > 0, "StakingRewards: reward rate zero");
 
         state.lastUpdateTime = block.timestamp;
         state.periodFinish = block.timestamp + duration;

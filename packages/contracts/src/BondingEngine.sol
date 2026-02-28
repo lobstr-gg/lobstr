@@ -174,6 +174,7 @@ contract BondingEngine is IBondingEngine, Initializable, UUPSUpgradeable, Ownabl
 
         uint256 discount = _effectiveDiscount(marketId, msg.sender);
         uint256 discountedPrice = market.pricePer1LOB * (10000 - discount) / 10000;
+        require(discountedPrice > 0, "BondingEngine: price rounds to zero");
 
         // Use balance-delta to defend against fee-on-transfer tokens
         uint256 balBefore = IERC20(market.quoteToken).balanceOf(address(this));

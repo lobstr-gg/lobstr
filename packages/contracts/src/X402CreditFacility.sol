@@ -229,7 +229,7 @@ contract X402CreditFacility is IX402CreditFacility, Initializable, UUPSUpgradeab
 
         uint256 currentOutstanding = line.totalDrawn - line.totalRepaid;
         require(currentOutstanding + amount <= line.creditLimit, "CreditFacility: exceeds credit limit");
-        require(amount <= totalPoolBalance - totalOutstanding, "CreditFacility: insufficient pool liquidity");
+        require(totalPoolBalance >= totalOutstanding + amount, "CreditFacility: insufficient pool liquidity");
 
         // Compute interest (simple, prorated over 30-day repayment deadline)
         uint256 interest = (amount * line.interestRateBps * REPAYMENT_DEADLINE) / (BPS_DENOMINATOR * DAYS_PER_YEAR * 1 days);

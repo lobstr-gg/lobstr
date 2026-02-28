@@ -27864,13 +27864,7 @@ export const RolePayrollABI = [
   {
     "type": "function",
     "name": "reportHeartbeat",
-    "inputs": [
-      {
-        "name": "holder",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
