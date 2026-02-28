@@ -302,6 +302,16 @@ export function Navbar() {
               {NAV_CATEGORIES.map((cat) => (
                 <NavDropdown key={cat.label} label={cat.label} links={cat.links} pathname={pathname} />
               ))}
+              <Link
+                href="/team"
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  pathname === "/team"
+                    ? "text-lob-green"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                Team
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">

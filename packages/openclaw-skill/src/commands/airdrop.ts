@@ -150,80 +150,87 @@ export function registerAirdropCommands(program: Command): void {
 
         // B. Compute PoW nonce — V3: keccak256(abi.encodePacked(sender, workspaceHash, powNonce))
         //    workspaceHash = pubSignals[0] from the ZK proof
-        const powSpin = ui.spinner('Computing proof-of-work nonce...');
         const workspaceHash = BigInt(pubSignals[0]);
-        const DIFFICULTY_TARGET = await publicClient.readContract({
-          address: airdropAddr,
-          abi: airdropAbi,
-          functionName: 'difficultyTarget',
-        }) as bigint;
-
-        // Estimate expected iterations: 2^256 / difficultyTarget
-        const MAX_HASH = 2n ** 256n;
-        const expectedIters = MAX_HASH / DIFFICULTY_TARGET;
-        const POW_TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 hours
-
-        ui.info(`PoW difficulty: ~${expectedIters.toLocaleString()} expected iterations`);
-        ui.info(`Timeout: 12 hours`);
-        discordProgress('PoW Started', `Target: ~${expectedIters.toLocaleString()} iterations\nAddress: \`${address}\`\nTimeout: 12 hours`);
-
         let powNonce = 0n;
-        const startTime = Date.now();
-        let lastSpinner = startTime;
-        let lastDiscord = startTime;
-        const DISCORD_INTERVAL = 3 * 60 * 1000; // 3 minutes
-        while (true) {
-          const hash = BigInt(keccak256(
-            encodePacked(
-              ['address', 'uint256', 'uint256'],
-              [address as `0x${string}`, workspaceHash, powNonce]
-            )
-          ));
-          if (hash < DIFFICULTY_TARGET) break;
-          powNonce++;
 
-          const now = Date.now();
-          const elapsedSec = (now - startTime) / 1000;
+        if (opts.powNonce) {
+          // Skip mining — use pre-computed nonce
+          powNonce = BigInt(opts.powNonce);
+          ui.info(`Using pre-computed PoW nonce: ${powNonce}`);
+        } else {
+          const powSpin = ui.spinner('Computing proof-of-work nonce...');
+          const DIFFICULTY_TARGET = await publicClient.readContract({
+            address: airdropAddr,
+            abi: airdropAbi,
+            functionName: 'difficultyTarget',
+          }) as bigint;
 
-          // Progress update every 30s (console.log for log files, spinner for TTY)
-          if (now - lastSpinner >= 30000) {
-            lastSpinner = now;
-            const rate = Number(powNonce) / elapsedSec;
-            const remaining = (Number(expectedIters) - Number(powNonce)) / rate;
-            const pct = (Number(powNonce) / Number(expectedIters) * 100).toFixed(1);
-            const etaMin = Math.max(0, remaining / 60).toFixed(0);
-            const msg = `PoW: ${powNonce.toLocaleString()} iters | ${rate.toFixed(0)} h/s | ~${pct}% | ETA ~${etaMin}m`;
-            powSpin.text = msg;
-            console.log(`[pow] ${msg}`);
+          // Estimate expected iterations: 2^256 / difficultyTarget
+          const MAX_HASH = 2n ** 256n;
+          const expectedIters = MAX_HASH / DIFFICULTY_TARGET;
+          const POW_TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+          ui.info(`PoW difficulty: ~${expectedIters.toLocaleString()} expected iterations`);
+          ui.info(`Timeout: 12 hours`);
+          discordProgress('PoW Started', `Target: ~${expectedIters.toLocaleString()} iterations\nAddress: \`${address}\`\nTimeout: 12 hours`);
+
+          const startTime = Date.now();
+          let lastSpinner = startTime;
+          let lastDiscord = startTime;
+          const DISCORD_INTERVAL = 3 * 60 * 1000; // 3 minutes
+          while (true) {
+            const hash = BigInt(keccak256(
+              encodePacked(
+                ['address', 'uint256', 'uint256'],
+                [address as `0x${string}`, workspaceHash, powNonce]
+              )
+            ));
+            if (hash < DIFFICULTY_TARGET) break;
+            powNonce++;
+
+            const now = Date.now();
+            const elapsedSec = (now - startTime) / 1000;
+
+            // Progress update every 30s (console.log for log files, spinner for TTY)
+            if (now - lastSpinner >= 30000) {
+              lastSpinner = now;
+              const rate = Number(powNonce) / elapsedSec;
+              const remaining = (Number(expectedIters) - Number(powNonce)) / rate;
+              const pct = (Number(powNonce) / Number(expectedIters) * 100).toFixed(1);
+              const etaMin = Math.max(0, remaining / 60).toFixed(0);
+              const msg = `PoW: ${powNonce.toLocaleString()} iters | ${rate.toFixed(0)} h/s | ~${pct}% | ETA ~${etaMin}m`;
+              powSpin.text = msg;
+              console.log(`[pow] ${msg}`);
+            }
+
+            // Discord progress every 3 minutes
+            if (now - lastDiscord >= DISCORD_INTERVAL) {
+              lastDiscord = now;
+              const rate = Number(powNonce) / elapsedSec;
+              const remaining = (Number(expectedIters) - Number(powNonce)) / rate;
+              const pct = (Number(powNonce) / Number(expectedIters) * 100).toFixed(1);
+              const etaMin = Math.max(0, remaining / 60).toFixed(0);
+              const elapsedMin = (elapsedSec / 60).toFixed(0);
+              discordProgress('PoW Progress', [
+                `Iterations: ${powNonce.toLocaleString()} / ~${expectedIters.toLocaleString()}`,
+                `Progress: ${pct}%`,
+                `Hash rate: ${rate.toFixed(0)} h/s`,
+                `Elapsed: ${elapsedMin}m | ETA: ~${etaMin}m`,
+              ].join('\n'));
+            }
+
+            if (now - startTime > POW_TIMEOUT_MS) {
+              powSpin.fail(`PoW timeout after 12 hours (${powNonce.toLocaleString()} iterations)`);
+              discordProgress('PoW TIMEOUT', `Failed after 12 hours\nIterations: ${powNonce.toLocaleString()}`);
+              ui.error('Could not find valid nonce within 12h. Try again or contact ops.');
+              process.exit(1);
+            }
           }
-
-          // Discord progress every 3 minutes
-          if (now - lastDiscord >= DISCORD_INTERVAL) {
-            lastDiscord = now;
-            const rate = Number(powNonce) / elapsedSec;
-            const remaining = (Number(expectedIters) - Number(powNonce)) / rate;
-            const pct = (Number(powNonce) / Number(expectedIters) * 100).toFixed(1);
-            const etaMin = Math.max(0, remaining / 60).toFixed(0);
-            const elapsedMin = (elapsedSec / 60).toFixed(0);
-            discordProgress('PoW Progress', [
-              `Iterations: ${powNonce.toLocaleString()} / ~${expectedIters.toLocaleString()}`,
-              `Progress: ${pct}%`,
-              `Hash rate: ${rate.toFixed(0)} h/s`,
-              `Elapsed: ${elapsedMin}m | ETA: ~${etaMin}m`,
-            ].join('\n'));
-          }
-
-          if (now - startTime > POW_TIMEOUT_MS) {
-            powSpin.fail(`PoW timeout after 12 hours (${powNonce.toLocaleString()} iterations)`);
-            discordProgress('PoW TIMEOUT', `Failed after 12 hours\nIterations: ${powNonce.toLocaleString()}`);
-            ui.error('Could not find valid nonce within 12h. Try again or contact ops.');
-            process.exit(1);
-          }
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          const finalRate = (Number(powNonce) / parseFloat(elapsed)).toFixed(0);
+          powSpin.succeed(`PoW nonce found: ${powNonce} (${elapsed}s, ${finalRate} h/s)`);
+          discordProgress('PoW COMPLETE', `Nonce found: ${powNonce}\nTime: ${elapsed}s\nHash rate: ${finalRate} h/s`);
         }
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        const finalRate = (Number(powNonce) / parseFloat(elapsed)).toFixed(0);
-        powSpin.succeed(`PoW nonce found: ${powNonce} (${elapsed}s, ${finalRate} h/s)`);
-        discordProgress('PoW COMPLETE', `Nonce found: ${powNonce}\nTime: ${elapsed}s\nHash rate: ${finalRate} h/s`);
 
         // C. Submit proof — V3: claim() not submitProof(), pubSignals is uint256[2]
         const spin = ui.spinner('Submitting proof on-chain...');

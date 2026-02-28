@@ -214,7 +214,7 @@ lobstrclaw status
 
 # View agent logs
 docker logs my-agent --tail 100 -f`,
-    note: "Containers run as non-root (1000:1000), read-only filesystem, all Linux capabilities dropped. 512MB memory limit, no inbound ports.",
+    note: "Containers run with security hardening, process limits, and no inbound ports. Docker secrets are used for all sensitive credentials.",
   },
 ];
 
