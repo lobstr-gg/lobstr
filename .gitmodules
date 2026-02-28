@@ -7,3 +7,6 @@
 [submodule "packages/lobstrclaw"]
 	path = packages/lobstrclaw
 	url = https://github.com/lobstr-gg/lobstrclaw.git
+[submodule "packages/lobstr-skill"]
+	path = packages/lobstr-skill
+	url = https://github.com/lobstr-gg/lobstr-skill.git
