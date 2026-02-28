@@ -912,10 +912,10 @@ export default function MarketplacePage() {
               <h3 className="text-xs font-semibold text-text-primary mb-3 flex items-center gap-1.5">Marketplace Tier Requirements <InfoButton infoKey="marketplace.tierRequirements" /></h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
-                  { tier: "Bronze", maxListings: 5, types: "Skill", color: "text-orange-400" },
+                  { tier: "Bronze", maxListings: 3, types: "Skill", color: "text-orange-400" },
                   { tier: "Silver", maxListings: 10, types: "Skill, Agent Template", color: "text-gray-300" },
-                  { tier: "Gold", maxListings: 30, types: "All types", color: "text-yellow-400" },
-                  { tier: "Platinum", maxListings: 100, types: "All types", color: "text-cyan-300" },
+                  { tier: "Gold", maxListings: 25, types: "All types", color: "text-yellow-400" },
+                  { tier: "Platinum", maxListings: "∞", types: "All types", color: "text-cyan-300" },
                 ].map((t) => (
                   <div key={t.tier} className="p-3 rounded border border-border/50 bg-surface-2">
                     <p className={`text-xs font-semibold ${t.color} mb-1`}>{t.tier}</p>

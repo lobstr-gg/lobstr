@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { formatEther, parseEther, type Address } from "viem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -21,6 +21,7 @@ import {
   useLiquidateLoan,
   useApproveToken,
 } from "@/lib/useLoan";
+import { fetchLoans, type IndexerLoan } from "@/lib/indexer";
 import { InfoButton } from "@/components/InfoButton";
 import { getContracts, CHAIN } from "@/config/contracts";
 import {
@@ -41,6 +42,8 @@ import {
   Lock,
   DollarSign,
   Loader2,
+  Search,
+  RefreshCw,
 } from "lucide-react";
 
 /* ──── Constants ──── */
@@ -891,8 +894,192 @@ function RequestLoanForm({ userTier, address }: { userTier: string | null; addre
   );
 }
 
+/* ──── Marketplace Loan Card ──── */
+function MarketplaceLoanCard({ loan }: { loan: IndexerLoan }) {
+  const { address } = useAccount();
+  const { fn: fundLoan, isPending: fundPending, reset: fundReset } = useFundLoan();
+  const approveToken = useApproveToken();
+  const contracts = getContracts(CHAIN.id);
+  const [txStep, setTxStep] = useState<"idle" | "approving" | "executing">("idle");
+
+  const principal = BigInt(loan.principal);
+  const interest = BigInt(loan.interestAmount);
+  const collateral = BigInt(loan.collateralAmount);
+  const termLabel = LOAN_TERMS[loan.term]?.label ?? "?";
+
+  const handleFund = async () => {
+    if (!contracts) return;
+    fundReset();
+    setTxStep("approving");
+    try {
+      await approveToken(contracts.lobToken, contracts.loanEngine, principal);
+      setTxStep("executing");
+      await fundLoan(BigInt(loan.id));
+      setTxStep("idle");
+    } catch {
+      setTxStep("idle");
+    }
+  };
+
+  return (
+    <motion.div
+      className="card p-4 hover:border-lob-green/20 transition-colors"
+      whileHover={{ y: -2 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-text-primary tabular-nums">
+            Loan #{loan.id}
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-400/20">
+            requested
+          </span>
+        </div>
+        <span className="text-[10px] text-text-tertiary font-mono">
+          {loan.borrower.slice(0, 6)}...{loan.borrower.slice(-4)}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 text-xs text-text-tertiary">
+        <span className="tabular-nums">{fmtLob(principal)} LOB principal</span>
+        <span className="tabular-nums">{fmtLob(interest)} LOB interest</span>
+        {collateral > 0 && (
+          <span className="tabular-nums">{fmtLob(collateral)} LOB collateral</span>
+        )}
+        <span className="tabular-nums">{termLabel} term</span>
+      </div>
+
+      <div className="mt-3">
+        <motion.button
+          className="btn-primary text-xs w-full disabled:opacity-50"
+          whileTap={fundPending ? undefined : { scale: 0.97 }}
+          disabled={fundPending || txStep !== "idle"}
+          onClick={handleFund}
+        >
+          {txStep === "approving" ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" /> Approving...
+            </span>
+          ) : txStep === "executing" ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" /> Funding...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-1">
+              <DollarSign className="w-3 h-3" /> Fund Loan ({fmtLob(principal)} LOB)
+            </span>
+          )}
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ──── Loan Marketplace ──── */
+function LoanMarketplace() {
+  const { address } = useAccount();
+  const [loans, setLoans] = useState<IndexerLoan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const loadLoans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchLoans(100);
+      setLoans(data);
+    } catch {
+      setLoans([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLoans();
+  }, [loadLoans]);
+
+  const openRequests = useMemo(() => {
+    return loans
+      .filter((l) => l.status === 0)
+      .filter((l) => !address || l.borrower.toLowerCase() !== address.toLowerCase())
+      .filter((l) => !search || l.borrower.toLowerCase().includes(search.toLowerCase()));
+  }, [loans, address, search]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 text-text-tertiary animate-spin mb-3" />
+        <p className="text-xs text-text-tertiary">Loading loan requests...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Search + Refresh */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by borrower address..."
+            className="input-field w-full pl-9 text-xs"
+          />
+        </div>
+        <motion.button
+          className="btn-secondary px-3 flex items-center gap-1.5 text-xs"
+          whileTap={{ scale: 0.97 }}
+          onClick={loadLoans}
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Refresh
+        </motion.button>
+      </div>
+
+      {/* Results */}
+      {openRequests.length === 0 ? (
+        <div className="card text-center py-12 px-4">
+          <motion.div
+            className="w-12 h-12 rounded-xl border border-border/60 mx-auto mb-4 flex items-center justify-center"
+            animate={{
+              borderColor: [
+                "rgba(30,36,49,0.6)",
+                "rgba(88,176,89,0.2)",
+                "rgba(30,36,49,0.6)",
+              ],
+            }}
+            transition={{ duration: 4, repeat: Infinity }}
+          >
+            <Banknote className="w-5 h-5 text-text-tertiary" />
+          </motion.div>
+          <p className="text-sm font-medium text-text-secondary">No open loan requests</p>
+          <p className="text-xs text-text-tertiary mt-1 max-w-xs mx-auto">
+            {search
+              ? "No requests match your search. Try a different address."
+              : "There are no pending loan requests to fund right now. Check back later."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[10px] text-text-tertiary">
+            {openRequests.length} open request{openRequests.length !== 1 ? "s" : ""}
+          </p>
+          {openRequests.map((loan) => (
+            <MarketplaceLoanCard key={loan.id} loan={loan} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ──── Main Page ──── */
 export default function LoansPage() {
+  const [activeTab, setActiveTab] = useState<"my-loans" | "marketplace">("my-loans");
   const { isConnected, address } = useAccount();
   const contracts = getContracts(CHAIN.id);
 
@@ -1065,134 +1252,171 @@ export default function LoansPage() {
         })}
       </motion.div>
 
-      {/* Loan Visualizations */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 mb-6">
-        {loanIds && (loanIds as bigint[]).length > 0 && (
-          <LoanStatusDonut loanIds={loanIds as bigint[]} address={address!} />
-        )}
-        <InterestRateGauge currentRate={interestRate} tierName={userTier} />
+      {/* Tabs */}
+      <motion.div variants={fadeUp} className="flex gap-0.5 mb-6 border-b border-border overflow-x-auto scrollbar-none">
+        {([
+          { id: "my-loans" as const, label: "My Loans", color: "#58B059" },
+          { id: "marketplace" as const, label: "Loan Marketplace", color: "#3B82F6" },
+        ]).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium -mb-px whitespace-nowrap min-h-[44px]"
+          >
+            <motion.span
+              animate={{ color: activeTab === tab.id ? "#EAECEF" : "#5E6673" }}
+              className="relative z-10 flex items-center gap-1.5"
+            >
+              {tab.label}
+            </motion.span>
+            {activeTab === tab.id && (
+              <motion.div
+                layoutId="loan-tab"
+                className="absolute bottom-0 left-0 right-0 h-0.5"
+                style={{ background: tab.color }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+            )}
+          </button>
+        ))}
       </motion.div>
 
-      {/* How It Works */}
-      <motion.div variants={fadeUp} className="mb-6">
-        <LoanFlow />
-      </motion.div>
+      {activeTab === "my-loans" ? (
+        <>
+          {/* Loan Visualizations */}
+          <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 mb-6">
+            {loanIds && (loanIds as bigint[]).length > 0 && (
+              <LoanStatusDonut loanIds={loanIds as bigint[]} address={address!} />
+            )}
+            <InterestRateGauge currentRate={interestRate} tierName={userTier} />
+          </motion.div>
 
-      {/* Loan Tier Cards */}
-      <motion.div variants={fadeUp} className="mb-6">
-        <LoanTierCards />
-      </motion.div>
+          {/* How It Works */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <LoanFlow />
+          </motion.div>
 
-      {/* Request Loan + Active Loans in 2-col layout */}
-      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <RequestLoanForm userTier={userTier} address={address!} />
-        <div>
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
-            Your Loans
-          </h3>
-          <ActiveLoansList address={address!} />
-        </div>
-      </motion.div>
+          {/* Loan Tier Cards */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <LoanTierCards />
+          </motion.div>
 
-      {/* Borrower profile info */}
-      <motion.div variants={fadeUp} className="mb-6">
-        <div className="card p-3 sm:p-5">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
-            Borrower Profile
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {/* Request Loan + Active Loans in 2-col layout */}
+          <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <RequestLoanForm userTier={userTier} address={address!} />
             <div>
-              <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Total Borrowed</p>
-              <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{totalBorrowed} LOB</p>
+              <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">
+                Your Loans
+              </h3>
+              <ActiveLoansList address={address!} />
             </div>
-            <div>
-              <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Total Repaid</p>
-              <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{totalRepaid} LOB</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Active Loans</p>
-              <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{activeLoansCount} / 3</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Defaults</p>
-              <p className={`text-sm font-bold mt-0.5 tabular-nums ${defaultCount > 0 ? "text-red-400" : "text-text-primary"}`}>
-                {defaultCount}
-                {defaultCount >= 2 && (
-                  <span className="text-[10px] text-red-400 ml-1">RESTRICTED</span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Status</p>
-              <p className="text-sm font-bold mt-0.5 flex items-center gap-1">
-                {isRestricted || defaultCount >= 2 ? (
-                  <span className="text-red-400 flex items-center gap-1">
-                    <XCircle className="w-3.5 h-3.5" /> Restricted
-                  </span>
-                ) : (
-                  <span className="text-lob-green flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5" /> Good Standing
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
 
-      {/* Key Mechanics Footer */}
-      <motion.div variants={fadeUp} className="mt-8">
-        <div className="card p-3 sm:p-5">
-          <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
-            Key Mechanics
-            <InfoButton infoKey="loans.keyMechanics" />
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                title: "Reputation-Gated",
-                desc: "Silver+ reputation tier required. Higher tiers unlock larger loans, lower rates, and reduced collateral.",
-                icon: Shield,
-                color: "#848E9C",
-              },
-              {
-                title: "Grace Period",
-                desc: "48-hour grace period after due date before liquidation. Repay during grace to avoid penalties.",
-                icon: Timer,
-                color: "#F59E0B",
-              },
-              {
-                title: "Liquidation",
-                desc: "Collateral seized, stake slashed, and -200 reputation. 2 defaults = permanently restricted from borrowing.",
-                icon: AlertTriangle,
-                color: "#EF4444",
-              },
-              {
-                title: "Protocol Fee",
-                desc: "0.5% fee on principal goes to treasury. Interest goes to the lender. Max 3 active loans per borrower.",
-                icon: TrendingUp,
-                color: "#58B059",
-              },
-            ].map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 + i * 0.08 }}
-                >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Icon className="w-3.5 h-3.5" style={{ color: item.color }} />
-                    <p className="text-xs font-semibold text-text-primary">{item.title}</p>
-                  </div>
-                  <p className="text-[10px] text-text-tertiary leading-relaxed">{item.desc}</p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </motion.div>
+          {/* Borrower profile info */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <div className="card p-3 sm:p-5">
+              <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4">
+                Borrower Profile
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div>
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Total Borrowed</p>
+                  <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{totalBorrowed} LOB</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Total Repaid</p>
+                  <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{totalRepaid} LOB</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Active Loans</p>
+                  <p className="text-sm font-bold text-text-primary mt-0.5 tabular-nums">{activeLoansCount} / 3</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Defaults</p>
+                  <p className={`text-sm font-bold mt-0.5 tabular-nums ${defaultCount > 0 ? "text-red-400" : "text-text-primary"}`}>
+                    {defaultCount}
+                    {defaultCount >= 2 && (
+                      <span className="text-[10px] text-red-400 ml-1">RESTRICTED</span>
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider">Status</p>
+                  <p className="text-sm font-bold mt-0.5 flex items-center gap-1">
+                    {isRestricted || defaultCount >= 2 ? (
+                      <span className="text-red-400 flex items-center gap-1">
+                        <XCircle className="w-3.5 h-3.5" /> Restricted
+                      </span>
+                    ) : (
+                      <span className="text-lob-green flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5" /> Good Standing
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Key Mechanics Footer */}
+          <motion.div variants={fadeUp} className="mt-8">
+            <div className="card p-3 sm:p-5">
+              <h3 className="text-[10px] sm:text-xs font-semibold text-text-primary uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                Key Mechanics
+                <InfoButton infoKey="loans.keyMechanics" />
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  {
+                    title: "Reputation-Gated",
+                    desc: "Silver+ reputation tier required. Higher tiers unlock larger loans, lower rates, and reduced collateral.",
+                    icon: Shield,
+                    color: "#848E9C",
+                  },
+                  {
+                    title: "Grace Period",
+                    desc: "48-hour grace period after due date before liquidation. Repay during grace to avoid penalties.",
+                    icon: Timer,
+                    color: "#F59E0B",
+                  },
+                  {
+                    title: "Liquidation",
+                    desc: "Collateral seized, stake slashed, and -200 reputation. 2 defaults = permanently restricted from borrowing.",
+                    icon: AlertTriangle,
+                    color: "#EF4444",
+                  },
+                  {
+                    title: "Protocol Fee",
+                    desc: "0.5% fee on principal goes to treasury. Interest goes to the lender. Max 3 active loans per borrower.",
+                    icon: TrendingUp,
+                    color: "#58B059",
+                  },
+                ].map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <motion.div
+                      key={item.title}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 + i * 0.08 }}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Icon className="w-3.5 h-3.5" style={{ color: item.color }} />
+                        <p className="text-xs font-semibold text-text-primary">{item.title}</p>
+                      </div>
+                      <p className="text-[10px] text-text-tertiary leading-relaxed">{item.desc}</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </>
+      ) : (
+        <motion.div variants={fadeUp}>
+          <LoanMarketplace />
+        </motion.div>
+      )}
     </motion.div>
   );
 }

@@ -8,6 +8,7 @@ import { useForum } from "@/lib/forum-context";
 import { getContracts, CHAIN } from "@/config/contracts";
 import { DisputeArbitrationABI } from "@/config/abis";
 import { fetchAccount } from "@/lib/indexer";
+import ImageCropModal from "@/components/ImageCropModal";
 
 const PUBLIC_FLAIRS = [
   { value: null, label: "None" },
@@ -72,6 +73,7 @@ export default function ProfileSetupModal() {
   const [flair, setFlair] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,10 +93,20 @@ export default function ProfileSetupModal() {
       setError("Image must be under 2MB");
       return;
     }
-    setImageFile(file);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(URL.createObjectURL(file));
     setError(null);
+    setCropFile(file);
+    e.target.value = "";
+  }
+
+  function handleCropConfirm(croppedFile: File) {
+    setImageFile(croppedFile);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(URL.createObjectURL(croppedFile));
+    setCropFile(null);
+  }
+
+  function handleCropCancel() {
+    setCropFile(null);
   }
 
   async function handleSave() {
@@ -159,6 +171,7 @@ export default function ProfileSetupModal() {
   }
 
   return (
+    <>
     <AnimatePresence>
       {needsProfileSetup && (
         <motion.div
@@ -444,5 +457,15 @@ export default function ProfileSetupModal() {
         </motion.div>
       )}
     </AnimatePresence>
+
+    {/* Image crop modal (rendered outside AnimatePresence so it layers above) */}
+    {cropFile && (
+      <ImageCropModal
+        file={cropFile}
+        onConfirm={handleCropConfirm}
+        onCancel={handleCropCancel}
+      />
+    )}
+    </>
   );
 }

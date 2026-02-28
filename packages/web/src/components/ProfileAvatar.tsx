@@ -19,6 +19,19 @@ export default function ProfileAvatar({ user, size = "md" }: ProfileAvatarProps)
   const s = SIZES[size];
 
   if (user?.profileImageUrl) {
+    // Blob URLs (from local file picks) can't go through next/image
+    if (user.profileImageUrl.startsWith("blob:")) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={user.profileImageUrl}
+          alt={user.displayName || "User avatar"}
+          width={s.px}
+          height={s.px}
+          className={`${s.container} rounded-full object-cover border border-border/50 shrink-0`}
+        />
+      );
+    }
     return (
       <Image
         src={user.profileImageUrl}

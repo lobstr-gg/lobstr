@@ -50,9 +50,9 @@ export default function EscrowFlowAnimation({
       )}
 
       {/* Flow SVG */}
-      <div className="relative">
+      <div className="relative overflow-visible">
         <svg
-          viewBox="0 0 600 80"
+          viewBox="0 0 600 46"
           className="w-full h-auto"
           preserveAspectRatio="xMidYMid meet"
         >

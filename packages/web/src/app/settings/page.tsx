@@ -6,6 +6,7 @@ import { stagger, fadeUp } from "@/lib/motion";
 import { useAccount } from "wagmi";
 import { useForum } from "@/lib/forum-context";
 import ProfileAvatar from "@/components/ProfileAvatar";
+import ImageCropModal from "@/components/ImageCropModal";
 import Spinner from "@/components/Spinner";
 import { getSoundEnabled, setSoundEnabled } from "@/lib/sounds";
 import { InfoButton } from "@/components/InfoButton";
@@ -36,6 +37,7 @@ export default function SettingsPage() {
   const [flair, setFlair] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -62,11 +64,21 @@ export default function SettingsPage() {
       setError("Image must be under 2MB");
       return;
     }
-    setImageFile(file);
-    // Revoke old blob URL if it was created by us (not from currentUser profile)
-    if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
-    setImagePreview(URL.createObjectURL(file));
     setError(null);
+    setCropFile(file);
+    // Reset the input so re-selecting the same file triggers onChange
+    e.target.value = "";
+  }
+
+  function handleCropConfirm(croppedFile: File) {
+    setImageFile(croppedFile);
+    if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImagePreview(URL.createObjectURL(croppedFile));
+    setCropFile(null);
+  }
+
+  function handleCropCancel() {
+    setCropFile(null);
   }
 
   async function handleSave() {
@@ -470,6 +482,15 @@ export default function SettingsPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Image crop modal */}
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
     </motion.div>
   );
 }

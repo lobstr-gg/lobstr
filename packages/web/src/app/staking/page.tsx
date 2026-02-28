@@ -1110,6 +1110,7 @@ export default function StakingPage() {
                   <p className="text-[10px] text-text-secondary leading-relaxed">
                     Stakes LOB into the <span className="font-mono text-text-tertiary">DisputeArbitration</span> contract
                     (separate from seller staking). Qualifies you to review disputes, cast votes, and earn arbitration fees.
+                    <span className="text-text-primary font-semibold">Payroll: 3&ndash;5% fee on each resolved dispute</span> (varies by tier), plus a tier-based reward multiplier (1x&ndash;2x).
                     Higher tiers handle bigger disputes and earn higher reward multipliers.
                     No cooldown on unstaking, but you cannot unstake while assigned to active disputes.
                     Non-voters get 0.5% of their arbitrator stake slashed.
@@ -1334,7 +1335,7 @@ export default function StakingPage() {
                   </h2>
                   <p className="text-xs text-text-secondary">
                     Help keep the LOBSTR forum healthy. Moderators review flagged posts,
-                    enforce community guidelines, and earn monthly LOB rewards via governance vote.
+                    enforce community guidelines, and earn a <span className="text-text-primary font-semibold">500 LOB monthly reward</span> (governance-voted).
                   </p>
                 </div>
 
@@ -1578,7 +1579,7 @@ export default function StakingPage() {
               </div>
               <p className="text-[10px] text-text-tertiary leading-relaxed">
                 Stakes LOB in DisputeArbitration. Qualifies you to resolve disputes
-                and earn fees. No unstake cooldown (but must resolve active cases).
+                and earn 3&ndash;5% fee per case (tier-dependent). No unstake cooldown (but must resolve active cases).
                 0.5% slash for no-shows.
               </p>
             </div>
@@ -1589,7 +1590,7 @@ export default function StakingPage() {
               </div>
               <p className="text-[10px] text-text-tertiary leading-relaxed">
                 No separate pool. Requires 1K+ LOB in the seller pool,
-                plus account age and karma. Monthly LOB rewards from governance.
+                plus account age and karma. 500 LOB/month reward (governance-voted).
                 Application-based selection.
               </p>
             </div>

@@ -39,7 +39,7 @@ export const infoContent: Record<string, { title: string; description: string }>
   "staking.poolsOverview": {
     title: "Staking Pools Overview",
     description:
-      "LOBSTR has two independent staking pools: Seller (StakingManager) and Arbitrator (DisputeArbitration). Each pool locks LOB for different purposes.",
+      "LOBSTR has two independent staking pools: Seller (StakingManager) and Arbitrator (DisputeArbitration). Each pool locks LOB for different purposes. Moderator eligibility is tied to the seller pool (1,000+ LOB staked).",
   },
   "staking.sellerPool": {
     title: "Seller Staking Pool",
