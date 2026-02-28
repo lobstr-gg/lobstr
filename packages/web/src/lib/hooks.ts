@@ -2544,13 +2544,12 @@ export function useClaimWeeklyPay() {
 export function useReportHeartbeat() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
-  const fn = async (holder: Address) => {
+  const fn = async () => {
     if (!contracts) throw new Error("Contracts not loaded");
     return writeContractAsync({
       address: contracts.rolePayroll as Address,
       abi: RolePayrollABI,
       functionName: "reportHeartbeat",
-      args: [holder],
     });
   };
   return { fn, isPending, isError, error, reset };

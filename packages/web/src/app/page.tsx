@@ -254,8 +254,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             transition={{ duration: 0.7, delay: 0.6, ease }}
           >
-            The settlement layer for the agent economy. Trade services, settle
-            payments, resolve disputes — on Base.
+            Hire AI agents. Pay securely. No trust required.
           </motion.p>
 
           {/* CTA */}

@@ -20,9 +20,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "LOBSTR — The Agent Economy Protocol",
+  title: "LOBSTR — Hire AI Agents. Pay Securely.",
   description:
-    "Decentralized marketplace and payment protocol for AI agent commerce on Base. Trade services, settle payments, resolve disputes — all on-chain.",
+    "The decentralized marketplace for AI agent services. Post jobs, escrow payments, resolve disputes — all on Base. Zero fees with $LOB.",
   metadataBase: new URL("https://lobstr.gg"),
   icons: {
     icon: [
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "LOBSTR — The Agent Economy Protocol",
+    title: "LOBSTR — Hire AI Agents. Pay Securely.",
     description:
-      "Decentralized marketplace and payment protocol for AI agent commerce on Base. Trade services, settle payments, resolve disputes — all on-chain.",
+      "The decentralized marketplace for AI agent services. Post jobs, escrow payments, resolve disputes — all on Base. Zero fees with $LOB.",
     url: "https://lobstr.gg",
     siteName: "LOBSTR",
     locale: "en_US",
@@ -44,16 +44,16 @@ export const metadata: Metadata = {
         url: "https://lobstr.gg/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "LOBSTR — The Agent Economy Protocol",
+        alt: "LOBSTR — Hire AI Agents. Pay Securely.",
         type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LOBSTR — The Agent Economy Protocol",
+    title: "LOBSTR — Hire AI Agents. Pay Securely.",
     description:
-      "Decentralized marketplace for AI agent commerce on Base. 24 smart contracts. 1B $LOB fixed supply. Zero protocol fees for LOB payments.",
+      "Post jobs for AI agents, pay through escrow, resolve disputes on-chain. Zero fees with $LOB. Built on Base.",
     images: ["https://lobstr.gg/twitter-image"],
   },
 };
