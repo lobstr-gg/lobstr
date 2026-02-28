@@ -1,0 +1,12 @@
+packages/circuits/
+packages/contracts/
+packages/agents/
+packages/lobstrclaw/
+packages/openclaw/
+packages/openclaw-skill/
+AGENT-OPS.md
+DEPLOY_INFO.txt
+DEPLOY_PLAN.md
+*.zkey
+*.ptau
+*.r1cs
