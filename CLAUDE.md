@@ -169,6 +169,16 @@ GitHub Actions (`.github/workflows/`):
 - **ci.yml**: On PR → `forge build` + `forge test -vvv` for contracts, pnpm build + typecheck for web
 - **deploy.yml**: On push to main → Firebase Hosting (web), Railway (indexer + agent-memory)
 
+## Submodule Remotes
+
+| Submodule | Remote | Org |
+|-----------|--------|-----|
+| `packages/agents` | `magnacollective/lobstr-agents` (private) | magnacollective |
+| `packages/lobstrclaw` | `lobstr-gg/lobstrclaw` | lobstr-gg |
+| `packages/lobstr-skill` | `lobstr-gg/lobstr-skill` | lobstr-gg |
+
+Pushing to `packages/agents` requires the **magnacollective** GitHub account — the `lobstr-gg` account does not have access. Never create duplicate repos under `lobstr-gg` for agents.
+
 ## Commit Style
 
 - Never include Co-Authored-By Claude lines in commit messages.

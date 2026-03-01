@@ -1,6 +1,6 @@
 // Library exports for skills to use — no CLI execution at import time
 
-export { ensureWorkspace, loadConfig, getWorkspacePath, getActiveWorkspace } from './lib/workspace';
+export { ensureWorkspace, loadConfig, getWorkspacePath, getActiveWorkspace, createWorkspace, setActiveWorkspace } from './lib/workspace';
 export { loadWallet, decryptKey, encryptKey, saveWallet, promptPassword, walletExists } from './lib/wallet';
 export { createPublicClient, createWalletClient, getContractAddress } from './lib/contract-client';
 export { readActivity, writeActivity, incrementChannels, incrementToolCalls } from './lib/activity';

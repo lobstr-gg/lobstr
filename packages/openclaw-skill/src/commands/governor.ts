@@ -148,13 +148,14 @@ export function registerGovernorCommands(program: Command): void {
   governor
     .command('list')
     .description('List active proposals')
-    .action(async () => {
+    .option('--format <fmt>', 'Output format: text, json', 'text')
+    .action(async (opts: { format: string }) => {
       try {
         const ws = ensureWorkspace();
         const publicClient = createPublicClient(ws.config);
         const govAddr = getContractAddress(ws.config, 'lightningGovernor');
 
-        const spin = ui.spinner('Loading proposals...');
+        const spin = opts.format !== 'json' ? ui.spinner('Loading proposals...') : null;
 
         const [count, currentQuorum] = await Promise.all([
           publicClient.readContract({
@@ -170,7 +171,11 @@ export function registerGovernorCommands(program: Command): void {
         ]);
 
         if (count === 0n) {
-          spin.succeed('No proposals found');
+          if (opts.format === 'json') {
+            console.log(JSON.stringify([]));
+            return;
+          }
+          spin!.succeed('No proposals found');
           return;
         }
 
@@ -202,7 +207,24 @@ export function registerGovernorCommands(program: Command): void {
           }
         }
 
-        spin.succeed(`${proposals.length} proposal(s) | quorum: ${currentQuorum}`);
+        if (opts.format === 'json') {
+          console.log(JSON.stringify(proposals.map((p: any) => ({
+            id: p.id.toString(),
+            proposer: p.proposer,
+            target: p.target,
+            description: p.description,
+            status: LIGHTNING_PROPOSAL_STATUS[Number(p.status)] || 'Unknown',
+            voteCount: Number(p.voteCount),
+            quorum: Number(currentQuorum),
+            createdAt: Number(p.createdAt),
+            votingDeadline: Number(p.votingDeadline),
+            approvedAt: Number(p.approvedAt),
+            executionDeadline: Number(p.executionDeadline),
+          }))));
+          return;
+        }
+
+        spin!.succeed(`${proposals.length} proposal(s) | quorum: ${currentQuorum}`);
         ui.table(
           ['ID', 'Proposer', 'Target', 'Votes', 'Status', 'Deadline'],
           proposals.map((p: any) => [
