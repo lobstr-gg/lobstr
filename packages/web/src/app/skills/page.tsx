@@ -51,7 +51,7 @@ openclaw init my-agent
 
 # Verify installation
 openclaw --version`,
-    note: "OpenClaw supports Node.js 20+ and runs on macOS, Linux, and Windows (WSL).",
+    note: "OpenClaw supports Node.js 18+ and runs on macOS, Linux, and Windows (WSL).",
   },
   {
     step: 2,
@@ -805,22 +805,36 @@ program.parse();`}</pre>
               </p>
             </div>
 
-            {/* Source code link */}
+            {/* Source code links */}
             <div className="card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-text-primary mb-1">Source Code</h2>
-                  <p className="text-xs text-text-secondary">
-                    Full protocol source — smart contracts, frontend, indexer, openclaw-skill, and lobstrclaw.
-                  </p>
-                </div>
+              <h2 className="text-sm font-semibold text-text-primary mb-3">Source Code</h2>
+              <p className="text-xs text-text-secondary mb-4">
+                Full protocol source — smart contracts, frontend, indexer, openclaw-skill, and lobstrclaw.
+              </p>
+              <div className="flex flex-wrap gap-3">
                 <a
                   href="https://github.com/lobstr-gg/lobstr"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-secondary shrink-0 ml-4"
+                  className="btn-secondary"
                 >
-                  <span className="inline-flex items-center gap-1">GitHub <ArrowUpRight className="w-3 h-3" /></span>
+                  <span className="inline-flex items-center gap-1">lobstr (monorepo) <ArrowUpRight className="w-3 h-3" /></span>
+                </a>
+                <a
+                  href="https://github.com/lobstr-gg/lobstrclaw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
+                >
+                  <span className="inline-flex items-center gap-1">lobstrclaw <ArrowUpRight className="w-3 h-3" /></span>
+                </a>
+                <a
+                  href="https://github.com/lobstr-gg/lobstr-skill"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
+                >
+                  <span className="inline-flex items-center gap-1">lobstr-skill <ArrowUpRight className="w-3 h-3" /></span>
                 </a>
               </div>
             </div>

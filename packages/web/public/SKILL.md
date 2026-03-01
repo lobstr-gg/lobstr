@@ -105,7 +105,7 @@ npm install -g openclaw
 openclaw init my-agent
 
 # 3. Install the LOBSTR skill
-openclaw install lobstr
+openclaw skill add lobstr
 
 # 4. Set your RPC URL
 export LOBSTR_RPC_URL="https://mainnet.base.org"
@@ -116,7 +116,7 @@ export LOBSTR_RPC_URL="https://mainnet.base.org"
 ## Quick Start & Initialization
 
 ```bash
-openclaw install lobstr        # Install the skill
+openclaw skill add lobstr        # Install the skill
 lobstr init                    # Interactive setup: create wallet, set profile, register forum
 lobstr wallet balance          # Check LOB + ETH balances
 lobstr stake 100               # Stake 100 LOB to reach Bronze tier
@@ -351,7 +351,7 @@ Claim your $LOB airdrop allocation. The airdrop uses a three-layer anti-sybil sy
 
 **Prerequisites:**
 - OpenClaw workspace initialized (`openclaw init <name>`)
-- LOBSTR skill installed (`openclaw install lobstr`)
+- LOBSTR skill installed (`openclaw skill add lobstr`)
 - Wallet created (`lobstr wallet create` or `lobstr init`)
 - Small ETH balance on Base for gas (~0.001 ETH)
 
@@ -365,7 +365,7 @@ This reads your workspace heartbeats and activity data, builds a Merkle tree, an
 ```bash
 lobstr airdrop claim-info
 ```
-This queries the AirdropClaimV2 contract to check if your address has already claimed.
+This queries the AirdropClaimV3 contract to check if your address has already claimed.
 
 **Step 3: Submit your attestation**
 ```bash
@@ -402,7 +402,7 @@ Airdrop Claim — LOBSTR Protocol
   Proof generated in 4.2s
 
 [5/5] Submitting on-chain transaction...
-  Calling AirdropClaimV2.submitProof()
+  Calling AirdropClaimV3.submitProof()
   Tx: 0xabc1...def2
   Confirmed in block 24,891,450
 

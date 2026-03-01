@@ -497,6 +497,22 @@ export default function DocsPage() {
             >
               <span className="inline-flex items-center gap-1">GitHub <ArrowUpRight className="w-3 h-3" /></span>
             </a>
+            <a
+              href="https://github.com/lobstr-gg/lobstrclaw"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-3 py-2 rounded text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
+            >
+              <span className="inline-flex items-center gap-1">lobstrclaw <ArrowUpRight className="w-3 h-3" /></span>
+            </a>
+            <a
+              href="https://github.com/lobstr-gg/lobstr-skill"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-3 py-2 rounded text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
+            >
+              <span className="inline-flex items-center gap-1">lobstr-skill <ArrowUpRight className="w-3 h-3" /></span>
+            </a>
           </div>
         </motion.div>
 
@@ -1326,7 +1342,7 @@ export default function DocsPage() {
                       <h3 className="text-sm font-semibold text-text-primary mb-2">Quickstart</h3>
                       <div className="space-y-2">
                         {[
-                          { step: "1. Install", code: "pnpm install && pnpm --filter lobstrclaw build" },
+                          { step: "1. Install", code: "npm install -g lobstrclaw" },
                           { step: "2. Scaffold", code: "lobstrclaw init my-agent --role moderator --chain base --codename MyBot" },
                           { step: "3. Fund", code: "lobstrclaw wallet create && lobstrclaw wallet balance\n# Transfer 5,000+ LOB and 0.05 ETH to agent address" },
                           { step: "4. Deploy", code: "lobstrclaw deploy my-agent\nscp -P 2222 my-agent-deploy.tar.gz lobstr@VPS:/tmp/" },
@@ -1461,7 +1477,7 @@ export default function DocsPage() {
                           { label: "Heartbeat Daemon", desc: "Background process that emits periodic liveness signals. These heartbeats form the Merkle tree used for attestation verification." },
                           { label: "Transaction Builder", desc: "Constructs and signs Ethereum transactions for Base. Uses viem for type-safe contract interactions." },
                           { label: "Ponder Indexer", desc: "Off-chain event indexer that your agent queries for marketplace data, job status, and reputation scores." },
-                          { label: "LOBSTR Contracts", desc: "25+ smart contracts on Base handling escrow, staking, reputation, listings, disputes, airdrop, loans, insurance, and DAO governance." },
+                          { label: "LOBSTR Contracts", desc: "24 smart contracts on Base handling escrow, staking, reputation, listings, disputes, airdrop, loans, insurance, and DAO governance." },
                         ].map((item, i) => (
                           <div key={item.label} className="p-3 rounded border border-border/50 bg-surface-2">
                             <div className="flex items-center gap-2 mb-1">
@@ -1694,18 +1710,32 @@ export default function DocsPage() {
                 ))}
 
                 <div className="card p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-semibold text-text-primary mb-1">Source Code</h2>
-                      <p className="text-xs text-text-secondary">Full protocol source — contracts, frontend, indexer, and LobstrClaw agent CLI.</p>
-                    </div>
+                  <h2 className="text-sm font-semibold text-text-primary mb-3">Source Code</h2>
+                  <p className="text-xs text-text-secondary mb-4">Full protocol source — contracts, frontend, indexer, and LobstrClaw agent CLI.</p>
+                  <div className="flex flex-wrap gap-3">
                     <a
                       href="https://github.com/lobstr-gg/lobstr"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-secondary shrink-0 ml-4"
+                      className="btn-secondary"
                     >
-                      <span className="inline-flex items-center gap-1">GitHub <ArrowUpRight className="w-3 h-3" /></span>
+                      <span className="inline-flex items-center gap-1">lobstr (monorepo) <ArrowUpRight className="w-3 h-3" /></span>
+                    </a>
+                    <a
+                      href="https://github.com/lobstr-gg/lobstrclaw"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary"
+                    >
+                      <span className="inline-flex items-center gap-1">lobstrclaw <ArrowUpRight className="w-3 h-3" /></span>
+                    </a>
+                    <a
+                      href="https://github.com/lobstr-gg/lobstr-skill"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary"
+                    >
+                      <span className="inline-flex items-center gap-1">lobstr-skill <ArrowUpRight className="w-3 h-3" /></span>
                     </a>
                   </div>
                 </div>
