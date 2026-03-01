@@ -7,11 +7,13 @@ import {
   getContractAddress,
   LOB_TOKEN_ABI,
   TREASURY_GOVERNOR_ABI,
+  LIGHTNING_GOVERNOR_ABI,
 } from "openclaw";
 import * as ui from "openclaw";
-import { formatLob, PROPOSAL_STATUS } from "../lib/format";
+import { formatLob, PROPOSAL_STATUS, LIGHTNING_PROPOSAL_STATUS } from "../lib/format";
 
 const govAbi = parseAbi(TREASURY_GOVERNOR_ABI as unknown as string[]);
+const lightningAbi = parseAbi(LIGHTNING_GOVERNOR_ABI as unknown as string[]);
 const tokenAbi = parseAbi(LOB_TOKEN_ABI as unknown as string[]);
 const accessControlAbi = parseAbi([
   'function hasRole(bytes32 role, address account) view returns (bool)',
@@ -27,8 +29,9 @@ export function registerDaoCommands(program: Command): void {
 
   dao
     .command("proposals")
-    .description("List active spending proposals")
+    .description("List all proposals (treasury, admin, lightning)")
     .option("--format <fmt>", "Output format: text, json", "text")
+    .option("--type <type>", "Filter by type: treasury, admin, lightning (default: all)")
     .action(async (opts) => {
       try {
         const ws = ensureWorkspace();
@@ -36,36 +39,134 @@ export function registerDaoCommands(program: Command): void {
         const govAddr = getContractAddress(ws.config, "treasuryGovernor");
 
         const spin = opts.format !== "json" ? ui.spinner("Loading proposals...") : null;
-        const found: any[] = [];
+        const all: any[] = [];
+        const typeFilter = opts.type?.toLowerCase();
 
-        for (let i = 1; i <= 100; i++) {
-          try {
-            const result = (await publicClient.readContract({
-              address: govAddr,
-              abi: govAbi,
-              functionName: "getProposal",
-              args: [BigInt(i)],
-            })) as any;
-            const p = {
-              id: result.id ?? result[0],
-              proposer: result.proposer ?? result[1],
-              token: result.token ?? result[2],
-              recipient: result.recipient ?? result[3],
-              amount: result.amount ?? result[4],
-              description: result.description ?? result[5],
-              status: result.status ?? result[6],
-              approvalCount: result.approvalCount ?? result[7],
-              createdAt: result.createdAt ?? result[8],
-              timelockEnd: result.timelockEnd ?? result[9],
-            };
-            if (p.id === 0n) break;
-            found.push(p);
-          } catch {
-            break;
+        // ── Treasury (spending) proposals ──
+        if (!typeFilter || typeFilter === "treasury") {
+          for (let i = 1; i <= 100; i++) {
+            try {
+              const result = (await publicClient.readContract({
+                address: govAddr,
+                abi: govAbi,
+                functionName: "getProposal",
+                args: [BigInt(i)],
+              })) as any;
+              const p = {
+                id: result.id ?? result[0],
+                proposer: result.proposer ?? result[1],
+                token: result.token ?? result[2],
+                recipient: result.recipient ?? result[3],
+                amount: result.amount ?? result[4],
+                description: result.description ?? result[5],
+                status: result.status ?? result[6],
+                approvalCount: result.approvalCount ?? result[7],
+                createdAt: result.createdAt ?? result[8],
+                timelockEnd: result.timelockEnd ?? result[9],
+              };
+              if (p.id === 0n) break;
+              all.push({
+                type: "treasury",
+                id: p.id.toString(),
+                proposer: p.proposer,
+                description: p.description,
+                status: PROPOSAL_STATUS[p.status] || "Unknown",
+                approvalCount: Number(p.approvalCount),
+                detail: formatLob(p.amount) + " → " + p.recipient.slice(0, 10) + "...",
+                createdAt: Number(p.createdAt),
+                timelockEnd: Number(p.timelockEnd),
+                // Full fields for JSON
+                _token: p.token,
+                _recipient: p.recipient,
+                _amount: formatLob(p.amount),
+              });
+            } catch {
+              break;
+            }
           }
         }
 
-        if (found.length === 0) {
+        // ── Admin proposals ──
+        if (!typeFilter || typeFilter === "admin") {
+          for (let i = 1; i <= 100; i++) {
+            try {
+              const result = (await publicClient.readContract({
+                address: govAddr,
+                abi: govAbi,
+                functionName: "getAdminProposal",
+                args: [BigInt(i)],
+              })) as any;
+              const p = {
+                id: result.id ?? result[0],
+                proposer: result.proposer ?? result[1],
+                target: result.target ?? result[2],
+                description: result.description ?? result[4],
+                status: result.status ?? result[5],
+                approvalCount: result.approvalCount ?? result[6],
+                createdAt: result.createdAt ?? result[7],
+                timelockEnd: result.timelockEnd ?? result[8],
+              };
+              if (p.id === 0n) break;
+              all.push({
+                type: "admin",
+                id: p.id.toString(),
+                proposer: p.proposer,
+                description: p.description,
+                status: PROPOSAL_STATUS[p.status] || "Unknown",
+                approvalCount: Number(p.approvalCount),
+                detail: p.target.slice(0, 10) + "...",
+                createdAt: Number(p.createdAt),
+                timelockEnd: Number(p.timelockEnd),
+                _target: p.target,
+              });
+            } catch {
+              break;
+            }
+          }
+        }
+
+        // ── Lightning governor proposals ──
+        if (!typeFilter || typeFilter === "lightning") {
+          try {
+            const lightningAddr = getContractAddress(ws.config, "lightningGovernor");
+            const count = (await publicClient.readContract({
+              address: lightningAddr,
+              abi: lightningAbi,
+              functionName: "proposalCount",
+            })) as bigint;
+
+            for (let i = 1n; i <= count; i++) {
+              try {
+                const result = (await publicClient.readContract({
+                  address: lightningAddr,
+                  abi: lightningAbi,
+                  functionName: "getProposal",
+                  args: [i],
+                })) as any;
+                all.push({
+                  type: "lightning",
+                  id: (result[0]).toString(),
+                  proposer: result[1],
+                  description: result[4],
+                  status: LIGHTNING_PROPOSAL_STATUS[Number(result[5])] || "Unknown",
+                  approvalCount: Number(result[6]),
+                  detail: (result[2] as string).slice(0, 10) + "...",
+                  createdAt: Number(result[7]),
+                  timelockEnd: Number(result[10]),
+                  _target: result[2],
+                  _voteCount: Number(result[6]),
+                  _votingDeadline: Number(result[8]),
+                });
+              } catch {
+                break;
+              }
+            }
+          } catch {
+            // Lightning governor may not be deployed
+          }
+        }
+
+        if (all.length === 0) {
           if (opts.format === "json") {
             console.log(JSON.stringify([]));
             return;
@@ -75,31 +176,20 @@ export function registerDaoCommands(program: Command): void {
         }
 
         if (opts.format === "json") {
-          console.log(JSON.stringify(found.map((p) => ({
-            id: p.id.toString(),
-            proposer: p.proposer,
-            token: p.token,
-            recipient: p.recipient,
-            amount: formatLob(p.amount),
-            description: p.description,
-            status: PROPOSAL_STATUS[p.status] || "Unknown",
-            approvalCount: Number(p.approvalCount),
-            createdAt: Number(p.createdAt),
-            timelockEnd: Number(p.timelockEnd),
-          }))));
+          console.log(JSON.stringify(all));
           return;
         }
 
-        spin!.succeed(`${found.length} proposal(s)`);
+        spin!.succeed(`${all.length} proposal(s)`);
         ui.table(
-          ["ID", "Proposer", "Recipient", "Amount", "Status", "Approvals"],
-          found.map((p) => [
-            p.id.toString(),
+          ["Type", "ID", "Proposer", "Description", "Status", "Detail"],
+          all.map((p) => [
+            p.type,
+            p.id,
             p.proposer.slice(0, 10) + "...",
-            p.recipient.slice(0, 10) + "...",
-            formatLob(p.amount),
-            PROPOSAL_STATUS[p.status] || "Unknown",
-            p.approvalCount.toString(),
+            p.description.length > 40 ? p.description.slice(0, 37) + "..." : p.description,
+            p.status,
+            p.detail,
           ])
         );
       } catch (err) {
