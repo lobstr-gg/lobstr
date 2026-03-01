@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { SubtopicId, SortMode, PostFlair } from "@/lib/forum-types";
+import type { SubtopicId, SortMode, PostFlair, ProposalRef } from "@/lib/forum-types";
 import {
   getPostsBySubtopic,
   sortPosts,
   generateId,
   getOrCreateUser,
   createPost,
+  getPostByProposalRef,
 } from "@/lib/firestore-store";
 import { requireAuth } from "@/lib/forum-auth";
 import { isWalletBanned } from "@/lib/upload-security";
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, subtopic, flair, body: postBody } = body;
+  const { title, subtopic, flair, body: postBody, proposalRef } = body;
 
   if (!title || !subtopic || !postBody) {
     return NextResponse.json(
@@ -81,6 +82,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate proposalRef if provided
+  const VALID_PROPOSAL_TYPES = ["treasury", "admin", "lightning"];
+  let validatedProposalRef: ProposalRef | undefined;
+  if (proposalRef) {
+    if (
+      typeof proposalRef !== "object" ||
+      !VALID_PROPOSAL_TYPES.includes(proposalRef.type) ||
+      typeof proposalRef.onChainId !== "string" ||
+      !proposalRef.onChainId
+    ) {
+      return NextResponse.json(
+        { error: "Invalid proposalRef: requires { type: treasury|admin|lightning, onChainId: string }" },
+        { status: 400 }
+      );
+    }
+    // Dedup: check if a post already exists for this proposal
+    const existing = await getPostByProposalRef(proposalRef as ProposalRef);
+    if (existing) {
+      return NextResponse.json(
+        { error: "A forum post already exists for this proposal", existingPostId: existing.id },
+        { status: 409 }
+      );
+    }
+    validatedProposalRef = { type: proposalRef.type, onChainId: proposalRef.onChainId };
+  }
+
   await getOrCreateUser(auth.address);
 
   const post = {
@@ -96,6 +123,7 @@ export async function POST(request: NextRequest) {
     flair: (flair || "discussion") as PostFlair,
     isPinned: false,
     isLocked: false,
+    ...(validatedProposalRef && { proposalRef: validatedProposalRef }),
     createdAt: Date.now(),
   };
 

@@ -163,6 +163,7 @@ export function registerForumCommands(program: Command): void {
     .requiredOption("--subtopic <subtopic>", "Subtopic (general, marketplace, disputes, governance, dev, bugs, meta)")
     .requiredOption("--body <body>", "Post body")
     .option("--flair <flair>", "Post flair (discussion, question, proposal, guide, bug, announcement)", "discussion")
+    .option("--proposal-ref <ref>", "Link to on-chain proposal (format: type:onChainId, e.g. admin:3)")
     .action(async (opts) => {
       try {
         if (!loadApiKey()) {
@@ -170,18 +171,32 @@ export function registerForumCommands(program: Command): void {
           process.exit(1);
         }
 
-        const spin = ui.spinner("Creating post...");
-        const { post } = await apiPost("/api/forum/posts", {
+        const payload: Record<string, unknown> = {
           title: opts.title,
           subtopic: opts.subtopic,
           body: opts.body,
           flair: opts.flair,
-        });
+        };
+
+        if (opts.proposalRef) {
+          const parts = opts.proposalRef.split(":");
+          if (parts.length !== 2 || !["treasury", "admin", "lightning"].includes(parts[0]) || !parts[1]) {
+            ui.error("Invalid --proposal-ref format. Expected type:onChainId (e.g. admin:3, treasury:7, lightning:1)");
+            process.exit(1);
+          }
+          payload.proposalRef = { type: parts[0], onChainId: parts[1] };
+        }
+
+        const spin = ui.spinner("Creating post...");
+        const { post } = await apiPost("/api/forum/posts", payload);
 
         spin.succeed("Post created");
         ui.info(`ID: ${post.id}`);
         ui.info(`Title: ${post.title}`);
         ui.info(`Subtopic: ${post.subtopic}`);
+        if (post.proposalRef) {
+          ui.info(`Proposal: ${post.proposalRef.type}:${post.proposalRef.onChainId}`);
+        }
       } catch (err) {
         ui.error((err as Error).message);
         process.exit(1);

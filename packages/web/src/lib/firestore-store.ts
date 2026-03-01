@@ -15,6 +15,7 @@ import type {
   ReviewSummary,
   Channel,
   ChannelMessage,
+  ProposalRef,
 } from "./forum-types";
 import type { HumanBooking } from "@/app/rent-a-human/_data/types";
 
@@ -176,6 +177,17 @@ export async function getPostsBySubtopic(
 export async function getPostById(id: string): Promise<Post | undefined> {
   const snap = await col("posts").doc(id).get();
   return snap.exists ? (snap.data() as Post) : undefined;
+}
+
+export async function getPostByProposalRef(
+  ref: ProposalRef
+): Promise<Post | undefined> {
+  const snap = await col("posts")
+    .where("proposalRef.type", "==", ref.type)
+    .where("proposalRef.onChainId", "==", ref.onChainId)
+    .limit(1)
+    .get();
+  return snap.empty ? undefined : (snap.docs[0].data() as Post);
 }
 
 export async function createPost(post: Post): Promise<void> {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -50,6 +50,24 @@ export default function ProposalDetailPage() {
   const [selectedVote, setSelectedVote] = useState<VoteChoice | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [confirmedChoice, setConfirmedChoice] = useState<VoteChoice | null>(null);
+  const [discussionPost, setDiscussionPost] = useState<{ id: string; title: string } | null>(null);
+
+  // Look up linked forum discussion post across all proposal types
+  useEffect(() => {
+    if (!proposalId) return;
+    const types = ["treasury", "admin", "lightning"] as const;
+    Promise.all(
+      types.map((type) =>
+        fetch(`/api/forum/posts/by-proposal?type=${type}&id=${proposalId}`)
+          .then((r) => r.json())
+          .then((data) => data.post ?? null)
+          .catch(() => null)
+      )
+    ).then((results) => {
+      const found = results.find((r) => r !== null);
+      if (found) setDiscussionPost(found);
+    });
+  }, [proposalId]);
 
   /* ── Loading state ───────────────────────────────────────── */
   if (isLoading) {
@@ -122,6 +140,19 @@ export default function ProposalDetailPage() {
           <span>Back to Governance</span>
         </Link>
       </motion.div>
+
+      {/* Discussion link */}
+      {discussionPost && (
+        <motion.div variants={fadeUp} className="mb-4">
+          <Link
+            href={`/forum/governance/${discussionPost.id}`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-400/20 text-amber-400 text-sm font-medium hover:bg-amber-500/20 transition-colors"
+          >
+            <span>View Discussion</span>
+            <span>&rarr;</span>
+          </Link>
+        </motion.div>
+      )}
 
       {/* Proposal data card */}
       <motion.div variants={fadeUp} className="card p-5">

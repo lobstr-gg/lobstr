@@ -48,6 +48,11 @@ export interface ForumUser {
   joinedAt: number;
 }
 
+export interface ProposalRef {
+  type: "treasury" | "admin" | "lightning";
+  onChainId: string;
+}
+
 export interface Post {
   id: string;
   subtopic: SubtopicId;
@@ -61,6 +66,7 @@ export interface Post {
   flair: PostFlair;
   isPinned: boolean;
   isLocked: boolean;
+  proposalRef?: ProposalRef;
   createdAt: number;
 }
 
