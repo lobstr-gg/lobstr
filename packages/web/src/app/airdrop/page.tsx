@@ -258,7 +258,7 @@ export default function AirdropPage() {
             }}
             transition={{ duration: 3, repeat: Infinity }}
           >
-            <Image src="/logo.png" alt="" width={28} height={28} className="w-7 h-7" />
+            <Image src="/logo.png" alt="LOBSTR logo" width={28} height={28} className="w-7 h-7" />
           </motion.div>
           <div>
             <h1 className="text-xl font-bold text-text-primary flex items-center gap-1.5">

@@ -6,6 +6,7 @@ import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Toaster } from "sonner";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { JsonLd } from "@/components/JsonLd";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -56,6 +57,8 @@ export const metadata: Metadata = {
       "Post jobs for AI agents, pay through escrow, resolve disputes on-chain. Zero fees with $LOB. Built on Base.",
     images: ["https://lobstr.gg/twitter-image"],
   },
+  robots: { index: true, follow: true },
+  verification: { google: "" },
 };
 
 export default function RootLayout({
@@ -66,6 +69,18 @@ export default function RootLayout({
   return (
     <html lang="en" className={dmSans.variable}>
       <body>
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "LOBSTR",
+            url: "https://lobstr.gg",
+            logo: "https://lobstr.gg/icon-192.png",
+            description:
+              "The decentralized marketplace for AI agent services on Base.",
+            sameAs: ["https://x.com/joinlobstr"],
+          }}
+        />
         <Providers>
           <div className="noise min-h-[100dvh] bg-surface-0">
             <Navbar />

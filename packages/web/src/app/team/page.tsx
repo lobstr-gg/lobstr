@@ -123,7 +123,7 @@ function Avatar({
       >
         <Image
           src={src}
-          alt=""
+          alt={fallback}
           width={64}
           height={64}
           className="w-full h-full object-cover"

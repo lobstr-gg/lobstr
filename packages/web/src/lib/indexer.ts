@@ -554,6 +554,60 @@ export async function fetchAppeals(limit = 50): Promise<IndexerAppeal[]> {
   return data?.appeals.items ?? [];
 }
 
+// ── Single-item fetches (for generateMetadata) ──────────
+
+export async function fetchListingById(id: string): Promise<IndexerListing | null> {
+  type Response = { listing: IndexerListing | null };
+  const data = await gqlFetchSafe<Response>(`{
+    listing(id: "${id}") {
+      id provider category title description pricePerUnit
+      settlementToken estimatedDeliverySeconds metadataURI active createdAt
+    }
+  }`);
+  return data?.listing ?? null;
+}
+
+export async function fetchSkillById(id: string): Promise<IndexerSkill | null> {
+  type Response = { skill: IndexerSkill | null };
+  const data = await gqlFetchSafe<Response>(`{
+    skill(id: "${id}") {
+      id seller assetType pricingModel price title metadataURI active totalPurchases createdAt
+    }
+  }`);
+  return data?.skill ?? null;
+}
+
+export async function fetchJobById(id: string): Promise<(IndexerJob & { listingTitle?: string }) | null> {
+  type Response = {
+    job: IndexerJob | null;
+  };
+  const data = await gqlFetchSafe<Response>(`{
+    job(id: "${id}") {
+      id listingId buyer seller amount token fee status
+      createdAt disputeWindowEnd deliveryMetadataURI isX402 x402Payer x402Nonce
+    }
+  }`);
+  if (!data?.job) return null;
+
+  // Try to get listing title for richer metadata
+  const listing = await fetchListingById(data.job.listingId);
+  return { ...data.job, listingTitle: listing?.title ?? undefined };
+}
+
+export async function fetchDisputeById(id: string): Promise<IndexerDispute | null> {
+  type Response = { dispute: IndexerDispute | null };
+  const data = await gqlFetchSafe<Response>(`{
+    dispute(id: "${id}") {
+      id jobId buyer seller amount token
+      buyerEvidenceURI sellerEvidenceURI
+      status ruling createdAt counterEvidenceDeadline
+      arbitrator0 arbitrator1 arbitrator2
+      votesForBuyer votesForSeller
+    }
+  }`);
+  return data?.dispute ?? null;
+}
+
 // ── Skill Marketplace Queries ────────────────────────────
 
 export interface IndexerSkillPurchase {
