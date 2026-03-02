@@ -225,17 +225,18 @@ export function useSettleAuction() {
   return { fn, isPending, isError, error, reset };
 }
 
-/** Withdraw pending bid refund */
+/** Withdraw pending bid refund for a specific token */
 export function useWithdrawBid() {
   const contracts = useContracts();
   const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
 
-  const fn = async () => {
+  const fn = async (token: `0x${string}`) => {
     if (!isProductsLive(contracts)) throw new Error("Product marketplace not available");
     return writeContractAsync({
       address: contracts!.productMarketplace as Address,
       abi: ProductMarketplaceABI,
       functionName: "withdrawBid",
+      args: [token],
     });
   };
 

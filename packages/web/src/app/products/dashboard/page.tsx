@@ -48,7 +48,7 @@ export default function ProductDashboardPage() {
   const handleWithdraw = async () => {
     setTxStatus("Withdrawing bid refund...");
     try {
-      await withdrawBid.fn();
+      await withdrawBid.fn(contracts?.lobToken as `0x${string}`);
       setTxStatus("Withdrawal complete!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
