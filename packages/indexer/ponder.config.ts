@@ -30,6 +30,7 @@ import { TreasuryGovernorABI } from "./abis/TreasuryGovernor";
 import { AirdropClaimV3ABI } from "./abis/AirdropClaimV3";
 import { RolePayrollABI } from "./abis/RolePayroll";
 import { SybilGuardABI } from "./abis/SybilGuard";
+import { ProductMarketplaceABI } from "./abis/ProductMarketplace";
 import { CONTRACTS_BY_CHAIN } from "../web/src/config/contract-addresses";
 
 const CONTRACTS = CONTRACTS_BY_CHAIN[base.id];
@@ -218,6 +219,13 @@ export default createConfig({
       abi: RolePayrollABI,
       address: CONTRACTS.rolePayroll,
       startBlock: V3_START_BLOCK,
+    },
+    // ── V4 Physical Goods (deployed 2026-03-02, block 42850586) ──
+    ProductMarketplace: {
+      network: "baseMainnet",
+      abi: ProductMarketplaceABI,
+      address: CONTRACTS.productMarketplace,
+      startBlock: 42850586,
     },
   },
 });

@@ -575,3 +575,87 @@ export const vestingEvent = onchainTable("vesting_event", (t) => ({
   timestamp: t.bigint().notNull(),
   blockNumber: t.bigint().notNull(),
 }));
+
+// === Products (ProductMarketplace) ===
+
+export const product = onchainTable("product", (t) => ({
+  id: t.bigint().primaryKey(),
+  listingId: t.bigint().notNull(),
+  seller: t.hex().notNull(),
+  listingType: t.integer().notNull(), // 0=FixedPrice, 1=Auction
+  condition: t.integer().notNull(), // 0=New,1=LikeNew,2=Good,3=Fair,4=Poor,5=ForParts
+  productCategory: t.text().notNull(),
+  quantity: t.bigint().notNull(),
+  sold: t.bigint().notNull().default(0n),
+  active: t.boolean().notNull().default(true),
+  imageURI: t.text().notNull(),
+  shippingInfoURI: t.text().notNull(),
+  createdAt: t.bigint().notNull(),
+}));
+
+export const productRelations = relations(product, ({ one }) => ({
+  sellerAccount: one(account, {
+    fields: [product.seller],
+    references: [account.address],
+  }),
+}));
+
+// === Auctions (ProductMarketplace) ===
+
+export const auction = onchainTable("auction", (t) => ({
+  id: t.bigint().primaryKey(),
+  productId: t.bigint().notNull(),
+  startPrice: t.bigint().notNull(),
+  reservePrice: t.bigint().notNull(),
+  buyNowPrice: t.bigint().notNull(),
+  endTime: t.bigint().notNull(),
+  highBidder: t.hex(),
+  highBid: t.bigint().notNull().default(0n),
+  bidCount: t.integer().notNull().default(0),
+  settled: t.boolean().notNull().default(false),
+  winnerJobId: t.bigint(),
+  createdAt: t.bigint().notNull(),
+}));
+
+export const auctionRelations = relations(auction, ({ one }) => ({
+  productRef: one(product, {
+    fields: [auction.productId],
+    references: [product.id],
+  }),
+}));
+
+// === Bids (ProductMarketplace) ===
+
+export const bid = onchainTable("bid", (t) => ({
+  id: t.text().primaryKey(), // txHash-logIndex
+  auctionId: t.bigint().notNull(),
+  bidder: t.hex().notNull(),
+  amount: t.bigint().notNull(),
+  newEndTime: t.bigint().notNull(),
+  timestamp: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));
+
+export const bidRelations = relations(bid, ({ one }) => ({
+  auctionRef: one(auction, {
+    fields: [bid.auctionId],
+    references: [auction.id],
+  }),
+  bidderAccount: one(account, {
+    fields: [bid.bidder],
+    references: [account.address],
+  }),
+}));
+
+// === Shipments (ProductMarketplace) ===
+
+export const shipment = onchainTable("shipment", (t) => ({
+  id: t.bigint().primaryKey(), // jobId
+  carrier: t.text().notNull(),
+  trackingNumber: t.text().notNull(),
+  status: t.integer().notNull().default(0), // 0=NotShipped,1=Shipped,2=Delivered,3=ReturnRequested
+  shippedAt: t.bigint().notNull().default(0n),
+  deliveredAt: t.bigint().notNull().default(0n),
+  timestamp: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));

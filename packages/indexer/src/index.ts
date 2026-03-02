@@ -2343,3 +2343,184 @@ ponder.on("RolePayroll:StrikeIssued", async ({ event, context }) => {
   // TODO: Add role_event for strike_issued
   console.log("RolePayroll:StrikeIssued", { holder, totalStrikes, reason });
 });
+
+// ============================================
+// ProductMarketplace Events
+// ============================================
+
+ponder.on("ProductMarketplace:ProductListed", async ({ event, context }) => {
+  const { db } = context;
+  const { productId, listingId, seller, listingType, condition, productCategory, quantity } = event.args;
+
+  await db.insert(schema.product).values({
+    id: productId,
+    listingId,
+    seller: seller as `0x${string}`,
+    listingType: Number(listingType),
+    condition: Number(condition),
+    productCategory,
+    quantity,
+    sold: 0n,
+    active: true,
+    imageURI: "",
+    shippingInfoURI: "",
+    createdAt: event.block.timestamp,
+  });
+});
+
+ponder.on("ProductMarketplace:ProductUpdated", async ({ event, context }) => {
+  const { db } = context;
+  const { productId, imageURI, shippingInfoURI } = event.args;
+
+  const updates: Record<string, string> = {};
+  if (imageURI) updates.imageURI = imageURI;
+  if (shippingInfoURI) updates.shippingInfoURI = shippingInfoURI;
+
+  if (Object.keys(updates).length > 0) {
+    await db.update(schema.product, { id: productId }).set(updates);
+  }
+});
+
+ponder.on("ProductMarketplace:ProductDeactivated", async ({ event, context }) => {
+  const { db } = context;
+  const { productId } = event.args;
+
+  await db.update(schema.product, { id: productId }).set({ active: false });
+});
+
+ponder.on("ProductMarketplace:AuctionCreated", async ({ event, context }) => {
+  const { db } = context;
+  const { auctionId, productId, startPrice, reservePrice, buyNowPrice, endTime } = event.args;
+
+  await db.insert(schema.auction).values({
+    id: auctionId,
+    productId,
+    startPrice,
+    reservePrice,
+    buyNowPrice,
+    endTime,
+    highBidder: null,
+    highBid: 0n,
+    bidCount: 0,
+    settled: false,
+    winnerJobId: null,
+    createdAt: event.block.timestamp,
+  });
+});
+
+ponder.on("ProductMarketplace:BidPlaced", async ({ event, context }) => {
+  const { db } = context;
+  const { auctionId, bidder, amount, newEndTime } = event.args;
+
+  // Insert bid record
+  await db.insert(schema.bid).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    auctionId,
+    bidder: bidder as `0x${string}`,
+    amount,
+    newEndTime,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+
+  // Update auction
+  const current = await db.find(schema.auction, { id: auctionId });
+  if (current) {
+    await db.update(schema.auction, { id: auctionId }).set({
+      highBidder: bidder as `0x${string}`,
+      highBid: amount,
+      bidCount: current.bidCount + 1,
+      endTime: newEndTime,
+    });
+  }
+});
+
+ponder.on("ProductMarketplace:AuctionSettled", async ({ event, context }) => {
+  const { db } = context;
+  const { auctionId, winner, finalPrice, jobId } = event.args;
+
+  await db.update(schema.auction, { id: auctionId }).set({
+    settled: true,
+    winnerJobId: jobId > 0n ? jobId : null,
+    highBid: finalPrice,
+    highBidder: winner === "0x0000000000000000000000000000000000000000" ? null : winner as `0x${string}`,
+  });
+
+  // Update product sold count
+  const auctionData = await db.find(schema.auction, { id: auctionId });
+  if (auctionData && jobId > 0n) {
+    const productData = await db.find(schema.product, { id: auctionData.productId });
+    if (productData) {
+      await db.update(schema.product, { id: auctionData.productId }).set({
+        sold: productData.sold + 1n,
+      });
+    }
+  }
+});
+
+ponder.on("ProductMarketplace:ShipmentTracked", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, carrier, trackingNumber } = event.args;
+
+  await db
+    .insert(schema.shipment)
+    .values({
+      id: jobId,
+      carrier,
+      trackingNumber,
+      status: 1, // Shipped
+      shippedAt: event.block.timestamp,
+      deliveredAt: 0n,
+      timestamp: event.block.timestamp,
+      blockNumber: event.block.number,
+    })
+    .onConflictDoUpdate({
+      carrier,
+      trackingNumber,
+      status: 1,
+      shippedAt: event.block.timestamp,
+    });
+});
+
+ponder.on("ProductMarketplace:ReceiptConfirmed", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId } = event.args;
+
+  await db
+    .insert(schema.shipment)
+    .values({
+      id: jobId,
+      carrier: "",
+      trackingNumber: "",
+      status: 2, // Delivered
+      shippedAt: 0n,
+      deliveredAt: event.block.timestamp,
+      timestamp: event.block.timestamp,
+      blockNumber: event.block.number,
+    })
+    .onConflictDoUpdate({
+      status: 2,
+      deliveredAt: event.block.timestamp,
+    });
+});
+
+ponder.on("ProductMarketplace:ReturnRequested", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId } = event.args;
+
+  await db
+    .insert(schema.shipment)
+    .values({
+      id: jobId,
+      carrier: "",
+      trackingNumber: "",
+      status: 3, // ReturnRequested
+      shippedAt: 0n,
+      deliveredAt: 0n,
+      timestamp: event.block.timestamp,
+      blockNumber: event.block.number,
+    })
+    .onConflictDoUpdate({
+      status: 3,
+    });
+});

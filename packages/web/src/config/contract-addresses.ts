@@ -32,6 +32,7 @@ export type ContractAddressBook = {
   subscriptionEngine: Address;
   bondingEngine: Address;
   rolePayroll: Address;
+  productMarketplace: Address;
 };
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
@@ -67,6 +68,7 @@ const BASE_MAINNET_ADDRESSES: ContractAddressBook = {
   subscriptionEngine: ZERO_ADDRESS,
   bondingEngine: ZERO_ADDRESS,
   rolePayroll: ZERO_ADDRESS,
+  productMarketplace: "0x8823cC5d252EdF868424C50796358413f3e4c076" as Address,
 };
 
 // ── Base Sepolia (testnet) ──
@@ -99,6 +101,7 @@ const BASE_SEPOLIA_ADDRESSES: ContractAddressBook = {
   subscriptionEngine: ZERO_ADDRESS,
   bondingEngine: ZERO_ADDRESS,
   rolePayroll: ZERO_ADDRESS,
+  productMarketplace: ZERO_ADDRESS,
 };
 
 export const CONTRACTS_BY_CHAIN: Record<number, ContractAddressBook> = {

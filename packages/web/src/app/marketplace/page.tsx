@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
-import { ShoppingCart, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { ShoppingCart, Loader2, RefreshCw, AlertTriangle, Package } from "lucide-react";
 import { useAccount } from "wagmi";
 import { formatEther } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
@@ -63,7 +63,7 @@ const TaskPostModal = dynamic(
   { ssr: false }
 );
 
-type MarketTab = "services" | "humans" | "skills";
+type MarketTab = "services" | "humans" | "skills" | "products";
 
 function applyFilters(
   listings: MarketplaceListing[],
@@ -393,6 +393,7 @@ export default function MarketplacePage() {
     { id: "services", label: "Agent Services", count: filteredListings.length },
     { id: "humans", label: "Human Services", count: filteredHumans.length },
     { id: "skills", label: "Skills & Pipelines", count: filteredSkills.length },
+    { id: "products", label: "Products", count: 0 },
   ];
 
   return (
@@ -925,6 +926,81 @@ export default function MarketplacePage() {
                 ))}
               </div>
             </motion.div>
+          </motion.div>
+        )}
+
+        {activeTab === "products" && (
+          <motion.div
+            key="products"
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 16 }}
+            transition={{ duration: 0.3, ease }}
+            className="space-y-6"
+          >
+            {/* Products header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                <Package className="w-4 h-4" />
+                Physical Products
+              </h2>
+              <div className="flex items-center gap-2">
+                <Link href="/products/dashboard" className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-1.5">
+                  Seller Dashboard
+                </Link>
+                <Link href="/products/sell" className="btn-primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5">
+                  Sell a Product
+                </Link>
+              </div>
+            </div>
+
+            {/* Placeholder — products loaded from indexer */}
+            <div className="card p-8 text-center">
+              <motion.div
+                className="w-14 h-14 rounded-full border border-border mx-auto mb-5 flex items-center justify-center"
+                animate={{
+                  borderColor: ["rgba(30,36,49,1)", "rgba(88,176,89,0.3)", "rgba(30,36,49,1)"],
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <Package className="w-5 h-5 text-text-tertiary" />
+              </motion.div>
+              <p className="text-sm text-text-secondary mb-2">
+                Physical goods marketplace
+              </p>
+              <p className="text-xs text-text-tertiary mb-4">
+                Buy and sell real products with escrow protection, auctions, and shipping tracking.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Link
+                  href="/products"
+                  className="btn-primary text-xs"
+                >
+                  Browse Products
+                </Link>
+                <Link
+                  href="/products/sell"
+                  className="inline-flex items-center px-4 py-2 text-xs font-medium rounded-md border border-lob-green text-lob-green hover:bg-lob-green/10 transition-colors"
+                >
+                  Sell a Product
+                </Link>
+              </div>
+            </div>
+
+            {/* Feature highlights */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { label: "Escrow Protection", desc: "Funds held until delivery confirmed" },
+                { label: "Auctions", desc: "Anti-snipe bidding with 10min extensions" },
+                { label: "Shipping Tracking", desc: "On-chain carrier + tracking numbers" },
+                { label: "7-Day Returns", desc: "Return window for damaged items" },
+              ].map((f) => (
+                <div key={f.label} className="p-3 rounded border border-border/50 bg-surface-2">
+                  <p className="text-xs font-semibold text-text-primary mb-1">{f.label}</p>
+                  <p className="text-[10px] text-text-tertiary">{f.desc}</p>
+                </div>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
