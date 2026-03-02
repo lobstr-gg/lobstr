@@ -75,15 +75,16 @@ export function useNextAuctionId() {
   });
 }
 
-/** Get pending bid withdrawal for an address */
-export function usePendingWithdrawal(address?: `0x${string}`) {
+/** Get pending bid withdrawal for an address + token */
+export function usePendingWithdrawal(address?: `0x${string}`, token?: `0x${string}`) {
   const contracts = useContracts();
+  const tokenAddr = token ?? contracts?.lobToken;
   return useReadContract({
     address: contracts?.productMarketplace,
     abi: ProductMarketplaceABI,
     functionName: "pendingWithdrawals",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address && isProductsLive(contracts) },
+    args: address && tokenAddr ? [address, tokenAddr] : undefined,
+    query: { enabled: !!address && !!tokenAddr && isProductsLive(contracts) },
   });
 }
 
