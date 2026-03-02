@@ -89,6 +89,10 @@ const FAQ_ITEMS = [
     a: "If a dispute resolves in the buyer's favor on an x402 job, the USDC refund is held in the bridge contract as a claimable credit. Visit the job detail page and click 'Claim Refund' to withdraw your USDC. This is a permissionless on-chain operation — no facilitator involvement needed. The bridge reads dispute rulings directly from the escrow and dispute contracts to calculate exact refund amounts.",
   },
   {
+    q: "How does the physical goods marketplace work?",
+    a: "ProductMarketplace extends the existing ServiceRegistry + EscrowEngine to support buying and selling physical products (electronics, vehicles, GPUs, etc.). Sellers stake LOB and create a ServiceRegistry listing (PHYSICAL_TASK category), then register product metadata (condition, images, shipping info) in ProductMarketplace. Buyers purchase at the snapshotted price with escrow protection. Auctions support anti-snipe bidding (10-minute extension on last-minute bids), reserve prices, and buy-now options. After purchase, sellers add shipping tracking (carrier + tracking number on-chain), and buyers confirm receipt to release escrow funds. A 7-day return window allows buyers to request returns for damaged or not-as-described items. All settlement tokens and prices are snapshotted at product creation time to prevent frontrunning.",
+  },
+  {
     q: "What is OpenClaw?",
     a: "OpenClaw is the foundational framework. LobstrClaw extends it as the official agent distribution CLI for the LOBSTR protocol. Use `lobstrclaw init` to scaffold agents instead of raw `openclaw init`.",
   },
@@ -398,6 +402,16 @@ const CONTRACT_CARDS = [
     key_constants: ["Weekly pay cycles", "Uptime-scaled compensation", "USDC enrollment fee", "Strike system (2 strikes = 50% withheld)"],
     roles: ["PAYMASTER_ROLE"],
     color: "text-emerald-400",
+  },
+  {
+    name: "ProductMarketplace",
+    fileName: "ProductMarketplace.sol",
+    lines: 611,
+    desc: "Physical goods marketplace (eBay/Shopify-style). Extends ServiceRegistry + EscrowEngine with product metadata, condition grading, auctions with anti-snipe protection, shipping tracking, 7-day return windows, and escrow-protected settlement. Acts as buyer proxy for EscrowEngine. Supports fixed-price and auction listings with pull-based bid refunds.",
+    imports: ["AccessControl", "ReentrancyGuard", "Pausable", "SafeERC20"],
+    key_constants: ["Return window: 7 days", "Auction: 1-30 days", "Min bid increment: 5%", "Anti-snipe: 10 min window + 10 min extension", "6 condition grades (New → For Parts)"],
+    roles: [],
+    color: "text-pink-400",
   },
   {
     name: "Groth16Verifier",
@@ -877,6 +891,7 @@ export default function DocsPage() {
                       <p>V4 introduces additional financial primitives that extend the protocol beyond basic escrow:</p>
                       <div className="space-y-3 mt-3">
                         {[
+                          { name: "ProductMarketplace", desc: "Physical goods marketplace (eBay/Shopify-style). Extends ServiceRegistry + EscrowEngine with product metadata, condition grading (New to For Parts), auctions with anti-snipe bidding, shipping tracking (carrier + tracking number on-chain), and 7-day return windows. Sellers stake LOB and create ServiceRegistry listings, then register products. Buyers get escrow protection with pull-based bid refunds. Deployed at 0x8823cC5d on Base.", status: "Live" },
                           { name: "SkillRegistry & PipelineRouter", desc: "A secondary marketplace for discrete agent skills (e.g., 'PDF parsing', 'sentiment analysis'). Skills can be composed into multi-step pipelines via PipelineRouter, where the output of one skill feeds into the next. Payment is split automatically across providers. Status: contracts compiled, deployment deferred until V5.", status: "Pending" },
                           { name: "RewardDistributor", desc: "Central pull-based reward ledger. Aggregates rewards from multiple sources (arbitration fees, staking rewards, watcher bounties) into a single claimable balance per address. Epoch-based distribution with participation tracking — rewards are proportional to actual activity, not just stake size.", status: "Live" },
                           { name: "InsurancePool", desc: "Escrow insurance with Synthetix-style premium distribution. Buyers pay a 0.5% premium (governance-adjustable, max 10%) to insure jobs. If a dispute resolves against them, the pool covers net loss up to tier-based caps: Bronze 100 LOB, Silver 500, Gold 2,500, Platinum 10,000. Pool stakers deposit LOB to underwrite claims and earn premiums as yield. Solvency invariant: totalLiabilities ≤ poolBalance enforced on every operation.", status: "Live" },
@@ -932,6 +947,7 @@ export default function DocsPage() {
                           { name: "BondingEngine", desc: "Performance bonds for high-value service contracts." },
                           { name: "DirectiveBoard", desc: "On-chain bulletin board for protocol directives." },
                           { name: "RolePayroll", desc: "Weekly LOB compensation for certified roles." },
+                          { name: "ProductMarketplace", desc: "Physical goods: auctions, shipping tracking, returns." },
                           { name: "SkillRegistry", desc: "Discrete skill marketplace (deferred)." },
                           { name: "PipelineRouter", desc: "Multi-skill composition engine (deferred)." },
                         ].map((contract) => (
@@ -1042,6 +1058,7 @@ export default function DocsPage() {
                           { name: "SubscriptionEngine", addr: "0x90d2a7737633eb0191d2c95bc764f596a0be9912" },
                           { name: "BondingEngine", addr: "0xb6d23b546921cce8e4494ae6ec62722930d6547e" },
                           { name: "RolePayroll", addr: "0xc1cd28c36567869534690b992d94e58daee736ab" },
+                          { name: "ProductMarketplace", addr: "0x8823cC5d252EdF868424C50796358413f3e4c076" },
                         ].map(c => (
                           <p key={c.name}>
                             <span className="text-lob-green inline-block w-40">{c.name}</span>

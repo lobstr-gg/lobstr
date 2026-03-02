@@ -14,7 +14,7 @@ import ProfileAvatar from "@/components/ProfileAvatar";
 
 // Desktop nav — categorized dropdowns instead of 9+ inline links
 const NAV_CATEGORIES = [
-  { label: "Trade", links: [
+  { label: "Marketplace", links: [
     { href: "/marketplace", label: "Marketplace" },
     { href: "/post-job", label: "Post a Job" },
     { href: "/jobs", label: "Dashboard" },
@@ -304,9 +304,9 @@ export function Navbar() {
               ))}
               <Link
                 href="/team"
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                className={`px-2 xl:px-2.5 py-1.5 rounded text-[11px] xl:text-xs transition-colors ${
                   pathname === "/team"
-                    ? "text-lob-green"
+                    ? "text-lob-green font-medium"
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
