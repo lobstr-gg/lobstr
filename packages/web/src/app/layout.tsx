@@ -59,6 +59,9 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   verification: { google: "" },
+  other: {
+    "base:app_id": "69a5ac276d5151991e1059df",
+  },
 };
 
 export default function RootLayout({
