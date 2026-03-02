@@ -20,6 +20,13 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Product images: /product-images/{address}/{productRef}/{fileName}
+    // Public read via makePublic(), writes via Admin SDK only
+    match /product-images/{address}/{productRef}/{fileName} {
+      allow read: if false;
+      allow write: if false;
+    }
+
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;
