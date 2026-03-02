@@ -38,6 +38,24 @@ export function useProtocolMetrics() {
     },
   });
 
+  // On-chain: LOB balance of DisputeArbitration (arbitrator stakes)
+  const lobArbitratorStaked = useReadContract({
+    address: contracts?.lobToken,
+    abi: LOBTokenABI,
+    functionName: "balanceOf",
+    args: contracts ? [contracts.disputeArbitration] : undefined,
+    chainId: CHAIN.id,
+    query: {
+      enabled: !!contracts,
+      refetchInterval: POLL_INTERVAL,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 3,
+      staleTime: 60_000,
+    },
+  });
+
   // On-chain: AirdropClaim.totalClaimed()
   const airdropClaimed = useReadContract({
     address: contracts?.airdropClaim,
@@ -73,8 +91,14 @@ export function useProtocolMetrics() {
     services: indexer.data?.services ?? null,
     jobs: indexer.data?.jobs ?? null,
     lobStaked:
-      lobStaked.data != null
-        ? parseFloat(formatUnits(lobStaked.data as bigint, 18))
+      lobStaked.data != null || lobArbitratorStaked.data != null
+        ? parseFloat(
+            formatUnits(
+              ((lobStaked.data as bigint) ?? 0n) +
+                ((lobArbitratorStaked.data as bigint) ?? 0n),
+              18,
+            ),
+          )
         : null,
     airdropClaims:
       airdropClaimed.data != null
@@ -82,7 +106,7 @@ export function useProtocolMetrics() {
         : null,
   };
 
-  const chainLoading = lobStaked.isLoading || airdropClaimed.isLoading;
+  const chainLoading = lobStaked.isLoading || lobArbitratorStaked.isLoading || airdropClaimed.isLoading;
   const indexerLoading = isIndexerConfigured() && indexer.isLoading;
 
   return {
@@ -92,6 +116,6 @@ export function useProtocolMetrics() {
       !chainLoading &&
       !indexerLoading &&
       Object.values(metrics).some((v) => v === null),
-    isError: lobStaked.isError && airdropClaimed.isError && indexer.isError,
+    isError: lobStaked.isError && lobArbitratorStaked.isError && airdropClaimed.isError && indexer.isError,
   };
 }

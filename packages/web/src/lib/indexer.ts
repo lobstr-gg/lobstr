@@ -47,13 +47,11 @@ export async function fetchProtocolCounts(): Promise<IndexerCounts> {
     jobs?: { totalCount?: number; items?: unknown[] };
   };
 
-  const data = await gqlFetchSafe<CountResponse>(`{
+  const data = await gqlFetch<CountResponse>(`{
     accounts { totalCount items { address } }
     listings(where: { active: true }) { totalCount items { id } }
     jobs { totalCount items { id } }
   }`);
-
-  if (!data) return { wallets: 0, services: 0, jobs: 0 };
 
   const count = (entry?: { totalCount?: number; items?: unknown[] }) =>
     entry?.totalCount ?? entry?.items?.length ?? 0;
