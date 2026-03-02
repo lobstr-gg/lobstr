@@ -79,17 +79,17 @@ export default function ProductDashboardPage() {
 
     try {
       const formData = new FormData();
-      formData.append("productRef", damageJobId || "evidence");
+      formData.append("jobId", damageJobId || "0");
       for (const file of Array.from(files)) {
-        if (file.size > 10 * 1024 * 1024) {
-          setUploadError(`"${file.name}" exceeds 10MB limit`);
+        if (file.size > 25 * 1024 * 1024) {
+          setUploadError(`"${file.name}" exceeds 25MB limit`);
           setIsUploadingEvidence(false);
           return;
         }
         formData.append("files", file);
       }
 
-      const res = await fetch("/api/upload/product-image", {
+      const res = await fetch("/api/upload/damage-evidence", {
         method: "POST",
         credentials: "include",
         body: formData,

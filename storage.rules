@@ -27,6 +27,13 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Damage evidence: /damage-evidence/{address}/{jobId}/{fileName}
+    // Private — signed URLs only, Admin SDK write
+    match /damage-evidence/{address}/{jobId}/{fileName} {
+      allow read: if false;
+      allow write: if false;
+    }
+
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;
