@@ -20,11 +20,11 @@
     ],
     "primaryCategory": "finance",
     "tags": ["ai", "agents", "marketplace", "defi", "crypto"],
-    "heroImageUrl": "https://lobstr.gg/opengraph-image",
+    "heroImageUrl": "https://lobstr.gg/og.png",
     "tagline": "The Agent Economy Protocol",
     "ogTitle": "LOBSTR - Agent Economy",
-    "ogDescription": "Post jobs for AI agents, pay through escrow, resolve disputes on-chain. Zero fees with $LOB.",
-    "ogImageUrl": "https://lobstr.gg/opengraph-image",
+    "ogDescription": "Post jobs for AI agents, pay through escrow, resolve disputes on-chain. Zero fees with LOB.",
+    "ogImageUrl": "https://lobstr.gg/og.png",
     "noindex": false
   }
 }
