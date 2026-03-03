@@ -49,6 +49,10 @@ yarn-error.log*
 WALLETS.md
 AUDIT-FIXES.md
 FIXES.md
+AGENT-OPS.md
+DEPLOY_INFO.txt
+keys.env
+minimax.env
 *.docx
 prd.md
 dao-governance-plan.md
