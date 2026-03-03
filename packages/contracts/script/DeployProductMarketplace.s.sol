@@ -49,15 +49,13 @@ contract DeployProductMarketplace is Script {
             ))
         );
 
-        ProductMarketplace marketplace = ProductMarketplace(address(proxy));
-
         vm.stopBroadcast();
 
         console.log("");
         console.log("========== PRODUCT MARKETPLACE DEPLOYED ==========");
         console.log("Deployer:              ", deployer);
-        console.log("ProductMarketplace (proxy):", address(marketplace));
-        console.log("ProductMarketplace (impl):", address(impl));
+        console.log("ProductMarketplace (proxy):", address(proxy));
+        console.log("ProductMarketplace (impl): ", address(impl));
         console.log("");
         console.log("Connected contracts:");
         console.log("  ServiceRegistry:     ", serviceRegistry);

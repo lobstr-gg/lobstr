@@ -9,9 +9,12 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/IEscrowEngine.sol";
 import "./interfaces/ISybilGuard.sol";
+import "./interfaces/IInsurancePool.sol";
 
 /// @title ProductMarketplace
 /// @notice Physical goods marketplace (eBay/Shopify-style) extending ServiceRegistry + EscrowEngine.
@@ -19,6 +22,9 @@ import "./interfaces/ISybilGuard.sol";
 ///         product metadata here. Buyers purchase through this contract which acts as a buyer proxy
 ///         for EscrowEngine (same pattern as X402EscrowBridge). Adds auctions, shipping tracking,
 ///         and extended dispute/return windows for physical goods.
+///
+/// @dev V2 functions (insured purchases, X402, insurance claims) live in ProductMarketplaceExtension
+///      and are reached via the fallback() delegatecall pattern.
 ///
 /// @dev Security notes:
 ///   - V-001 (round 1): pendingWithdrawals keyed by (user, token) — prevents cross-token drain.
@@ -34,9 +40,11 @@ contract ProductMarketplace is
     OwnableUpgradeable,
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    EIP712Upgradeable
 {
     using SafeERC20 for IERC20;
+    using ECDSA for bytes32;
 
     // ═══════════════════════════════════════════════════════════════
     //  ENUMS
@@ -90,9 +98,26 @@ contract ProductMarketplace is
         ShippingStatus status;
     }
 
+    struct PaymentIntent {
+        bytes32 x402Nonce;
+        address payer;
+        address token;
+        uint256 amount;
+        uint256 listingId;
+        address seller;
+        uint256 deadline;
+        uint256 deliveryDeadline;
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  CONSTANTS
     // ═══════════════════════════════════════════════════════════════
+
+    bytes32 public constant FACILITATOR_ROLE = keccak256("FACILITATOR_ROLE");
+
+    bytes32 private constant PAYMENT_INTENT_TYPEHASH = keccak256(
+        "PaymentIntent(bytes32 x402Nonce,address token,uint256 amount,uint256 listingId,address seller,uint256 deadline,uint256 deliveryDeadline)"
+    );
 
     uint256 public constant PHYSICAL_DISPUTE_WINDOW = 3 days;
     uint256 public constant RETURN_WINDOW = 7 days;
@@ -101,6 +126,8 @@ contract ProductMarketplace is
     uint256 public constant MIN_BID_INCREMENT_BPS = 500; // 5%
     uint256 public constant ANTI_SNIPE_WINDOW = 10 minutes;
     uint256 public constant ANTI_SNIPE_EXTENSION = 10 minutes;
+    uint256 public constant MIN_DELIVERY_DEADLINE = 1 days;
+    uint256 public constant MAX_DELIVERY_DEADLINE = 90 days;
 
     // ═══════════════════════════════════════════════════════════════
     //  STATE
@@ -124,6 +151,15 @@ contract ProductMarketplace is
 
     mapping(uint256 => address) public jobBuyer;
     mapping(uint256 => uint256) public receiptTimestamp;
+
+    // ── V2 state (appended — UUPS safe) ──────────────────────────
+    IInsurancePool public insurancePool;
+    mapping(uint256 => bool) public jobInsured;
+    mapping(bytes32 => bool) public nonceUsed;
+    mapping(bytes32 => uint256) public paymentToJob;
+
+    // ── Extension (V2 functions via delegatecall) ────────────────
+    address public extension;
 
     // ═══════════════════════════════════════════════════════════════
     //  EVENTS
@@ -164,6 +200,10 @@ contract ProductMarketplace is
     event ReceiptConfirmed(uint256 indexed jobId, address indexed buyer);
     event ReturnRequested(uint256 indexed jobId, address indexed buyer, string reason);
     event DamageReported(uint256 indexed jobId, address indexed buyer, string evidenceURI);
+    event ProductPurchasedInsured(uint256 indexed productId, uint256 indexed jobId, address indexed buyer, uint256 premium);
+    event ProductPurchasedX402(uint256 indexed productId, uint256 indexed jobId, address indexed payer, bytes32 x402Nonce);
+    event InsuranceRefundClaimed(uint256 indexed jobId, address indexed buyer, uint256 amount);
+    event InsuranceClaimFiled(uint256 indexed jobId, address indexed buyer, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════
     //  INITIALIZER
@@ -293,6 +333,9 @@ contract ProductMarketplace is
         uint256 maxPrice,
         uint256 deliveryDeadline
     ) external nonReentrant whenNotPaused returns (uint256 jobId) {
+        require(deliveryDeadline >= MIN_DELIVERY_DEADLINE, "ProductMarketplace: deadline too short");
+        require(deliveryDeadline <= MAX_DELIVERY_DEADLINE, "ProductMarketplace: deadline too long");
+
         Product storage product = _products[productId];
         require(product.active, "ProductMarketplace: inactive");
         require(product.listingType == ListingType.FIXED_PRICE, "ProductMarketplace: not fixed price");
@@ -306,8 +349,9 @@ contract ProductMarketplace is
 
         require(price <= maxPrice, "ProductMarketplace: price exceeds max");
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), price);
+        _pullExact(token, msg.sender, price);
 
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
         IERC20(token).forceApprove(address(escrowEngine), price);
         jobId = escrowEngine.createJob(
             product.listingId,
@@ -316,6 +360,7 @@ contract ProductMarketplace is
             token,
             deliveryDeadline
         );
+        _verifyOutflow(token, balBefore, price);
 
         jobBuyer[jobId] = msg.sender;
         escrowEngine.setJobPayer(jobId, msg.sender);
@@ -424,6 +469,9 @@ contract ProductMarketplace is
 
     /// @notice Buy now. Uses the auction's snapshotted settlementToken.
     function buyNow(uint256 auctionId, uint256 deliveryDeadline) external nonReentrant whenNotPaused returns (uint256 jobId) {
+        require(deliveryDeadline >= MIN_DELIVERY_DEADLINE, "ProductMarketplace: deadline too short");
+        require(deliveryDeadline <= MAX_DELIVERY_DEADLINE, "ProductMarketplace: deadline too long");
+
         Auction storage auction = _auctions[auctionId];
         require(auction.productId != 0, "ProductMarketplace: auction not found");
         require(!auction.settled, "ProductMarketplace: already settled");
@@ -443,8 +491,9 @@ contract ProductMarketplace is
         auction.settled = true;
         product.sold += 1;
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), auction.buyNowPrice);
+        _pullExact(token, msg.sender, auction.buyNowPrice);
 
+        uint256 balBeforeEscrow = IERC20(token).balanceOf(address(this));
         IERC20(token).forceApprove(address(escrowEngine), auction.buyNowPrice);
         jobId = escrowEngine.createJob(
             product.listingId,
@@ -453,6 +502,7 @@ contract ProductMarketplace is
             token,
             deliveryDeadline
         );
+        _verifyOutflow(token, balBeforeEscrow, auction.buyNowPrice);
 
         jobBuyer[jobId] = msg.sender;
         escrowEngine.setJobPayer(jobId, msg.sender);
@@ -466,6 +516,9 @@ contract ProductMarketplace is
     }
 
     /// @notice Settle auction. Uses the auction's snapshotted settlementToken.
+    /// @dev V-003 fix: Only winner or seller can settle when a job will be created (they choose
+    ///      deliveryDeadline). Failed auctions (no bids / below reserve) remain permissionless.
+    ///      Delivery deadline bounded to [MIN_DELIVERY_DEADLINE, MAX_DELIVERY_DEADLINE].
     function settleAuction(uint256 auctionId, uint256 deliveryDeadline) external nonReentrant whenNotPaused returns (uint256 jobId) {
         Auction storage auction = _auctions[auctionId];
         require(auction.productId != 0, "ProductMarketplace: auction not found");
@@ -485,8 +538,17 @@ contract ProductMarketplace is
             return 0;
         }
 
+        // V-003: only interested parties can choose the delivery deadline
+        require(
+            msg.sender == auction.highBidder || msg.sender == product.seller,
+            "ProductMarketplace: not winner or seller"
+        );
+        require(deliveryDeadline >= MIN_DELIVERY_DEADLINE, "ProductMarketplace: deadline too short");
+        require(deliveryDeadline <= MAX_DELIVERY_DEADLINE, "ProductMarketplace: deadline too long");
+
         product.sold += 1;
 
+        uint256 balBeforeEscrow = IERC20(token).balanceOf(address(this));
         IERC20(token).forceApprove(address(escrowEngine), auction.highBid);
         jobId = escrowEngine.createJob(
             product.listingId,
@@ -495,6 +557,7 @@ contract ProductMarketplace is
             token,
             deliveryDeadline
         );
+        _verifyOutflow(token, balBeforeEscrow, auction.highBid);
 
         jobBuyer[jobId] = auction.highBidder;
         escrowEngine.setJobPayer(jobId, auction.highBidder);
@@ -544,6 +607,8 @@ contract ProductMarketplace is
         emit ShipmentTracked(jobId, carrier, trackingNumber);
     }
 
+    /// @dev V-001 fix: insured jobs route through InsurancePool (which is the escrow buyer).
+    ///      Non-insured jobs call EscrowEngine directly (marketplace is the escrow buyer).
     function confirmReceipt(uint256 jobId) external nonReentrant whenNotPaused {
         require(jobBuyer[jobId] == msg.sender, "ProductMarketplace: not buyer");
 
@@ -554,7 +619,11 @@ contract ProductMarketplace is
         shipment.status = ShippingStatus.DELIVERED;
         receiptTimestamp[jobId] = block.timestamp;
 
-        escrowEngine.confirmDelivery(jobId);
+        if (jobInsured[jobId]) {
+            insurancePool.confirmInsuredDelivery(jobId);
+        } else {
+            escrowEngine.confirmDelivery(jobId);
+        }
         emit ReceiptConfirmed(jobId, msg.sender);
     }
 
@@ -562,10 +631,16 @@ contract ProductMarketplace is
     //  DISPUTES
     // ═══════════════════════════════════════════════════════════════
 
+    /// @dev V-001 fix: insured jobs route disputes through InsurancePool.
     function reportDamaged(uint256 jobId, string calldata evidenceURI) external nonReentrant whenNotPaused {
         require(jobBuyer[jobId] == msg.sender, "ProductMarketplace: not buyer");
         require(bytes(evidenceURI).length > 0, "ProductMarketplace: empty evidence");
-        escrowEngine.initiateDispute(jobId, evidenceURI);
+
+        if (jobInsured[jobId]) {
+            insurancePool.initiateInsuredDispute(jobId, evidenceURI);
+        } else {
+            escrowEngine.initiateDispute(jobId, evidenceURI);
+        }
         emit DamageReported(jobId, msg.sender, evidenceURI);
     }
 
@@ -577,6 +652,28 @@ contract ProductMarketplace is
         require(block.timestamp <= receipt + RETURN_WINDOW, "ProductMarketplace: return window closed");
         _shipments[jobId].status = ShippingStatus.RETURN_REQUESTED;
         emit ReturnRequested(jobId, msg.sender, reason);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  INTERNAL
+    // ═══════════════════════════════════════════════════════════════
+
+    /// @dev V-002 fix: Pull exact amount, revert on fee-on-transfer shortfall.
+    function _pullExact(address token, address from, uint256 amount) internal {
+        uint256 bal = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(from, address(this), amount);
+        require(
+            IERC20(token).balanceOf(address(this)) - bal == amount,
+            "ProductMarketplace: transfer shortfall"
+        );
+    }
+
+    /// @dev V-002 fix: Verify exactly `amount` left this contract during an external call.
+    function _verifyOutflow(address token, uint256 balBefore, uint256 amount) internal view {
+        require(
+            balBefore - IERC20(token).balanceOf(address(this)) == amount,
+            "ProductMarketplace: funding mismatch"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -608,4 +705,25 @@ contract ProductMarketplace is
 
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
+
+    function setExtension(address _extension) external onlyOwner {
+        extension = _extension;
+    }
+
+    /// @dev Delegates unrecognized selectors to the extension contract.
+    ///      Extension shares storage layout via delegatecall.
+    fallback() external payable {
+        address ext = extension;
+        require(ext != address(0), "ProductMarketplace: no extension");
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), ext, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch result
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
+        }
+    }
+
+    receive() external payable {}
 }

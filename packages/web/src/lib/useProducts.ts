@@ -124,6 +124,18 @@ export function useProductAuction(productId?: bigint) {
   });
 }
 
+/** Check if a job is insured */
+export function useJobInsured(jobId?: bigint) {
+  const contracts = useContracts();
+  return useReadContract({
+    address: contracts?.productMarketplace,
+    abi: ProductMarketplaceABI,
+    functionName: "jobInsured",
+    args: jobId !== undefined ? [jobId] : undefined,
+    query: { enabled: jobId !== undefined && isProductsLive(contracts) },
+  });
+}
+
 // ── WRITE hooks ─────────────────────────────────────────────────────────
 
 /** Register a product for an existing ServiceRegistry listing */
@@ -369,6 +381,78 @@ export function useCreateAuction() {
       abi: ProductMarketplaceABI,
       functionName: "createAuction",
       args: [productId, startPrice, reservePrice, buyNowPrice, duration],
+    });
+  };
+
+  return { fn, isPending, isError, error, reset };
+}
+
+/** Buy a fixed-price product with insurance */
+export function useBuyProductInsured() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+
+  const fn = async (productId: bigint, maxPrice: bigint, deliveryDeadline: bigint) => {
+    if (!isProductsLive(contracts)) throw new Error("Product marketplace not available");
+    return writeContractAsync({
+      address: contracts!.productMarketplace as Address,
+      abi: ProductMarketplaceABI,
+      functionName: "buyProductInsured",
+      args: [productId, maxPrice, deliveryDeadline],
+    });
+  };
+
+  return { fn, isPending, isError, error, reset };
+}
+
+/** Settle an ended auction with insurance */
+export function useSettleAuctionInsured() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+
+  const fn = async (auctionId: bigint, deliveryDeadline: bigint) => {
+    if (!isProductsLive(contracts)) throw new Error("Product marketplace not available");
+    return writeContractAsync({
+      address: contracts!.productMarketplace as Address,
+      abi: ProductMarketplaceABI,
+      functionName: "settleAuctionInsured",
+      args: [auctionId, deliveryDeadline],
+    });
+  };
+
+  return { fn, isPending, isError, error, reset };
+}
+
+/** Claim insurance refund (escrow refund forwarded from InsurancePool) */
+export function useClaimInsuranceRefund() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+
+  const fn = async (jobId: bigint) => {
+    if (!isProductsLive(contracts)) throw new Error("Product marketplace not available");
+    return writeContractAsync({
+      address: contracts!.productMarketplace as Address,
+      abi: ProductMarketplaceABI,
+      functionName: "claimInsuranceRefund",
+      args: [jobId],
+    });
+  };
+
+  return { fn, isPending, isError, error, reset };
+}
+
+/** File insurance claim for net loss not covered by escrow refund */
+export function useFileInsuranceClaim() {
+  const contracts = useContracts();
+  const { writeContractAsync, isPending, isError, error, reset } = useWriteContract();
+
+  const fn = async (jobId: bigint) => {
+    if (!isProductsLive(contracts)) throw new Error("Product marketplace not available");
+    return writeContractAsync({
+      address: contracts!.productMarketplace as Address,
+      abi: ProductMarketplaceABI,
+      functionName: "fileInsuranceClaim",
+      args: [jobId],
     });
   };
 

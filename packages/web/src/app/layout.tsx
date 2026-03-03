@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { Toaster } from "sonner";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { JsonLd } from "@/components/JsonLd";
+import { MiniAppInit } from "@/components/MiniAppInit";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -61,6 +62,18 @@ export const metadata: Metadata = {
   verification: { google: "" },
   other: {
     "base:app_id": "69a5ac276d5151991e1059df",
+    "fc:miniapp": JSON.stringify({
+      version: "next",
+      imageUrl: "https://lobstr.gg/opengraph-image",
+      button: {
+        title: "Open LOBSTR",
+        action: {
+          type: "launch_miniapp",
+          name: "LOBSTR",
+          url: "https://lobstr.gg",
+        },
+      },
+    }),
   },
 };
 
@@ -103,6 +116,7 @@ export default function RootLayout({
           </div>
           <Toaster theme="dark" position="bottom-right" richColors />
           <ChatWidget />
+          <MiniAppInit />
         </Providers>
       </body>
     </html>

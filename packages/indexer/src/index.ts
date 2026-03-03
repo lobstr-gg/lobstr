@@ -2524,3 +2524,160 @@ ponder.on("ProductMarketplace:ReturnRequested", async ({ event, context }) => {
       status: 3,
     });
 });
+
+// ============================================
+// ProductMarketplace V2 — Insurance + X402
+// ============================================
+
+ponder.on("ProductMarketplace:ProductPurchasedInsured", async ({ event, context }) => {
+  const { db } = context;
+  const { productId, jobId, buyer, premium } = event.args;
+
+  await db.insert(schema.insuredPurchase).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    productId,
+    jobId,
+    buyer,
+    premium,
+    isX402: false,
+    refundClaimed: false,
+    claimFiled: false,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  }).onConflictDoNothing();
+
+  // Increment sold count on product
+  await db
+    .insert(schema.product)
+    .values({
+      id: productId,
+      listingId: 0n,
+      seller: buyer,
+      listingType: 0,
+      condition: 0,
+      productCategory: "",
+      quantity: 0n,
+      sold: 1n,
+      active: true,
+      imageURI: "",
+      shippingInfoURI: "",
+      createdAt: event.block.timestamp,
+    })
+    .onConflictDoUpdate((row) => ({
+      sold: row.sold + 1n,
+    }));
+});
+
+ponder.on("ProductMarketplace:ProductPurchasedX402", async ({ event, context }) => {
+  const { db } = context;
+  const { productId, jobId, payer, x402Nonce } = event.args;
+
+  // If this X402 purchase is also insured, the ProductPurchasedInsured event
+  // fires in the same tx and creates the insuredPurchase row. Update it with
+  // the x402 nonce. If non-insured X402, just track in insuredPurchase with
+  // premium=0 for unified querying.
+  const existing = await db.find(schema.insuredPurchase, {
+    id: `${event.transaction.hash}-${event.log.logIndex - 1}`,
+  });
+
+  if (existing) {
+    // Insured X402 — update the row created by ProductPurchasedInsured
+    await db
+      .insert(schema.insuredPurchase)
+      .values({
+        id: existing.id,
+        productId,
+        jobId,
+        buyer: payer,
+        premium: existing.premium,
+        isX402: true,
+        x402Nonce,
+        refundClaimed: false,
+        claimFiled: false,
+        timestamp: event.block.timestamp,
+        blockNumber: event.block.number,
+      })
+      .onConflictDoUpdate({
+        isX402: true,
+        x402Nonce,
+      });
+  } else {
+    // Non-insured X402 purchase
+    await db.insert(schema.insuredPurchase).values({
+      id: `${event.transaction.hash}-${event.log.logIndex}`,
+      productId,
+      jobId,
+      buyer: payer,
+      premium: 0n,
+      isX402: true,
+      x402Nonce,
+      refundClaimed: false,
+      claimFiled: false,
+      timestamp: event.block.timestamp,
+      blockNumber: event.block.number,
+    }).onConflictDoNothing();
+  }
+
+  // Increment sold count on product
+  await db
+    .insert(schema.product)
+    .values({
+      id: productId,
+      listingId: 0n,
+      seller: payer,
+      listingType: 0,
+      condition: 0,
+      productCategory: "",
+      quantity: 0n,
+      sold: 1n,
+      active: true,
+      imageURI: "",
+      shippingInfoURI: "",
+      createdAt: event.block.timestamp,
+    })
+    .onConflictDoUpdate((row) => ({
+      sold: row.sold + 1n,
+    }));
+});
+
+ponder.on("ProductMarketplace:InsuranceRefundClaimed", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, buyer, amount } = event.args;
+
+  // Find the insured purchase by jobId and update
+  const rows = await db.sql.select().from(schema.insuredPurchase).where(
+    // @ts-ignore — drizzle eq import
+    (await import("drizzle-orm")).eq(schema.insuredPurchase.jobId, jobId)
+  ).limit(1);
+
+  if (rows.length > 0) {
+    await db
+      .insert(schema.insuredPurchase)
+      .values({ ...rows[0], refundClaimed: true, refundAmount: amount })
+      .onConflictDoUpdate({
+        refundClaimed: true,
+        refundAmount: amount,
+      });
+  }
+});
+
+ponder.on("ProductMarketplace:InsuranceClaimFiled", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId, buyer, amount } = event.args;
+
+  // Find the insured purchase by jobId and update
+  const rows = await db.sql.select().from(schema.insuredPurchase).where(
+    // @ts-ignore — drizzle eq import
+    (await import("drizzle-orm")).eq(schema.insuredPurchase.jobId, jobId)
+  ).limit(1);
+
+  if (rows.length > 0) {
+    await db
+      .insert(schema.insuredPurchase)
+      .values({ ...rows[0], claimFiled: true, claimAmount: amount })
+      .onConflictDoUpdate({
+        claimFiled: true,
+        claimAmount: amount,
+      });
+  }
+});

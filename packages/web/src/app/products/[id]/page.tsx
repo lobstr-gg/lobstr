@@ -5,12 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { stagger, fadeUp, ease } from "@/lib/motion";
-import { ArrowLeft, Package, Clock, Gavel, ShoppingCart, Truck, Loader2 } from "lucide-react";
+import { ArrowLeft, Package, Clock, Gavel, ShoppingCart, Truck, Loader2, Shield, ShieldCheck } from "lucide-react";
 import { useAccount } from "wagmi";
 import { formatEther } from "viem";
 import { getContracts, CHAIN } from "@/config/contracts";
 import { CONDITION_LABELS, LISTING_TYPE_LABELS, CATEGORY_LABELS, type ProductCategory } from "@/config/product-categories";
-import { useProduct, useAuction, useProductAuction, useBuyProduct, usePlaceBid, useBuyNow } from "@/lib/useProducts";
+import { useProduct, useAuction, useProductAuction, useBuyProduct, useBuyProductInsured, usePlaceBid, useBuyNow } from "@/lib/useProducts";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -24,11 +24,17 @@ export default function ProductDetailPage() {
   const { data: auction } = useAuction(auctionId && auctionId > 0n ? auctionId : undefined);
 
   const buyProduct = useBuyProduct();
+  const buyInsured = useBuyProductInsured();
   const placeBid = usePlaceBid();
   const buyNow = useBuyNow();
 
   const [bidAmount, setBidAmount] = useState("");
   const [txStatus, setTxStatus] = useState<string | null>(null);
+
+  // Insurance premium estimate (0.5% = 50 bps)
+  const premiumBps = 50n;
+  const price = product?.price ?? 0n;
+  const premium = (price * premiumBps) / 10000n;
 
   const isSeller = product && address?.toLowerCase() === product.seller.toLowerCase();
   const isAuction = product?.listingType === 1;
@@ -37,8 +43,20 @@ export default function ProductDetailPage() {
     if (!product || !contracts) return;
     setTxStatus("Purchasing...");
     try {
-      await buyProduct.fn(productId!, product.id, BigInt(7 * 24 * 3600));
+      await buyProduct.fn(productId!, product.price, BigInt(7 * 24 * 3600));
       setTxStatus("Purchase complete! Awaiting shipping.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Transaction failed";
+      setTxStatus(`Error: ${msg.slice(0, 100)}`);
+    }
+  };
+
+  const handleBuyInsured = async () => {
+    if (!product || !contracts) return;
+    setTxStatus("Purchasing with insurance...");
+    try {
+      await buyInsured.fn(productId!, product.price, BigInt(7 * 24 * 3600));
+      setTxStatus("Insured purchase complete! Awaiting shipping.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
       setTxStatus(`Error: ${msg.slice(0, 100)}`);
@@ -202,16 +220,28 @@ export default function ProductDetailPage() {
             {!isSeller && (
               <div className="space-y-2">
                 {!isAuction ? (
-                  <motion.button
-                    className="btn-primary w-full text-sm py-2 inline-flex items-center justify-center gap-2"
-                    whileHover={{ boxShadow: "inset 0 1px 0 rgba(88,176,89,0.12), 0 4px 16px rgba(88,176,89,0.08)" }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handleBuy}
-                    disabled={buyProduct.isPending || !address || Number(product.sold) >= Number(product.quantity)}
-                  >
-                    {buyProduct.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
-                    Buy Now
-                  </motion.button>
+                  <>
+                    <motion.button
+                      className="btn-primary w-full text-sm py-2 inline-flex items-center justify-center gap-2"
+                      whileHover={{ boxShadow: "inset 0 1px 0 rgba(88,176,89,0.12), 0 4px 16px rgba(88,176,89,0.08)" }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleBuy}
+                      disabled={buyProduct.isPending || !address || Number(product.sold) >= Number(product.quantity)}
+                    >
+                      {buyProduct.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                      Buy for {parseFloat(formatEther(product.price)).toLocaleString()} LOB
+                    </motion.button>
+                    <motion.button
+                      className="w-full text-xs py-2 rounded border border-lob-green/50 text-lob-green hover:bg-lob-green/10 transition-colors inline-flex items-center justify-center gap-1.5"
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleBuyInsured}
+                      disabled={buyInsured.isPending || !address || Number(product.sold) >= Number(product.quantity)}
+                    >
+                      {buyInsured.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Shield className="w-3 h-3" />}
+                      Buy Insured ({parseFloat(formatEther(product.price + premium)).toLocaleString()} LOB)
+                      <span className="text-text-tertiary ml-1">+{parseFloat(formatEther(premium)).toLocaleString()} premium</span>
+                    </motion.button>
+                  </>
                 ) : (
                   <>
                     <div className="flex gap-2">

@@ -62,7 +62,7 @@ const BASE_MAINNET_ADDRESSES: ContractAddressBook = {
   directiveBoard: ZERO_ADDRESS,
   reviewRegistry: ZERO_ADDRESS,
   multiPartyEscrow: ZERO_ADDRESS,
-  insurancePool: ZERO_ADDRESS,
+  insurancePool: "0x10555bd849769583755281Ea75e409268A055Ba6" as Address,
   skillRegistry: ZERO_ADDRESS,
   pipelineRouter: ZERO_ADDRESS,
   subscriptionEngine: ZERO_ADDRESS,

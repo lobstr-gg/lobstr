@@ -32,6 +32,7 @@ interface IInsurancePool {
     function updatePremiumRate(uint256 newBps) external;
     function updateCoverageCaps(uint256 bronze, uint256 silver, uint256 gold, uint256 platinum) external;
 
+    function premiumRateBps() external view returns (uint256);
     function getPoolStats() external view returns (uint256 totalDeposits, uint256 totalPremiums, uint256 totalClaims, uint256 available);
     function getStakerInfo(address staker) external view returns (PoolStaker memory);
     function getCoverageCap(address buyer) external view returns (uint256);

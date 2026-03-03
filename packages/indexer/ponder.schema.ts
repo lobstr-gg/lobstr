@@ -659,3 +659,32 @@ export const shipment = onchainTable("shipment", (t) => ({
   timestamp: t.bigint().notNull(),
   blockNumber: t.bigint().notNull(),
 }));
+
+// === Insured Purchases (ProductMarketplace V2) ===
+
+export const insuredPurchase = onchainTable("insured_purchase", (t) => ({
+  id: t.text().primaryKey(), // txHash-logIndex
+  productId: t.bigint().notNull(),
+  jobId: t.bigint().notNull(),
+  buyer: t.hex().notNull(),
+  premium: t.bigint().notNull(),
+  isX402: t.boolean().notNull().default(false),
+  x402Nonce: t.hex(),
+  refundClaimed: t.boolean().notNull().default(false),
+  refundAmount: t.bigint(),
+  claimFiled: t.boolean().notNull().default(false),
+  claimAmount: t.bigint(),
+  timestamp: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));
+
+export const insuredPurchaseRelations = relations(insuredPurchase, ({ one }) => ({
+  productRef: one(product, {
+    fields: [insuredPurchase.productId],
+    references: [product.id],
+  }),
+  buyerAccount: one(account, {
+    fields: [insuredPurchase.buyer],
+    references: [account.address],
+  }),
+}));

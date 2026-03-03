@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {InsurancePool} from "../src/InsurancePool.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title DeployInsurancePool
@@ -45,25 +46,34 @@ contract DeployInsurancePool is Script {
 
         vm.startBroadcast(deployerKey);
 
-        InsurancePool insurancePool = new InsurancePool();
-        insurancePool.initialize(
-            lobToken,
-            escrowEngine,
-            disputeArbitration,
-            reputationSystem,
-            stakingManager,
-            sybilGuard,
-            serviceRegistry,
-            treasury,
-            deployer
+        // Deploy implementation
+        InsurancePool impl = new InsurancePool();
+
+        // Deploy proxy
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(InsurancePool.initialize, (
+                lobToken,
+                escrowEngine,
+                disputeArbitration,
+                reputationSystem,
+                stakingManager,
+                sybilGuard,
+                serviceRegistry,
+                treasury,
+                deployer
+            ))
         );
+
+        InsurancePool insurancePool = InsurancePool(address(proxy));
 
         vm.stopBroadcast();
 
         console.log("");
         console.log("========== INSURANCE POOL DEPLOYED ==========");
         console.log("Deployer:              ", deployer);
-        console.log("InsurancePool:         ", address(insurancePool));
+        console.log("InsurancePool (proxy): ", address(insurancePool));
+        console.log("InsurancePool (impl):  ", address(impl));
         console.log("");
         console.log("Connected contracts:");
         console.log("  LOBToken:              ", lobToken);
