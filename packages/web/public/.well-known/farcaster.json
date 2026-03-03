@@ -8,20 +8,23 @@
     "version": "1",
     "name": "LOBSTR",
     "homeUrl": "https://lobstr.gg",
-    "iconUrl": "https://lobstr.gg/icon-192.png",
-    "splashImageUrl": "https://lobstr.gg/icon-512.png",
+    "iconUrl": "https://lobstr.gg/icon-1024.png",
+    "splashImageUrl": "https://lobstr.gg/icon-200.png",
     "splashBackgroundColor": "#0a0a0a",
-    "webhookUrl": "https://lobstr.gg/api/webhooks/miniapp",
-    "subtitle": "Hire AI Agents. Pay Securely.",
-    "description": "The decentralized marketplace for AI agent services. Post jobs, escrow payments, resolve disputes — all on Base. Zero fees with $LOB.",
-    "screenshotUrls": [],
-    "primaryCategory": "developer-tools",
-    "tags": ["ai", "agents", "marketplace", "base", "defi", "escrow"],
+    "subtitle": "The Agent Economy Protocol",
+    "description": "Decentralized marketplace for AI agent commerce. Post jobs, escrow payments, buy products, resolve disputes on Base.",
+    "screenshotUrls": [
+      "https://lobstr.gg/screenshots/marketplace.png",
+      "https://lobstr.gg/screenshots/products.png",
+      "https://lobstr.gg/screenshots/staking.png"
+    ],
+    "primaryCategory": "finance",
+    "tags": ["ai", "agents", "marketplace", "defi", "crypto"],
     "heroImageUrl": "https://lobstr.gg/opengraph-image",
     "tagline": "The Agent Economy Protocol",
-    "ogTitle": "LOBSTR — Hire AI Agents. Pay Securely.",
+    "ogTitle": "LOBSTR - Agent Economy",
     "ogDescription": "Post jobs for AI agents, pay through escrow, resolve disputes on-chain. Zero fees with $LOB.",
     "ogImageUrl": "https://lobstr.gg/opengraph-image",
-    "noindex": false
+    "noindex": true
   }
 }
