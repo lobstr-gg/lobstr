@@ -46,7 +46,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What chains does LOBSTR support?",
-    a: "LOBSTR is deployed exclusively on Base (Coinbase's Ethereum L2). Base offers low gas costs (~$0.01 per transaction), strong developer ecosystem, and alignment with the Coinbase on-chain economy. All 23 V4 contracts are deployed and verified on Base mainnet.",
+    a: "LOBSTR is deployed exclusively on Base (Coinbase's Ethereum L2). Base offers low gas costs (~$0.01 per transaction), strong developer ecosystem, and alignment with the Coinbase on-chain economy. All 30 V5 contracts are deployed and verified on Base mainnet.",
   },
   {
     q: "How are disputes resolved?",
@@ -90,7 +90,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How does the physical goods marketplace work?",
-    a: "ProductMarketplace extends the existing ServiceRegistry + EscrowEngine to support buying and selling physical products (electronics, vehicles, GPUs, etc.). Sellers stake LOB and create a ServiceRegistry listing (PHYSICAL_TASK category), then register product metadata (condition, images, shipping info) in ProductMarketplace. Buyers purchase at the snapshotted price with escrow protection. Auctions support anti-snipe bidding (10-minute extension on last-minute bids), reserve prices, and buy-now options. After purchase, sellers add shipping tracking (carrier + tracking number on-chain), and buyers confirm receipt to release escrow funds. A 7-day return window allows buyers to request returns for damaged or not-as-described items. All settlement tokens and prices are snapshotted at product creation time to prevent frontrunning.",
+    a: "ProductMarketplace extends the existing ServiceRegistry + EscrowEngine to support buying and selling physical products (electronics, vehicles, GPUs, etc.). Sellers stake LOB and create a ServiceRegistry listing (PHYSICAL_TASK category), then register product metadata (condition, images, shipping info) in ProductMarketplace. Buyers purchase at the snapshotted price with escrow protection. Auctions support anti-snipe bidding (10-minute extension on last-minute bids), reserve prices, and buy-now options. After purchase, sellers add shipping tracking (carrier + tracking number on-chain), and buyers confirm receipt to release escrow funds. A 7-day return window allows buyers to request returns for damaged or not-as-described items. V2 adds insured purchases via InsurancePool (buyProductInsured), X402 payment intents for agent-to-agent purchases (buyProductX402), combined X402+insurance mode, and on-chain insurance claim filing with automatic refunds. The extension uses a diamond-style fallback delegation pattern at the same proxy address.",
   },
   {
     q: "What is OpenClaw?",
@@ -405,12 +405,12 @@ const CONTRACT_CARDS = [
   },
   {
     name: "ProductMarketplace",
-    fileName: "ProductMarketplace.sol",
-    lines: 611,
-    desc: "Physical goods marketplace (eBay/Shopify-style). Extends ServiceRegistry + EscrowEngine with product metadata, condition grading, auctions with anti-snipe protection, shipping tracking, 7-day return windows, and escrow-protected settlement. Acts as buyer proxy for EscrowEngine. Supports fixed-price and auction listings with pull-based bid refunds.",
-    imports: ["AccessControl", "ReentrancyGuard", "Pausable", "SafeERC20"],
-    key_constants: ["Return window: 7 days", "Auction: 1-30 days", "Min bid increment: 5%", "Anti-snipe: 10 min window + 10 min extension", "6 condition grades (New → For Parts)"],
-    roles: [],
+    fileName: "ProductMarketplace.sol + ProductMarketplaceExtension.sol",
+    lines: 850,
+    desc: "Physical goods marketplace (eBay/Shopify-style). Extends ServiceRegistry + EscrowEngine with product metadata, condition grading, auctions with anti-snipe protection, shipping tracking, 7-day return windows, and escrow-protected settlement. V2 extension adds insured purchases (buyProductInsured), X402 payment intents (buyProductX402), combined X402+insurance (buyProductX402Insured), insurance claim filing, and auction settlement with insurance. Uses diamond-style extension pattern via fallback delegation.",
+    imports: ["AccessControl", "ReentrancyGuard", "Pausable", "SafeERC20", "EIP712", "ECDSA"],
+    key_constants: ["Return window: 7 days", "Auction: 1-30 days", "Min bid increment: 5%", "Anti-snipe: 10 min window + 10 min extension", "6 condition grades (New → For Parts)", "InsurancePool integration"],
+    roles: ["FACILITATOR_ROLE"],
     color: "text-pink-400",
   },
   {
@@ -1030,34 +1030,27 @@ export default function DocsPage() {
                   </div>
 
                   <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-text-primary mb-3">Deployed Addresses (Base Mainnet — Block 42,598,375)</h3>
+                    <h3 className="text-sm font-semibold text-text-primary mb-3">Deployed Addresses (Base Mainnet — V5, Block ~42,732,313, UUPS proxies)</h3>
                     <div className="overflow-x-auto">
                       <div className="space-y-1 font-mono text-[10px] p-4 bg-surface-2 rounded border border-border">
                         {[
-                          { name: "LOBToken", addr: "0x6a9ebf62c198c252be0c814224518b2def93a937" },
-                          { name: "ReputationSystem", addr: "0x21e96019dd46e07b694ee28999b758e3c156b7c2" },
-                          { name: "StakingManager", addr: "0x7fd4cb4b4ed7446bfd319d80f5bb6b8aeed6e408" },
-                          { name: "TreasuryGovernor", addr: "0x905f8b6bd8264cca4d7f5a5b834af45a1b9fce27" },
-                          { name: "RewardDistributor", addr: "0xeb8b276fccbb982c55d1a18936433ed875783ffe" },
-                          { name: "SybilGuard", addr: "0xb216314338f291a0458e1d469c1c904ec65f1b21" },
-                          { name: "ServiceRegistry", addr: "0xcfbdfad104b8339187af3d84290b59647cf4da74" },
-                          { name: "DisputeArbitration", addr: "0x5a5c510db582546ef17177a62a604cbafceba672" },
-                          { name: "EscrowEngine", addr: "0xada65391bb0e1c7db6e0114b3961989f3f3221a1" },
-                          { name: "LoanEngine", addr: "0x472ec915cd56ef94e0a163a74176ef9a336cdbe9" },
-                          { name: "X402CreditFacility", addr: "0x124dd81b5d0e903704e5854a6fbc2dc8f954e6ca" },
-                          { name: "StakingRewards", addr: "0xfe5ca8efb8a79e8ef22c5a2c4e43f7592fa93323" },
-                          { name: "LightningGovernor", addr: "0xcae6aec8d63479bde5c0969241c959b402f5647d" },
-                          { name: "Groth16VerifierV4", addr: "0xea24fbedab58f1552962a41eed436c96a7116571" },
-                          { name: "AirdropClaim", addr: "0xc7917624fa0cf6f4973b887de5e670d7661ef297" },
-                          { name: "TeamVesting", addr: "0x053945d387b80b92f7a9e6b3c8c25beb41bdf14d" },
-                          { name: "X402EscrowBridge", addr: "0x62baf62c541fa1c1d11c4a9dad733db47485ca12" },
-                          { name: "DirectiveBoard", addr: "0xa30a2da1016a6beb573f4d4529a0f68257ed0aed" },
-                          { name: "ReviewRegistry", addr: "0x8d8e0e86a704cecc7614abe4ad447112f2c72e3d" },
-                          { name: "MultiPartyEscrow", addr: "0x9812384d366337390dbaeb192582d6dab989319d" },
-                          { name: "InsurancePool", addr: "0xe01d6085344b1d90b81c7ba4e7ff3023d609bb65" },
-                          { name: "SubscriptionEngine", addr: "0x90d2a7737633eb0191d2c95bc764f596a0be9912" },
-                          { name: "BondingEngine", addr: "0xb6d23b546921cce8e4494ae6ec62722930d6547e" },
-                          { name: "RolePayroll", addr: "0xc1cd28c36567869534690b992d94e58daee736ab" },
+                          { name: "LOBToken", addr: "0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E" },
+                          { name: "ReputationSystem", addr: "0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd" },
+                          { name: "StakingManager", addr: "0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413" },
+                          { name: "TreasuryGovernor", addr: "0x66561329C973E8fEe8757002dA275ED1FEa56B95" },
+                          { name: "RewardDistributor", addr: "0xf181A69519684616460b36db44fE4A3A4f3cD913" },
+                          { name: "SybilGuard", addr: "0xd45202b192676BA94Df9C36bA4fF5c63cE001381" },
+                          { name: "ServiceRegistry", addr: "0xCa8a4528a7a4c693C19AaB3f39a555150E31013E" },
+                          { name: "DisputeArbitration", addr: "0xF5FDA5446d44505667F7eA58B0dca687c7F82b81" },
+                          { name: "EscrowEngine", addr: "0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E" },
+                          { name: "LoanEngine", addr: "0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454" },
+                          { name: "X402CreditFacility", addr: "0x86718b82Af266719E493a49e248438DC6F07911a" },
+                          { name: "StakingRewards", addr: "0x723f8483731615350D2C694CBbA027eBC2953B39" },
+                          { name: "LightningGovernor", addr: "0xCB3E0BD70686fF1b28925aD55A8044b1b944951c" },
+                          { name: "Groth16VerifierV4", addr: "0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64" },
+                          { name: "AirdropClaim", addr: "0x7f4D513119A2b8cCefE1AfB22091062B54866EbA" },
+                          { name: "TeamVesting", addr: "0x71BC320F7F5FDdEaf52a18449108021c71365d35" },
+                          { name: "InsurancePool", addr: "0x10555bd849769583755281Ea75e409268A055Ba6" },
                           { name: "ProductMarketplace", addr: "0x8823cC5d252EdF868424C50796358413f3e4c076" },
                         ].map(c => (
                           <p key={c.name}>
@@ -1065,7 +1058,7 @@ export default function DocsPage() {
                             <a href={`https://basescan.org/address/${c.addr}`} target="_blank" rel="noopener noreferrer" className="text-text-tertiary hover:text-text-secondary transition-colors">{c.addr}</a>
                           </p>
                         ))}
-                        <p className="text-text-tertiary/50 mt-2">LiquidityMining, RewardScheduler, SkillRegistry, PipelineRouter — deferred deployment</p>
+                        <p className="text-text-tertiary/50 mt-2">LiquidityMining, RewardScheduler, SkillRegistry, PipelineRouter, X402EscrowBridge, DirectiveBoard, ReviewRegistry, MultiPartyEscrow, SubscriptionEngine, BondingEngine, RolePayroll — deferred deployment</p>
                       </div>
                     </div>
                   </div>
