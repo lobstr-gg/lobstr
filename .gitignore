@@ -51,6 +51,7 @@ AUDIT-FIXES.md
 FIXES.md
 AGENT-OPS.md
 DEPLOY_INFO.txt
+DEPLOY_PLAN.md
 keys.env
 minimax.env
 *.docx
