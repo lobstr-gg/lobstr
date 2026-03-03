@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   verification: { google: "" },
   other: {
-    "base:app_id": "69a5ac276d5151991e1059df",
+    "base:app_id": "69a67bbaa0fdf68983d3081d",
     "fc:miniapp": JSON.stringify({
       version: "next",
       imageUrl: "https://lobstr.gg/opengraph-image",
