@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No files provided" }, { status: 400 });
   }
 
-  const countCheck = validateFileCount(files.length, MAX_EVIDENCE_IMAGES);
+  const countCheck = validateFileCount(files.length);
   if (!countCheck.valid) {
     return NextResponse.json({ error: countCheck.error }, { status: 400 });
   }
