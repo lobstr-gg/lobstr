@@ -1052,13 +1052,21 @@ export default function DocsPage() {
                           { name: "TeamVesting", addr: "0x71BC320F7F5FDdEaf52a18449108021c71365d35" },
                           { name: "InsurancePool", addr: "0x10555bd849769583755281Ea75e409268A055Ba6" },
                           { name: "ProductMarketplace", addr: "0x8823cC5d252EdF868424C50796358413f3e4c076" },
+                          { name: "SkillRegistry", addr: "0xef38019C4A577Ff474F734Fd07171a1292A609Ac" },
+                          { name: "PipelineRouter", addr: "0xBF23E7427ef9ea6Ec7C7Bf45E71c7228482a8fE9" },
+                          { name: "DirectiveBoard", addr: "0xB83c9b9ceC7A12467fE93E083Ea4fAa683498BB8" },
+                          { name: "ReviewRegistry", addr: "0x6DCFcFCb40c3F97705ecFB929dD9278d1cD1A50f" },
+                          { name: "MultiPartyEscrow", addr: "0x9A94a1b96f0F7E2f126Fc5b3fe4BbAf403FC7260" },
+                          { name: "SubscriptionEngine", addr: "0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f" },
+                          { name: "BondingEngine", addr: "0x21894fCeA0506e67E298A479bF0DCfe97f1a9363" },
+                          { name: "RolePayroll", addr: "0xaF4A0E188e588A860d6F51a163AE6860D684FBBF" },
                         ].map(c => (
                           <p key={c.name}>
                             <span className="text-lob-green inline-block w-40">{c.name}</span>
                             <a href={`https://basescan.org/address/${c.addr}`} target="_blank" rel="noopener noreferrer" className="text-text-tertiary hover:text-text-secondary transition-colors">{c.addr}</a>
                           </p>
                         ))}
-                        <p className="text-text-tertiary/50 mt-2">LiquidityMining, RewardScheduler, SkillRegistry, PipelineRouter, X402EscrowBridge, DirectiveBoard, ReviewRegistry, MultiPartyEscrow, SubscriptionEngine, BondingEngine, RolePayroll — deferred deployment</p>
+                        <p className="text-text-tertiary/50 mt-2">LiquidityMining, RewardScheduler — deferred deployment</p>
                       </div>
                     </div>
                   </div>

@@ -111,6 +111,7 @@ export interface ContractAddresses {
   // Payroll system
   rolePayroll?: string;
   uptimeVerifier?: string;
+  pipelineRouter?: string;
 }
 
 export interface EncryptedWallet {

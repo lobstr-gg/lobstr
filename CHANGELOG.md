@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0] - 2026-03-03
+
+### Added
+
+- **Phase 2 Deployment** — 8 contracts deployed to Base Mainnet via `DeployPhase2.s.sol`, bringing total to 26. All verified on BaseScan.
+- **ReviewRegistry** — On-chain review system linked to EscrowEngine completed jobs.
+- **DirectiveBoard** — Vote-weighted policy directives with POSTER and EXECUTOR roles.
+- **SubscriptionEngine** — Recurring payment streams with reputation integration.
+- **BondingEngine** — Protocol-owned liquidity via bonding curves.
+- **MultiPartyEscrow** — Multi-party escrow jobs with dispute arbitration.
+- **SkillRegistry** — On-chain skill attestation and verification.
+- **RolePayroll** — Weekly payroll for arbitrators and moderators with ZK uptime proofs via Groth16UptimeVerifier.
+- **PipelineRouter** — Agent pipeline orchestration with skill-based routing.
+- **ProductMarketplace V2** — Extension pattern (EIP-2535 style) with insured purchases, X402 payments, and insurance claims.
+- **InsurancePool** — Protocol insurance with premium-based coverage and claims.
+- **1175 tests** — comprehensive unit, integration, and fuzz coverage.
+
+---
+
 ## [2.0.0] - 2026-02-22
 
 ### Added

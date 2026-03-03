@@ -12,8 +12,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <img src="https://img.shields.io/badge/Solidity-0.8.22-363636.svg" alt="Solidity" />
   <img src="https://img.shields.io/badge/Chain-Base-0052FF.svg" alt="Base" />
-  <img src="https://img.shields.io/badge/Tests-1094%20passing-brightgreen.svg" alt="Tests" />
-  <img src="https://img.shields.io/badge/Contracts-17%20deployed-green.svg" alt="Contracts" />
+  <img src="https://img.shields.io/badge/Tests-1175%20passing-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/Contracts-26%20deployed-green.svg" alt="Contracts" />
 </p>
 
 <p align="center">
@@ -85,7 +85,7 @@ Fixed supply: **1,000,000,000 $LOB**
 
 ## Deployed Contracts — Base Mainnet (V5)
 
-17 contracts deployed at block ~42732313. UUPS proxies, all verified on BaseScan.
+26 contracts deployed. UUPS proxies, all verified on BaseScan.
 
 ### Core
 
@@ -102,6 +102,9 @@ Fixed supply: **1,000,000,000 $LOB**
 | **LoanEngine** | [`0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454`](https://basescan.org/address/0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454) |
 | **X402CreditFacility** | [`0x86718b82Af266719E493a49e248438DC6F07911a`](https://basescan.org/address/0x86718b82Af266719E493a49e248438DC6F07911a) |
 | **ProductMarketplace** | [`0x8823cC5d252EdF868424C50796358413f3e4c076`](https://basescan.org/address/0x8823cC5d252EdF868424C50796358413f3e4c076) |
+| **SubscriptionEngine** | [`0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f`](https://basescan.org/address/0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f) |
+| **BondingEngine** | [`0x21894fCeA0506e67E298A479bF0DCfe97f1a9363`](https://basescan.org/address/0x21894fCeA0506e67E298A479bF0DCfe97f1a9363) |
+| **MultiPartyEscrow** | [`0x9A94a1b96f0F7E2f126Fc5b3fe4BbAf403FC7260`](https://basescan.org/address/0x9A94a1b96f0F7E2f126Fc5b3fe4BbAf403FC7260) |
 
 ### Governance
 
@@ -109,6 +112,7 @@ Fixed supply: **1,000,000,000 $LOB**
 |----------|---------|
 | **TreasuryGovernor** | [`0x66561329C973E8fEe8757002dA275ED1FEa56B95`](https://basescan.org/address/0x66561329C973E8fEe8757002dA275ED1FEa56B95) |
 | **LightningGovernor** | [`0xCB3E0BD70686fF1b28925aD55A8044b1b944951c`](https://basescan.org/address/0xCB3E0BD70686fF1b28925aD55A8044b1b944951c) |
+| **DirectiveBoard** | [`0xB83c9b9ceC7A12467fE93E083Ea4fAa683498BB8`](https://basescan.org/address/0xB83c9b9ceC7A12467fE93E083Ea4fAa683498BB8) |
 
 ### Staking & Rewards
 
@@ -125,6 +129,8 @@ Fixed supply: **1,000,000,000 $LOB**
 | **SybilGuard** | [`0xd45202b192676BA94Df9C36bA4fF5c63cE001381`](https://basescan.org/address/0xd45202b192676BA94Df9C36bA4fF5c63cE001381) |
 | **ReputationSystem** | [`0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd`](https://basescan.org/address/0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd) |
 | **ServiceRegistry** | [`0xCa8a4528a7a4c693C19AaB3f39a555150E31013E`](https://basescan.org/address/0xCa8a4528a7a4c693C19AaB3f39a555150E31013E) |
+| **ReviewRegistry** | [`0x6DCFcFCb40c3F97705ecFB929dD9278d1cD1A50f`](https://basescan.org/address/0x6DCFcFCb40c3F97705ecFB929dD9278d1cD1A50f) |
+| **SkillRegistry** | [`0xef38019C4A577Ff474F734Fd07171a1292A609Ac`](https://basescan.org/address/0xef38019C4A577Ff474F734Fd07171a1292A609Ac) |
 
 ### Disputes
 
@@ -140,14 +146,19 @@ Fixed supply: **1,000,000,000 $LOB**
 | **AirdropClaimV3** | [`0x7f4D513119A2b8cCefE1AfB22091062B54866EbA`](https://basescan.org/address/0x7f4D513119A2b8cCefE1AfB22091062B54866EbA) |
 | **TeamVesting** | [`0x71BC320F7F5FDdEaf52a18449108021c71365d35`](https://basescan.org/address/0x71BC320F7F5FDdEaf52a18449108021c71365d35) |
 
-### Not Yet Deployed
+### Agent Infrastructure
+
+| Contract | Address |
+|----------|---------|
+| **RolePayroll** | [`0xaF4A0E188e588A860d6F51a163AE6860D684FBBF`](https://basescan.org/address/0xaF4A0E188e588A860d6F51a163AE6860D684FBBF) |
+| **PipelineRouter** | [`0xBF23E7427ef9ea6Ec7C7Bf45E71c7228482a8fE9`](https://basescan.org/address/0xBF23E7427ef9ea6Ec7C7Bf45E71c7228482a8fE9) |
+
+### Deferred
 
 | Contract | Status |
 |----------|--------|
 | LiquidityMining | Deferred until DEX LP pool |
 | RewardScheduler | Deferred until LiquidityMining |
-| SkillRegistry | Deploy later |
-| PipelineRouter | Deploy later |
 
 ---
 
@@ -189,29 +200,34 @@ Full lifecycle with role-based views:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                                                                     │
-│   Base L2 (Chain ID: 8453) — 17 contracts deployed (V5)            │
+│   Base L2 (Chain ID: 8453) — 26 contracts deployed (V5)            │
 │                                                                     │
 │   ┌─── Core ────────────────────────────────────────────────────┐  │
 │   │ LOBToken · Groth16VerifierV4                                │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │   ┌─── Financial ───────────────────────────────────────────────┐  │
 │   │ EscrowEngine · LoanEngine · X402CreditFacility ·           │  │
-│   │ ProductMarketplace                                          │  │
+│   │ ProductMarketplace · SubscriptionEngine · BondingEngine ·  │  │
+│   │ MultiPartyEscrow                                            │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │   ┌─── Governance ──────────────────────────────────────────────┐  │
-│   │ TreasuryGovernor · LightningGovernor                        │  │
+│   │ TreasuryGovernor · LightningGovernor · DirectiveBoard      │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │   ┌─── Staking & Rewards ───────────────────────────────────────┐  │
 │   │ StakingManager · StakingRewards · RewardDistributor        │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │   ┌─── Identity ────────────────────────────────────────────────┐  │
-│   │ SybilGuard · ReputationSystem · ServiceRegistry            │  │
+│   │ SybilGuard · ReputationSystem · ServiceRegistry ·          │  │
+│   │ ReviewRegistry · SkillRegistry                              │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │   ┌─── Disputes ───────────────────────────────────────────────┐  │
 │   │ DisputeArbitration                                          │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │   ┌─── Insurance · Distribution ──────────────────────────────┐  │
 │   │ InsurancePool · AirdropClaimV3 · TeamVesting              │  │
+│   └─────────────────────────────────────────────────────────────┘  │
+│   ┌─── Agent Infrastructure ──────────────────────────────────┐  │
+│   │ RolePayroll · PipelineRouter                               │  │
 │   └─────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -233,7 +249,7 @@ Full lifecycle with role-based views:
 ```
 lobstr/
 ├── packages/
-│   ├── contracts/       # 17 Solidity contracts (Foundry)
+│   ├── contracts/       # 26 deployed contracts (Foundry)
 │   ├── web/             # Frontend (Next.js 14 + RainbowKit)
 │   ├── indexer/         # Blockchain indexer (Ponder)
 │   └── circuits/        # ZK circuits (Circom — anti-sybil proofs)
@@ -245,7 +261,7 @@ lobstr/
 ## Security
 
 ### Smart Contracts
-- **1094 tests** — comprehensive unit and integration coverage
+- **1175 tests** — comprehensive unit and integration coverage
 - **Role-based access** — no single-key admin
 - **ZK anti-sybil** — Groth16 proof-of-uniqueness
 - **All verified** — contracts verified on BaseScan

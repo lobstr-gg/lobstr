@@ -297,6 +297,13 @@ ponder.on("EscrowEngine:TokenRemoved", async ({ event, context }) => {
   });
 });
 
+ponder.on("EscrowEngine:JobCancelled", async ({ event, context }) => {
+  const { db } = context;
+  const { jobId } = event.args;
+
+  await db.update(schema.job, { id: jobId }).set({ status: 7 }); // Cancelled
+});
+
 // ============================================
 // DisputeArbitration Events
 // ============================================
@@ -603,6 +610,64 @@ ponder.on(
       }));
   }
 );
+
+ponder.on("DisputeArbitration:EmergencyResolution", async ({ event, context }) => {
+  const { db } = context;
+  const { disputeId } = event.args;
+
+  await db.insert(schema.arbitrationEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "emergency_resolution",
+    disputeId,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("DisputeArbitration:DisputeRepaneled", async ({ event, context }) => {
+  const { db } = context;
+  const { disputeId } = event.args;
+
+  await db.insert(schema.arbitrationEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    eventType: "dispute_repaneled",
+    disputeId,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+  });
+});
+
+ponder.on("DisputeArbitration:ArbitratorCertified", async ({ event, context }) => {
+  const { db } = context;
+  const { arbitrator } = event.args;
+
+  await db
+    .insert(schema.account)
+    .values({
+      address: arbitrator,
+      isArbitrator: true,
+      createdAt: event.block.timestamp,
+    })
+    .onConflictDoUpdate({
+      isArbitrator: true,
+    });
+});
+
+ponder.on("DisputeArbitration:CertificationRevoked", async ({ event, context }) => {
+  const { db } = context;
+  const { arbitrator } = event.args;
+
+  await db
+    .insert(schema.account)
+    .values({
+      address: arbitrator,
+      isArbitrator: false,
+      createdAt: event.block.timestamp,
+    })
+    .onConflictDoUpdate({
+      isArbitrator: false,
+    });
+});
 
 // ============================================
 // X402EscrowBridge Events

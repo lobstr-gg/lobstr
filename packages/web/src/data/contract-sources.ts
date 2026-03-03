@@ -3125,7 +3125,7 @@ contract X402EscrowBridge is Initializable, UUPSUpgradeable, OwnableUpgradeable,
 
     /// @dev Executes EIP-3009 receiveWithAuthorization with balance-delta verification.
     ///      Uses receiveWithAuthorization instead of transferWithAuthorization because:
-    ///        - receiveWithAuthorization restricts the caller to the `to` address (this contract)
+    ///        - receiveWithAuthorization restricts the caller to the \`to\` address (this contract)
     ///        - This prevents front-running: third parties cannot execute the transfer first
     ///        - USDC on Base supports receiveWithAuthorization per the EIP-3009 spec
     ///      Isolated into its own function to avoid stack-too-deep in depositWithAuthorization.
@@ -8519,7 +8519,7 @@ contract ProductMarketplace is
         );
     }
 
-    /// @dev V-002 fix: Verify exactly `amount` left this contract during an external call.
+    /// @dev V-002 fix: Verify exactly \`amount\` left this contract during an external call.
     function _verifyOutflow(address token, uint256 balBefore, uint256 amount) internal view {
         require(
             balBefore - IERC20(token).balanceOf(address(this)) == amount,
@@ -9056,7 +9056,7 @@ contract ProductMarketplaceExtension is
         );
     }
 
-    /// @dev V-002 fix: Verify exactly `amount` left this contract during an external call.
+    /// @dev V-002 fix: Verify exactly \`amount\` left this contract during an external call.
     function _verifyOutflow(address token, uint256 balBefore, uint256 amount) internal view {
         require(
             balBefore - IERC20(token).balanceOf(address(this)) == amount,

@@ -19,6 +19,8 @@ import {
   useUndelegate,
 } from "@/lib/hooks";
 import { getContracts, CHAIN, getExplorerUrl } from "@/config/contracts";
+import { CONTRACTS_BY_CHAIN } from "@/config/contract-addresses";
+import { base } from "viem/chains";
 import {
   type BountyCategory,
   type BountyStatus,
@@ -83,18 +85,13 @@ const KNOWN_SIGNERS: { address: Address; label: string }[] = [
   { address: "0x3F2ABc3BDb1e3e4F0120e560554c3c842286B251", label: "Guardian" },
 ];
 
-/* Known contract addresses for readable target names */
-const TARGET_LABELS: Record<string, string> = {
-  "0xd41a40145811915075f6935a4755f8688e53c8db": "ReputationSystem",
-  "0xcb7790d3f9b5bfe171eb30c253ab3007d43c441b": "StakingManager",
-  "0x0d1d8583561310adeefe18cb3a5729e2666ac14c": "X402CreditFacility",
-  "0x576235a56e0e25feb95ea198d017070ad7f78360": "EscrowEngine",
-  "0xffbded2dba5e27ad5a56c6d4c401124e942ada04": "DisputeArbitration",
-  "0xf5ab9f1a5c6cc60e1a68d50b4c943d72fd97487a": "LoanEngine",
-  "0x545a01e48cfb6a76699ef12ec1e998c1a275c84e": "SybilGuard",
-  "0xe1d68167a15afa7c4e22df978dc4a66a0b4114fe": "InsurancePool",
-  "0x9b7e2b8cf7de5ef1f85038b050952dc1d4596319": "TreasuryGovernor",
-};
+/* Known contract addresses for readable target names — built from canonical source */
+const TARGET_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(CONTRACTS_BY_CHAIN[base.id]).map(([name, addr]) => [
+    (addr as string).toLowerCase(),
+    name.charAt(0).toUpperCase() + name.slice(1),
+  ])
+);
 
 /* ── Constants ────────────────────────────────────────────────── */
 

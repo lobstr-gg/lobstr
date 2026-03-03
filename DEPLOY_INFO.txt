@@ -139,3 +139,185 @@ V5 Groth16VerifierV5:          0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64
 V5 AirdropClaimV3 (proxy):     0x7f4D513119A2b8cCefE1AfB22091062B54866EbA
 V5 TeamVesting (proxy):        0x71BC320F7F5FDdEaf52a18449108021c71365d35
 V5 Deploy Block:               ~42732313
+
+PRODUCTMARKETPLACE V2 + INSURANCEPOOL DEPLOYMENT
+=================================================
+Date: 2026-03-02
+Status: DEPLOYED TO BASE MAINNET — all on-chain steps complete
+Tests: 72 passing (forge test --mc ProductMarketplaceTest)
+
+Architecture: Extension pattern (EIP-2535 style)
+  ProductMarketplace has fallback() that delegatecalls to extension.
+  Extension shares identical storage layout. Proxy sees unified API.
+  Split required because V2 code exceeded 24576 byte EIP-170 limit (was 34KB).
+
+ON-CHAIN ADDRESSES
+------------------
+ProductMarketplace (proxy):      0x8823cC5d252EdF868424C50796358413f3e4c076
+ProductMarketplace V2 (impl):    0x088E6E4A82438589C19173F92F996c9bEF27524c
+ProductMarketplaceExtension:     0xFa1af284A8d5F817cEdFAe0a4eD8960DaaeC50Ac
+InsurancePool (proxy):           0x10555bd849769583755281Ea75e409268A055Ba6
+InsurancePool (impl):            0xd3A5822126F389fAA3Cad75682E0B1367c2f0FbD
+Indexer start block:             42850586
+Owner:                           0x8a1C742A8A2F4f7C1295443809acE281723650fb
+
+ON-CHAIN STATE (verified)
+-------------------------
+[x] ProductMarketplace proxy upgraded to V2 implementation
+[x] Extension deployed and wired via setExtension()
+[x] initializeV2() called — EIP712 domain separator initialized
+[x] InsurancePool deployed (impl + ERC1967Proxy)
+[x] setInsurancePool() called — marketplace wired to InsurancePool
+[x] contract-addresses.ts updated with InsurancePool address
+
+WHAT'S LIVE
+-----------
+Main contract (ProductMarketplace):
+  buyProduct, createProduct, createAuction, placeBid, buyNow,
+  settleAuction, withdrawBid, shipProduct, confirmReceipt,
+  reportDamaged, requestReturn, all views, admin
+
+Extension (via fallback delegatecall):
+  buyProductInsured, buyProductX402, buyProductX402Insured,
+  settleAuctionInsured, claimInsuranceRefund, fileInsuranceClaim,
+  setInsurancePool, initializeV2
+
+Events: ProductPurchasedInsured, ProductPurchasedX402,
+        InsuranceRefundClaimed, InsuranceClaimFiled
+
+AUDIT FIXES DEPLOYED
+--------------------
+- Intent-product binding (listingId + seller match enforced in X402)
+- Winner-only insured settle (settleAuctionInsured restricted to highBidder)
+- Winner/seller-only settle (settleAuction restricted for successful auctions)
+- Delivery deadline bounds [1 day, 90 days] on ALL 7 job-creating paths
+- Insured lifecycle sync (confirmReceipt/reportDamaged route through InsurancePool)
+- Fee-on-transfer protection (_pullExact + _verifyOutflow on all transfers)
+
+REMAINING STEPS
+---------------
+[x] Deploy InsurancePool to Base Mainnet
+[x] Upgrade ProductMarketplace proxy to V2
+[x] Deploy extension, wire via setExtension()
+[x] Call initializeV2() and setInsurancePool()
+[x] Update contract-addresses.ts
+[x] Add indexer event handlers (4 new handlers in index.ts)
+[x] Extend indexer schema (insuredPurchase table in ponder.schema.ts)
+[x] Update product detail page (Buy Insured button + premium display)
+[ ] Verify contracts on Basescan (--verify had socket issues, do manually)
+[ ] Seed InsurancePool with LOB liquidity (stakers must deposit)
+[ ] Grant FACILITATOR_ROLE when X402 facilitator service is ready
+[ ] Push to main (auto-deploys web + indexer via CI)
+[ ] Smoke test insured purchase + auction flows on mainnet
+[ ] Grant GOVERNOR_ROLE on InsurancePool to TreasuryGovernor (multisig)
+
+BASESCAN VERIFICATION (manual, if needed)
+------------------------------------------
+forge verify-contract 0x088E6E4A82438589C19173F92F996c9bEF27524c \
+  src/ProductMarketplace.sol:ProductMarketplace \
+  --chain base --etherscan-api-key $BASESCAN_API_KEY
+
+forge verify-contract 0xFa1af284A8d5F817cEdFAe0a4eD8960DaaeC50Ac \
+  src/ProductMarketplaceExtension.sol:ProductMarketplaceExtension \
+  --chain base --etherscan-api-key $BASESCAN_API_KEY
+
+forge verify-contract 0xd3A5822126F389fAA3Cad75682E0B1367c2f0FbD \
+  src/InsurancePool.sol:InsurancePool \
+  --chain base --etherscan-api-key $BASESCAN_API_KEY
+
+FILES MODIFIED
+--------------
+packages/contracts/src/ProductMarketplace.sol              — V2 with fallback + extension slot
+packages/contracts/src/ProductMarketplaceExtension.sol     — NEW: V2 functions (insured, X402, claims)
+packages/contracts/test/ProductMarketplace.t.sol           — 72 tests (uses marketplaceExt for V2 calls)
+packages/contracts/src/interfaces/IInsurancePool.sol       — added premiumRateBps()
+packages/contracts/script/DeployInsurancePool.s.sol        — fixed: uses ERC1967Proxy
+packages/contracts/script/UpgradeProductMarketplace.s.sol  — NEW: upgrade + extension + wiring
+packages/web/src/config/contract-addresses.ts              — InsurancePool address added
+packages/web/src/lib/useProducts.ts                        — 5 new hooks
+packages/web/src/app/products/[id]/page.tsx                — Buy Insured button + premium display
+packages/indexer/ponder.schema.ts                          — insuredPurchase table
+packages/indexer/src/index.ts                              — 4 new event handlers
+packages/contracts/.env                                    — updated to V5 addresses
+
+Desktop copies: /Users/cruzflores/Desktop/productmp/
+
+PHASE 2 DEPLOYMENT - 8 REMAINING CONTRACTS
+===========================================
+Date: 2026-03-03
+Status: DEPLOYED TO BASE MAINNET - all 17 contracts verified on Basescan
+Script: packages/contracts/script/DeployPhase2.s.sol
+Gas used: ~0.00033 ETH
+
+DEPLOYMENT COMMAND
+------------------
+cd packages/contracts && source .env
+forge script script/DeployPhase2.s.sol:DeployPhase2 \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --broadcast --verify \
+  --etherscan-api-key $BASESCAN_API_KEY -vvvv
+
+ON-CHAIN ADDRESSES
+------------------
+1. ReviewRegistry (proxy):       0x6DCFcFCb40c3F97705ecFB929dD9278d1cD1A50f
+   ReviewRegistry (impl):        0x749955f1f301ce750b0dFc2dfBBB819573ee4837
+2. DirectiveBoard (proxy):       0xB83c9b9ceC7A12467fE93E083Ea4fAa683498BB8
+   DirectiveBoard (impl):        0x6946656843E0E13717173EfE23A1f6705D65b476
+3. SubscriptionEngine (proxy):   0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f
+   SubscriptionEngine (impl):    0x9b1b722d5843494443D19578B46EC164C31f3d33
+4. BondingEngine (proxy):        0x21894fCeA0506e67E298A479bF0DCfe97f1a9363
+   BondingEngine (impl):         0x2328f73671ba47e91F98CFc51E00eD7741167E4E
+5. MultiPartyEscrow (proxy):     0x9A94a1b96f0F7E2f126Fc5b3fe4BbAf403FC7260
+   MultiPartyEscrow (impl):      0x04279ec9fcd7e5a2aD10440CbF3051b8C5024768
+6. SkillRegistry (proxy):        0xef38019C4A577Ff474F734Fd07171a1292A609Ac
+   SkillRegistry (impl):         0x948Dc1D5Ff4Fba00b1488BbA5C5D49BAA1FbB54a
+7. RolePayroll (proxy):          0xaF4A0E188e588A860d6F51a163AE6860D684FBBF
+   RolePayroll (impl):           0x8f770425E71c77c74CD92aB4fb7978191cA5ade2
+8. PipelineRouter (proxy):       0xBF23E7427ef9ea6Ec7C7Bf45E71c7228482a8fE9
+   PipelineRouter (impl):        0x02Af84A992F8e1E4709FD77E25e897051BE2F80b
+   Groth16UptimeVerifier:        0x41142eb9C7Ad3b4eDd7F7408074aDfe60F5422c1
+
+V5 DEPENDENCIES (hardcoded in script)
+--------------------------------------
+LOBToken:              0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E
+ReputationSystem:      0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd
+StakingManager:        0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413
+TreasuryGovernor:      0x66561329C973E8fEe8757002dA275ED1FEa56B95
+SybilGuard:            0xd45202b192676BA94Df9C36bA4fF5c63cE001381
+DisputeArbitration:    0xF5FDA5446d44505667F7eA58B0dca687c7F82b81
+EscrowEngine:          0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E
+InsurancePool:         0x10555bd849769583755281Ea75e409268A055Ba6
+USDC (Base):           0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+
+WHAT THE SCRIPT DOES
+--------------------
+- Deploys 8 implementation contracts + 8 ERC1967 proxies (UUPS pattern)
+- Deploys Groth16UptimeVerifier for RolePayroll ZK uptime proofs
+- Configures 6 RolePayroll role ranks (Arbitrator Jr/Sr/Principal, Moderator Jr/Sr/Lead)
+- Marks 3 founder agents as exempt in RolePayroll
+- Grants POSTER_ROLE + EXECUTOR_ROLE on DirectiveBoard
+- Transfers DEFAULT_ADMIN_ROLE to TreasuryGovernor on all 8 contracts
+- Deployer renounces admin on all 8 contracts
+
+POST-DEPLOY CHECKLIST
+---------------------
+[ ] Save all proxy addresses from console output
+[ ] Update contract-addresses.ts with 8 new proxy addresses
+[ ] Verify proxy impl slots: cast implementation <proxy> --rpc-url $RPC
+[ ] Push to main (auto-deploys web + indexer)
+
+POST-DEPLOY MULTISIG GRANTS (via TreasuryGovernor)
+----------------------------------------------------
+[ ] Grant RECORDER_ROLE on ReputationSystem to SubscriptionEngine
+[ ] Grant MARKET_ADMIN_ROLE on BondingEngine to TreasuryGovernor
+[ ] lobToken.approve(BondingEngine, <budget>) from Treasury
+[ ] Grant LOCKER_ROLE on StakingManager to RolePayroll
+[ ] Grant SLASHER_ROLE on StakingManager to RolePayroll
+[ ] Grant DISPUTE_ROLE on RolePayroll to DisputeArbitration
+[ ] lobToken.approve(RolePayroll, <budget>) from Treasury
+
+CONTRACTS NOT DEPLOYED (deferred)
+----------------------------------
+- LiquidityMining:   deferred until DEX LP pool created
+- RewardScheduler:   deferred until LiquidityMining deployed
+- X402EscrowBridge:  superseded by ProductMarketplace X402 extension

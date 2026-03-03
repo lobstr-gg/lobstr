@@ -229,7 +229,7 @@ x402 Settlement Flow:
 5. Job follows standard escrow lifecycle
 6. On dispute: refund credit stored in bridge, payer claims permissionlessly
 
-Note: X402EscrowBridge (0x0000000000000000000000000000000000000000) not yet redeployed for V5
+Note: X402EscrowBridge is superseded by the ProductMarketplace X402 extension
 
 ## Subscriptions
 - Intervals: weekly, monthly, quarterly
@@ -239,7 +239,7 @@ Note: X402EscrowBridge (0x0000000000000000000000000000000000000000) not yet rede
 - Can be paused, resumed, or cancelled by either party
 - Auto-renewal via keeper bot (no manual renewal needed)
 
-Note: SubscriptionEngine (0x0000000000000000000000000000000000000000) not yet redeployed for V5
+SubscriptionEngine: 0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f
 
 ## DAO Governance
 
@@ -430,15 +430,14 @@ Financial:
 - EscrowEngine: 0xd8654D79C21Fb090Ef30C901db530b127Ef82b4E
 - LoanEngine: 0x2F712Fb743Ee42D37371f245F5E0e7FECBEF7454
 - X402CreditFacility: 0x86718b82Af266719E493a49e248438DC6F07911a
-- X402EscrowBridge: 0x0000000000000000000000000000000000000000 (not yet redeployed)
-- SubscriptionEngine: 0x0000000000000000000000000000000000000000 (not yet redeployed)
-- BondingEngine: 0x0000000000000000000000000000000000000000 (not yet redeployed)
-- MultiPartyEscrow: 0x0000000000000000000000000000000000000000 (not yet redeployed)
+- SubscriptionEngine: 0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f
+- BondingEngine: 0x21894fCeA0506e67E298A479bF0DCfe97f1a9363
+- MultiPartyEscrow: 0x9A94a1b96f0F7E2f126Fc5b3fe4BbAf403FC7260
 
 Governance:
 - TreasuryGovernor: 0x66561329C973E8fEe8757002dA275ED1FEa56B95
 - LightningGovernor: 0xCB3E0BD70686fF1b28925aD55A8044b1b944951c
-- DirectiveBoard: 0x0000000000000000000000000000000000000000 (not yet redeployed)
+- DirectiveBoard: 0xB83c9b9ceC7A12467fE93E083Ea4fAa683498BB8
 
 Staking & Rewards:
 - StakingManager: 0xcd9d96c85b4Cd4E91d340C3F69aAd80c3cb3d413
@@ -449,22 +448,22 @@ Identity & Reputation:
 - SybilGuard: 0xd45202b192676BA94Df9C36bA4fF5c63cE001381
 - ReputationSystem: 0x80aB3BE1A18D6D9c79fD09B85ddA8cB6A280EAAd
 - ServiceRegistry: 0xCa8a4528a7a4c693C19AaB3f39a555150E31013E
+- SkillRegistry: 0xef38019C4A577Ff474F734Fd07171a1292A609Ac
 
 Disputes & Reviews:
 - DisputeArbitration: 0xF5FDA5446d44505667F7eA58B0dca687c7F82b81
-- ReviewRegistry: 0x0000000000000000000000000000000000000000 (not yet redeployed)
+- ReviewRegistry: 0x6DCFcFCb40c3F97705ecFB929dD9278d1cD1A50f
 
 Insurance, Distribution & Payroll:
-- InsurancePool: 0x0000000000000000000000000000000000000000 (not yet redeployed)
+- InsurancePool: 0x10555bd849769583755281Ea75e409268A055Ba6
 - AirdropClaim: 0x7f4D513119A2b8cCefE1AfB22091062B54866EbA
 - TeamVesting: 0x71BC320F7F5FDdEaf52a18449108021c71365d35
-- RolePayroll: 0x0000000000000000000000000000000000000000 (not yet redeployed)
+- RolePayroll: 0xaF4A0E188e588A860d6F51a163AE6860D684FBBF
+- PipelineRouter: 0xBF23E7427ef9ea6Ec7C7Bf45E71c7228482a8fE9
 
-Not Yet Deployed:
+Deferred:
 - LiquidityMining: deferred until DEX LP pool is created
 - RewardScheduler: deferred until LiquidityMining is deployed
-- SkillRegistry: deploy later
-- PipelineRouter: deploy later
 
 Other:
 - USDC (Base): 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913

@@ -1206,7 +1206,7 @@ export function useRatingStats(address?: `0x${string}`) {
     abi: ReviewRegistryABI,
     functionName: "getRatingStats",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts && hasCoreAddresses(contracts) },
+    query: { enabled: !!address && !!contracts && contracts.reviewRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1217,7 +1217,7 @@ export function useAverageRating(address?: `0x${string}`) {
     abi: ReviewRegistryABI,
     functionName: "getAverageRating",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!contracts && hasCoreAddresses(contracts) },
+    query: { enabled: !!address && !!contracts && contracts.reviewRegistry !== ZERO_ADDRESS },
   });
 }
 
@@ -1583,7 +1583,7 @@ export function useIsInsuredJob(jobId?: bigint) {
     abi: InsurancePoolABI,
     functionName: "isInsuredJob",
     args: jobId !== undefined ? [jobId] : undefined,
-    query: { enabled: jobId !== undefined && !!contracts && contracts.multiPartyEscrow !== ZERO_ADDRESS },
+    query: { enabled: jobId !== undefined && !!contracts && contracts.insurancePool !== ZERO_ADDRESS },
   });
 }
 
@@ -2593,7 +2593,7 @@ export function useCreateMarket() {
   const contracts = useContracts();
 
   return (quoteToken: Address, pricePer1LOB: bigint, discountBps: bigint, vestingPeriod: bigint, capacity: bigint, addressCap: bigint) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.bondingEngine,
       abi: BondingEngineABI,
@@ -2608,7 +2608,7 @@ export function usePurchaseBond() {
   const contracts = useContracts();
 
   return (marketId: bigint, quoteAmount: bigint) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.bondingEngine,
       abi: BondingEngineABI,
@@ -2623,7 +2623,7 @@ export function useClaimBond() {
   const contracts = useContracts();
 
   return (bondId: bigint) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.bondingEngine,
       abi: BondingEngineABI,
@@ -2638,7 +2638,7 @@ export function useClaimMultipleBonds() {
   const contracts = useContracts();
 
   return (bondIds: bigint[]) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.bondingEngine,
       abi: BondingEngineABI,
@@ -2721,7 +2721,7 @@ export function usePostDirective() {
   const contracts = useContracts();
 
   return (directiveType: number, target: Address, contentHash: `0x${string}`, contentURI: string, expiresAt: bigint) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.directiveBoard,
       abi: DirectiveBoardABI,
@@ -2736,7 +2736,7 @@ export function useMarkExecuted() {
   const contracts = useContracts();
 
   return (directiveId: bigint) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.directiveBoard,
       abi: DirectiveBoardABI,
@@ -2751,7 +2751,7 @@ export function useCancelDirective() {
   const contracts = useContracts();
 
   return (directiveId: bigint) => {
-    if (!contracts) return;
+    if (!contracts) throw new Error("Contracts not loaded");
     writeContract({
       address: contracts.directiveBoard,
       abi: DirectiveBoardABI,

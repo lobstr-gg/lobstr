@@ -35,7 +35,7 @@ import { CONTRACTS_BY_CHAIN } from "../web/src/config/contract-addresses";
 
 const CONTRACTS = CONTRACTS_BY_CHAIN[base.id];
 
-// V4 full redeploy — 2026-02-25, block 42598375
+// V5 full deploy — 2026-02-27, block ~42732313; Phase 2 — 2026-03-03
 const V1_START_BLOCK = 42598375;
 const V2_START_BLOCK = 42598375;
 const V3_START_BLOCK = 42598375;

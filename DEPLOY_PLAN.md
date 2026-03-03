@@ -66,25 +66,28 @@ Production proving keys saved to `packages/circuits/zkeys/`:
 
 ---
 
-## Phase 2: Deploy Phase 2 Contracts — TODO
+## Phase 2: Deploy Phase 2 Contracts — PARTIAL
 
-V4 Phase 2 contracts (ReviewRegistry, MultiPartyEscrow, etc.) are on the old LOBToken
-and don't have proxies. They need fresh deploys pointing to V5 addresses.
+InsurancePool and ProductMarketplace deployed. Remaining contracts need fresh deploys.
 
-Each needs a standalone deploy script with proxy wrapping, then role grants via TreasuryGovernor.
+### 2.0 Deployed (Phase 2)
 
-### 2.1 Contracts to Deploy
+| # | Contract | Proxy Address | Block |
+|---|----------|---------------|-------|
+| 17 | InsurancePool | `0x10555bd849769583755281Ea75e409268A055Ba6` | ~42732313 |
+| 18 | ProductMarketplace + Extension | `0x8823cC5d252EdF868424C50796358413f3e4c076` | ~42732313 |
+
+### 2.1 Contracts Still TODO
 
 | Contract | Dependencies (V5 addresses) | Status |
 |----------|-----------------------------|--------|
 | ReviewRegistry | EscrowEngine, SybilGuard | [ ] |
 | MultiPartyEscrow | LOBToken, StakingManager, ReputationSystem, SybilGuard, RewardDistributor | [ ] |
-| InsurancePool | LOBToken, EscrowEngine, DisputeArbitration, ReputationSystem, StakingManager, SybilGuard, ServiceRegistry | [ ] |
 | SubscriptionEngine | LOBToken, StakingManager, ReputationSystem, SybilGuard | [ ] |
 | BondingEngine | LOBToken, StakingManager, SybilGuard | [ ] |
 | DirectiveBoard | SybilGuard | [ ] |
 | RolePayroll | LOBToken, StakingManager, SybilGuard, DisputeArbitration | [ ] |
-| X402EscrowBridge | EscrowEngine, DisputeArbitration | [ ] |
+| X402EscrowBridge | Superseded by X402CreditFacility — skip unless needed | [ ] |
 | SkillRegistry | LOBToken, StakingManager, ReputationSystem, SybilGuard, EscrowEngine | [ ] |
 | PipelineRouter | SkillRegistry, StakingManager, ReputationSystem, SybilGuard | [ ] |
 
@@ -155,49 +158,58 @@ Via TreasuryGovernor proposals:
 
 ---
 
-## Phase 4: Update Contract Addresses — TODO
+## Phase 4: Update Contract Addresses — DONE
 
 ### 4.1 Web Frontend (`packages/web/src/config/contract-addresses.ts`)
 
-- [ ] Replace all V4 addresses with V5 proxy addresses from Phase 1 table
-- [ ] Set Phase 2 contracts to `ZERO_ADDRESS` until deployed
+- [x] All V5 proxy addresses set (18 deployed, rest ZERO_ADDRESS)
+- [x] InsurancePool: `0x10555bd849769583755281Ea75e409268A055Ba6`
+- [x] ProductMarketplace: `0x8823cC5d252EdF868424C50796358413f3e4c076`
 
 ### 4.2 ABIs (`packages/web/src/config/abis.ts`)
 
-- [ ] Regenerate from Foundry build: `forge build` then copy from `out/`
-- [ ] NOTE: `reportHeartbeat()` signature changed (no more `address` param)
+- [x] Regenerated from Foundry build output
+- [x] ProductMarketplace + Extension ABI merged
+- [x] InsurancePool V5 ABI updated
 
-### 4.3 OpenClaw CLI (`packages/openclaw/src/lib/config.ts`)
+### 4.3 OpenClaw CLI (`packages/agents/shared/packages/openclaw/src/lib/config.ts`)
 
-- [ ] Update all mainnet contract addresses to V5
+- [x] All mainnet contract addresses updated to V5
+- [x] `productMarketplace` added to config + ContractAddresses type
+- [x] `PRODUCT_MARKETPLACE_ABI` added to abis.ts
 
-### 4.4 X402 Facilitator (`packages/x402-facilitator/src/config.ts`)
+### 4.4 Agent Context (GOVERNANCE.md, SOUL.md, LOBSTR-KNOWLEDGE.md)
+
+- [x] All 3 GOVERNANCE.md files updated to V5 addresses + ProductMarketplace
+- [x] All 3 SOUL.md files updated with ProductMarketplace awareness
+- [x] LOBSTR-KNOWLEDGE.md: ProductMarketplace V2 section added
+- [x] lobstrclaw templates updated (governance.md, forum-engage.sh)
+
+### 4.5 X402 Facilitator (`packages/x402-facilitator/src/config.ts`)
 
 - [ ] Update contract addresses to V5
 
-### 4.5 Agent Workspace Configs (3 VPS boxes)
+### 4.6 Agent VPS Configs (3 boxes)
 
-- [ ] Update `airdropClaimV3` address on Sentinel VPS
-- [ ] Update `airdropClaimV3` address on Arbiter VPS
-- [ ] Update `airdropClaimV3` address on Steward VPS
-- [ ] Update all other contract addresses in workspace configs
+- [ ] Redeploy agents to pick up new context (CI/CD SSH failing — manual deploy needed)
 
 ---
 
-## Phase 5: Update Indexer — TODO
+## Phase 5: Update Indexer — DONE
 
 ### 5.1 Ponder Config (`packages/indexer/ponder.config.ts`)
 
-- [ ] Addresses auto-imported from `contract-addresses.ts` (update Phase 4.1 first)
-- [ ] Update `startBlock` to `42732313` (V5 deploy block)
+- [x] Addresses auto-imported from `contract-addresses.ts`
+- [x] ProductMarketplace event handlers added (13 events)
+- [x] Ponder schema tables added (product, auction, bid, shipment, insuredPurchase)
 
 ### 5.2 ABIs
 
-- [ ] Copy updated ABIs from `packages/contracts/out/` to `packages/indexer/abis/`
+- [x] ProductMarketplace ABI added to indexer
 
 ### 5.3 Redeploy
 
-- [ ] Push to main -> auto-deploys to Railway via GitHub Actions
+- [x] Deployed to Railway via GitHub Actions (auto on push to main)
 
 ---
 
@@ -260,13 +272,17 @@ lobstr airdrop submit-attestation
 
 ---
 
-## Phase 7: Frontend + Indexer Redeploy — TODO
+## Phase 7: Frontend + Indexer Redeploy — DONE
 
-- [ ] Complete Phase 4 (address updates)
-- [ ] Complete Phase 5 (indexer config)
-- [ ] `pnpm build` passes
-- [ ] `pnpm lint` clean
-- [ ] Push to main -> Firebase (web) + Railway (indexer) auto-deploy
+- [x] Phase 4 complete (addresses updated)
+- [x] Phase 5 complete (indexer config)
+- [x] `pnpm build` passes (validateFileCount fix applied)
+- [x] Web deployed to Firebase Hosting
+- [x] Indexer deployed to Railway
+- [x] Memory Service deployed to Railway
+- [x] Mini App manifest signed (accountAssociation, og.png, screenshots)
+- [x] All 30 contract sources available for "View Source" on docs page
+- [x] Product detail page (`/products/[id]`) + useProducts hooks wired
 
 ---
 
@@ -316,38 +332,40 @@ cast call 0xD2E0C513f70f0DdEF5f3EC9296cE3B5eB2799c5E "balanceOf(address)(uint256
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 1. DeployAll (V5 proxies) | DONE | 31 contracts deployed + verified, block ~42732313 |
-| 2. Phase 2 contracts | TODO | Need fresh deploys with V5 deps + proxies |
+| 1. DeployAll (V5 proxies) | **DONE** | 16 core contracts deployed + verified, block ~42732313 |
+| 2. Phase 2 contracts | **PARTIAL** | InsurancePool + ProductMarketplace deployed. 9 remaining. |
 | 3. Multisig role grants | TODO | Founder setup, Phase 2 roles, treasury seeding |
-| 4. Update addresses | TODO | Web, OpenClaw, X402, agent configs |
-| 5. Indexer | TODO | New startBlock + addresses |
+| 4. Update addresses | **DONE** | Web, OpenClaw, agent context, ABIs all updated |
+| 5. Indexer | **DONE** | ProductMarketplace handlers + schema, deployed to Railway |
 | 6. Agent bootstrap | TODO | Staking, arbitrator reg, airdrop claims |
-| 7. Frontend + indexer redeploy | TODO | After address updates |
+| 7. Frontend + indexer redeploy | **DONE** | Firebase + Railway auto-deployed. Mini App manifest signed. |
 | 8. Smoke tests | TODO | E2E verification |
 
 ---
 
 ## Execution Order
 
-The phases have dependencies. Execute in this order:
+Completed phases: 1, 4, 5, 7 + partial 2. Remaining:
 
 ```
-Phase 4 (update addresses)
-  -> Phase 5 (indexer config)
-  -> Phase 7 (push to main, auto-deploys web + indexer)
-
-Phase 3.1 (founder agent certification via multisig)
+Phase 3.1 (founder agent certification via multisig)  ← NEXT
   -> Phase 6.2 (agent staking)
   -> Phase 6.3 (arbitrator registration)
   -> Phase 6.4 (airdrop claims)
 
-Phase 2 (deploy Phase 2 contracts)
+Phase 4.5 (X402 facilitator address update)
+Phase 4.6 (agent VPS redeploy — manual, CI SSH broken)
+
+Phase 2 remainder (deploy 9 Phase 2 contracts)
   -> Phase 3.2 (Phase 2 role grants via multisig)
 
 Phase 8 (smoke tests — after everything above)
 ```
 
-**Immediate next step:** Phase 4 — update `contract-addresses.ts` with V5 proxy addresses.
+**Immediate next steps:**
+1. Phase 3.1 — Submit multisig proposals to certify founding agents
+2. Phase 4.6 — Manual agent VPS redeploy (docker pull + restart)
+3. Phase 6 — Agent staking + arbitrator registration
 
 ---
 

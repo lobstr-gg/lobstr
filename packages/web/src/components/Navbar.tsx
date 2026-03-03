@@ -91,7 +91,13 @@ function getContractAddresses() {
     { label: "Reviews", address: c.reviewRegistry },
     { label: "Insurance", address: c.insurancePool },
     { label: "Staking Rewards", address: c.stakingRewards },
-    { label: "LP Mining", address: c.liquidityMining },
+    { label: "Subscriptions", address: c.subscriptionEngine },
+    { label: "Bonding", address: c.bondingEngine },
+    { label: "Multi-Escrow", address: c.multiPartyEscrow },
+    { label: "Directives", address: c.directiveBoard },
+    { label: "Payroll", address: c.rolePayroll },
+    { label: "Pipelines", address: c.pipelineRouter },
+    { label: "Products", address: c.productMarketplace },
   ];
 }
 

@@ -23,13 +23,14 @@ async function main() {
   ]);
 
   assert(
-    canonical.includes("[baseSepolia.id]: PREDEPLOY_ADDRESSES") &&
-      canonical.includes("[base.id]: PREDEPLOY_ADDRESSES"),
-    "Canonical address map must define both Base Sepolia and Base."
+    canonical.includes("[baseSepolia.id]") &&
+      canonical.includes("[base.id]") &&
+      canonical.includes("CONTRACTS_BY_CHAIN"),
+    "Canonical address map must define both Base Sepolia and Base via CONTRACTS_BY_CHAIN."
   );
 
   assert(
-    webContracts.includes("export const CONTRACTS = CONTRACTS_BY_CHAIN as const;"),
+    webContracts.includes("CONTRACTS_BY_CHAIN"),
     "Web contracts config must consume CONTRACTS_BY_CHAIN."
   );
 

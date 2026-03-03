@@ -21,7 +21,7 @@ export type ContractAddressBook = {
   groth16VerifierV4: Address;
   airdropClaim: Address;
   teamVesting: Address;
-  // ── Not yet deployed ──
+  // ── Phase 2 (deployed 2026-03-03) ──
   x402EscrowBridge: Address;
   directiveBoard: Address;
   reviewRegistry: Address;
@@ -33,6 +33,7 @@ export type ContractAddressBook = {
   bondingEngine: Address;
   rolePayroll: Address;
   productMarketplace: Address;
+  affiliateManager: Address;
 };
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
@@ -57,18 +58,19 @@ const BASE_MAINNET_ADDRESSES: ContractAddressBook = {
   groth16VerifierV4: "0x07dFaC8Ae61E5460Fc768d1c925476b4A4693C64" as Address, // V5 verifier, key name kept for compat
   airdropClaim: "0x7f4D513119A2b8cCefE1AfB22091062B54866EbA" as Address,
   teamVesting: "0x71BC320F7F5FDdEaf52a18449108021c71365d35" as Address,
-  // Phase 2 — need fresh deploys with V5 deps + proxies
-  x402EscrowBridge: ZERO_ADDRESS,
-  directiveBoard: ZERO_ADDRESS,
-  reviewRegistry: ZERO_ADDRESS,
-  multiPartyEscrow: ZERO_ADDRESS,
+  // Phase 2 — deployed via DeployPhase2.s.sol (2026-03-03)
+  x402EscrowBridge: ZERO_ADDRESS, // superseded by ProductMarketplace X402 extension
+  directiveBoard: "0xB83c9b9ceC7A12467fE93E083Ea4fAa683498BB8" as Address,
+  reviewRegistry: "0x6DCFcFCb40c3F97705ecFB929dD9278d1cD1A50f" as Address,
+  multiPartyEscrow: "0x9A94a1b96f0F7E2f126Fc5b3fe4BbAf403FC7260" as Address,
   insurancePool: "0x10555bd849769583755281Ea75e409268A055Ba6" as Address,
-  skillRegistry: ZERO_ADDRESS,
-  pipelineRouter: ZERO_ADDRESS,
-  subscriptionEngine: ZERO_ADDRESS,
-  bondingEngine: ZERO_ADDRESS,
-  rolePayroll: ZERO_ADDRESS,
+  skillRegistry: "0xef38019C4A577Ff474F734Fd07171a1292A609Ac" as Address,
+  pipelineRouter: "0xBF23E7427ef9ea6Ec7C7Bf45E71c7228482a8fE9" as Address,
+  subscriptionEngine: "0x2eb48d8B95B3b71Dfd6C0B8bcDfc994859FEd35f" as Address,
+  bondingEngine: "0x21894fCeA0506e67E298A479bF0DCfe97f1a9363" as Address,
+  rolePayroll: "0xaF4A0E188e588A860d6F51a163AE6860D684FBBF" as Address,
   productMarketplace: "0x8823cC5d252EdF868424C50796358413f3e4c076" as Address,
+  affiliateManager: ZERO_ADDRESS,
 };
 
 // ── Base Sepolia (testnet) ──
@@ -102,6 +104,7 @@ const BASE_SEPOLIA_ADDRESSES: ContractAddressBook = {
   bondingEngine: ZERO_ADDRESS,
   rolePayroll: ZERO_ADDRESS,
   productMarketplace: ZERO_ADDRESS,
+  affiliateManager: ZERO_ADDRESS,
 };
 
 export const CONTRACTS_BY_CHAIN: Record<number, ContractAddressBook> = {
